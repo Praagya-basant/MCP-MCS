@@ -1,0 +1,428 @@
+-- ============================================================================
+-- BASANT SSM — Module 1 (MCS) database schema
+-- Run this entire file once in the Supabase SQL editor on a fresh project.
+-- Safe to re-run: every statement is idempotent (IF NOT EXISTS / ON CONFLICT).
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. TABLES
+-- ----------------------------------------------------------------------------
+
+create table if not exists buyers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_at timestamptz default now()
+);
+
+create table if not exists halls (
+  id uuid primary key default gen_random_uuid(),
+  hall_number integer not null unique,
+  created_at timestamptz default now()
+);
+
+insert into halls (hall_number)
+select v.hall_number from (values (2),(5),(8),(10),(11)) as v(hall_number)
+where not exists (select 1 from halls h where h.hall_number = v.hall_number);
+
+create table if not exists profiles (
+  id uuid primary key references auth.users(id),
+  full_name text not null,
+  email text not null,
+  role text not null check (role in ('super_admin','hall_manager','merchant')),
+  hall_id uuid references halls(id),
+  buyer_id uuid references buyers(id),
+  created_at timestamptz default now()
+);
+
+create table if not exists samples (
+  id uuid primary key default gen_random_uuid(),
+  buyer_id uuid references buyers(id) not null,
+  hall_id uuid references halls(id) not null,
+  bt_code text not null unique,
+  product_ref text,
+  product_name text not null,
+  image_url text,
+  status text default 'in_hall' check (status in ('in_hall','checked_out')),
+  created_at timestamptz default now()
+);
+
+create table if not exists movements (
+  id uuid primary key default gen_random_uuid(),
+  sample_id uuid references samples(id) not null,
+  picked_by_name text not null,
+  picked_by_email text not null,
+  destination text not null,
+  reason text not null,
+  reason_other text,
+  status text default 'out' check (status in ('out','returned')),
+  picked_at timestamptz default now(),
+  returned_at timestamptz,
+  notes text,
+  logged_by uuid references profiles(id)
+);
+
+create table if not exists merchant_contacts (
+  id uuid primary key default gen_random_uuid(),
+  buyer_id uuid references buyers(id) not null,
+  profile_id uuid references profiles(id) not null
+);
+
+create table if not exists recall_requests (
+  id uuid primary key default gen_random_uuid(),
+  sample_id uuid references samples(id) not null,
+  requested_by uuid references profiles(id) not null,
+  reason text,
+  status text default 'pending' check (status in ('pending','acknowledged','resolved')),
+  created_at timestamptz default now()
+);
+
+create table if not exists sample_comments (
+  id uuid primary key default gen_random_uuid(),
+  sample_id uuid references samples(id) not null,
+  author_id uuid references profiles(id) not null,
+  comment text not null,
+  created_at timestamptz default now()
+);
+
+insert into buyers (id, name)
+select '11111111-1111-1111-1111-111111111111', 'Maison du Monde (MDM)'
+where not exists (select 1 from buyers where id = '11111111-1111-1111-1111-111111111111');
+
+-- ----------------------------------------------------------------------------
+-- 2. INDEXES (foreign keys are not auto-indexed in Postgres)
+-- ----------------------------------------------------------------------------
+
+create index if not exists idx_profiles_hall_id on profiles(hall_id);
+create index if not exists idx_profiles_buyer_id on profiles(buyer_id);
+create index if not exists idx_samples_buyer_id on samples(buyer_id);
+create index if not exists idx_samples_hall_id on samples(hall_id);
+create index if not exists idx_samples_status on samples(status);
+create index if not exists idx_movements_sample_id on movements(sample_id);
+create index if not exists idx_movements_status on movements(status);
+create index if not exists idx_movements_picked_at on movements(picked_at);
+create index if not exists idx_merchant_contacts_buyer_id on merchant_contacts(buyer_id);
+create index if not exists idx_recall_requests_sample_id on recall_requests(sample_id);
+create index if not exists idx_sample_comments_sample_id on sample_comments(sample_id);
+
+-- ----------------------------------------------------------------------------
+-- 3. HELPER FUNCTIONS
+-- SECURITY DEFINER lets these read `profiles` without triggering RLS
+-- recursion (a policy on `profiles` that queries `profiles` would deadlock
+-- otherwise). Only ever return scalars derived from auth.uid() — never take
+-- caller-supplied ids — so they can't be used to leak other users' data.
+-- ----------------------------------------------------------------------------
+
+create or replace function public.current_role()
+returns text
+language sql security definer stable set search_path = public as $$
+  select role from profiles where id = auth.uid();
+$$;
+
+create or replace function public.current_hall_id()
+returns uuid
+language sql security definer stable set search_path = public as $$
+  select hall_id from profiles where id = auth.uid();
+$$;
+
+create or replace function public.current_buyer_id()
+returns uuid
+language sql security definer stable set search_path = public as $$
+  select buyer_id from profiles where id = auth.uid();
+$$;
+
+create or replace function public.is_super_admin()
+returns boolean
+language sql security definer stable set search_path = public as $$
+  select exists (select 1 from profiles where id = auth.uid() and role = 'super_admin');
+$$;
+
+-- ----------------------------------------------------------------------------
+-- 4. ROW LEVEL SECURITY
+-- ----------------------------------------------------------------------------
+
+alter table profiles enable row level security;
+alter table buyers enable row level security;
+alter table halls enable row level security;
+alter table samples enable row level security;
+alter table movements enable row level security;
+alter table merchant_contacts enable row level security;
+alter table recall_requests enable row level security;
+alter table sample_comments enable row level security;
+
+-- profiles: everyone can read their own row; admin reads/writes all.
+-- Regular inserts/updates for user management go through the
+-- `create-user` edge function (service role), which bypasses RLS —
+-- these policies exist for admin-side reads and future direct edits.
+drop policy if exists "profiles_select" on profiles;
+create policy "profiles_select" on profiles for select to authenticated
+  using (id = auth.uid() or public.is_super_admin());
+
+drop policy if exists "profiles_insert_admin" on profiles;
+create policy "profiles_insert_admin" on profiles for insert to authenticated
+  with check (public.is_super_admin());
+
+drop policy if exists "profiles_update_admin" on profiles;
+create policy "profiles_update_admin" on profiles for update to authenticated
+  using (public.is_super_admin());
+
+drop policy if exists "profiles_delete_admin" on profiles;
+create policy "profiles_delete_admin" on profiles for delete to authenticated
+  using (public.is_super_admin());
+
+-- buyers: admin full read; hall managers need the full list for the
+-- "buyer" dropdown when adding a sample; merchants only see their own buyer.
+drop policy if exists "buyers_select" on buyers;
+create policy "buyers_select" on buyers for select to authenticated
+  using (
+    public.is_super_admin()
+    or public.current_role() = 'hall_manager'
+    or id = public.current_buyer_id()
+  );
+
+drop policy if exists "buyers_insert_admin" on buyers;
+create policy "buyers_insert_admin" on buyers for insert to authenticated
+  with check (public.is_super_admin());
+
+drop policy if exists "buyers_update_admin" on buyers;
+create policy "buyers_update_admin" on buyers for update to authenticated
+  using (public.is_super_admin());
+
+-- halls: hall numbers aren't sensitive and are needed app-wide
+-- (destination dropdowns, headers) — readable by any authenticated user.
+drop policy if exists "halls_select" on halls;
+create policy "halls_select" on halls for select to authenticated
+  using (true);
+
+drop policy if exists "halls_write_admin" on halls;
+create policy "halls_write_admin" on halls for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+-- samples: scoped per role. Status transitions (checkout/return) happen
+-- exclusively through the RPC functions below, which are SECURITY DEFINER
+-- and enforce hall scoping internally — so no direct UPDATE policy is
+-- needed for hall managers here.
+drop policy if exists "samples_select" on samples;
+create policy "samples_select" on samples for select to authenticated
+  using (
+    public.is_super_admin()
+    or (public.current_role() = 'hall_manager' and hall_id = public.current_hall_id())
+    or (public.current_role() = 'merchant' and buyer_id = public.current_buyer_id())
+  );
+
+drop policy if exists "samples_insert" on samples;
+create policy "samples_insert" on samples for insert to authenticated
+  with check (
+    public.is_super_admin()
+    or (public.current_role() = 'hall_manager' and hall_id = public.current_hall_id())
+  );
+
+drop policy if exists "samples_update_admin" on samples;
+create policy "samples_update_admin" on samples for update to authenticated
+  using (public.is_super_admin());
+
+-- movements: read-scoped via the parent sample's hall/buyer. Writes happen
+-- through the checkout_sample / return_sample RPCs only.
+drop policy if exists "movements_select" on movements;
+create policy "movements_select" on movements for select to authenticated
+  using (
+    public.is_super_admin()
+    or exists (
+      select 1 from samples s where s.id = movements.sample_id
+      and (
+        (public.current_role() = 'hall_manager' and s.hall_id = public.current_hall_id())
+        or (public.current_role() = 'merchant' and s.buyer_id = public.current_buyer_id())
+      )
+    )
+  );
+
+-- merchant_contacts: admin-managed only (assigning merchants to buyers).
+drop policy if exists "merchant_contacts_select_admin" on merchant_contacts;
+create policy "merchant_contacts_select_admin" on merchant_contacts for select to authenticated
+  using (public.is_super_admin());
+
+drop policy if exists "merchant_contacts_write_admin" on merchant_contacts;
+create policy "merchant_contacts_write_admin" on merchant_contacts for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
+
+-- recall_requests: merchants raise recalls on their own buyer's samples;
+-- hall managers can see recalls for samples in their hall (they're the
+-- ones who receive the notification email and action the return).
+drop policy if exists "recall_requests_select" on recall_requests;
+create policy "recall_requests_select" on recall_requests for select to authenticated
+  using (
+    public.is_super_admin()
+    or exists (
+      select 1 from samples s where s.id = recall_requests.sample_id
+      and (
+        (public.current_role() = 'hall_manager' and s.hall_id = public.current_hall_id())
+        or (public.current_role() = 'merchant' and s.buyer_id = public.current_buyer_id())
+      )
+    )
+  );
+
+drop policy if exists "recall_requests_insert_merchant" on recall_requests;
+create policy "recall_requests_insert_merchant" on recall_requests for insert to authenticated
+  with check (
+    public.current_role() = 'merchant'
+    and requested_by = auth.uid()
+    and exists (select 1 from samples s where s.id = sample_id and s.buyer_id = public.current_buyer_id())
+  );
+
+drop policy if exists "recall_requests_update" on recall_requests;
+create policy "recall_requests_update" on recall_requests for update to authenticated
+  using (
+    public.is_super_admin()
+    or exists (
+      select 1 from samples s where s.id = recall_requests.sample_id
+      and public.current_role() = 'hall_manager' and s.hall_id = public.current_hall_id()
+    )
+  );
+
+-- sample_comments: merchants comment on their own buyer's samples; hall
+-- managers and admins can read comments on samples they can already see.
+drop policy if exists "sample_comments_select" on sample_comments;
+create policy "sample_comments_select" on sample_comments for select to authenticated
+  using (
+    public.is_super_admin()
+    or exists (
+      select 1 from samples s where s.id = sample_comments.sample_id
+      and (
+        (public.current_role() = 'hall_manager' and s.hall_id = public.current_hall_id())
+        or (public.current_role() = 'merchant' and s.buyer_id = public.current_buyer_id())
+      )
+    )
+  );
+
+drop policy if exists "sample_comments_insert_merchant" on sample_comments;
+create policy "sample_comments_insert_merchant" on sample_comments for insert to authenticated
+  with check (
+    public.current_role() = 'merchant'
+    and author_id = auth.uid()
+    and exists (select 1 from samples s where s.id = sample_id and s.buyer_id = public.current_buyer_id())
+  );
+
+-- ----------------------------------------------------------------------------
+-- 5. ATOMIC WORKFLOW FUNCTIONS
+-- Checkout/return touch two tables at once; wrapping them in a single
+-- SECURITY DEFINER function keeps the frontend to one call and guarantees
+-- samples.status and the movements row never drift out of sync.
+-- ----------------------------------------------------------------------------
+
+create or replace function public.checkout_sample(
+  p_sample_id uuid,
+  p_picked_by_name text,
+  p_picked_by_email text,
+  p_destination text,
+  p_reason text,
+  p_reason_other text,
+  p_notes text
+)
+returns movements
+language plpgsql security definer set search_path = public as $$
+declare
+  v_hall_id uuid;
+  v_current_status text;
+  v_movement movements;
+begin
+  select hall_id, status into v_hall_id, v_current_status from samples where id = p_sample_id;
+
+  if v_hall_id is null then
+    raise exception 'Sample not found';
+  end if;
+
+  if not public.is_super_admin() and v_hall_id <> public.current_hall_id() then
+    raise exception 'Not authorized to check out this sample';
+  end if;
+
+  if v_current_status = 'checked_out' then
+    raise exception 'Sample is already checked out';
+  end if;
+
+  update samples set status = 'checked_out' where id = p_sample_id;
+
+  insert into movements (
+    sample_id, picked_by_name, picked_by_email, destination, reason,
+    reason_other, notes, logged_by, status
+  ) values (
+    p_sample_id, p_picked_by_name, p_picked_by_email, p_destination, p_reason,
+    nullif(p_reason_other, ''), nullif(p_notes, ''), auth.uid(), 'out'
+  ) returning * into v_movement;
+
+  return v_movement;
+end;
+$$;
+
+create or replace function public.return_sample(p_movement_id uuid)
+returns movements
+language plpgsql security definer set search_path = public as $$
+declare
+  v_hall_id uuid;
+  v_movement movements;
+begin
+  select s.hall_id into v_hall_id
+  from movements m join samples s on s.id = m.sample_id
+  where m.id = p_movement_id;
+
+  if v_hall_id is null then
+    raise exception 'Movement not found';
+  end if;
+
+  if not public.is_super_admin() and v_hall_id <> public.current_hall_id() then
+    raise exception 'Not authorized to return this sample';
+  end if;
+
+  update movements
+  set status = 'returned', returned_at = now()
+  where id = p_movement_id and status = 'out'
+  returning * into v_movement;
+
+  if v_movement.id is null then
+    raise exception 'Movement already returned or not found';
+  end if;
+
+  update samples set status = 'in_hall' where id = v_movement.sample_id;
+
+  return v_movement;
+end;
+$$;
+
+grant execute on function public.checkout_sample to authenticated;
+grant execute on function public.return_sample to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 6. STORAGE — sample images
+-- Public bucket so <img> tags can render image_url directly with no auth
+-- header; uploads restricted to hall managers and admins.
+-- ----------------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public)
+values ('sample-images', 'sample-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "sample_images_upload" on storage.objects;
+create policy "sample_images_upload" on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'sample-images'
+    and (public.is_super_admin() or public.current_role() = 'hall_manager')
+  );
+
+drop policy if exists "sample_images_update" on storage.objects;
+create policy "sample_images_update" on storage.objects for update to authenticated
+  using (
+    bucket_id = 'sample-images'
+    and (public.is_super_admin() or public.current_role() = 'hall_manager')
+  );
+
+drop policy if exists "sample_images_delete" on storage.objects;
+create policy "sample_images_delete" on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'sample-images'
+    and (public.is_super_admin() or public.current_role() = 'hall_manager')
+  );
+
+-- ============================================================================
+-- Done. Next steps (see CLAUDE.md / README for the full checklist):
+--   1. Deploy the `send-notification` and `create-user` edge functions.
+--   2. Create your first super_admin: add a user in Supabase Auth, then
+--      insert a matching row into `profiles` with role = 'super_admin'.
+-- ============================================================================
