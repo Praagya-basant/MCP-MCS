@@ -1,25 +1,37 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/shared/utils/cn';
 import { Logo } from '@/shared/components/Logo';
+import { useAuth } from '@/shared/context/AuthContext';
 
 /**
  * Renders one or more nav sections. Each module (mcs, and eventually mcp)
  * supplies its own section — this component just lays them out, so a
  * second module can register another section without touching this file.
+ * `subtitle` doubles as the role line shown under the signed-in user's
+ * name (each role layout already passes its role label here for the
+ * Topbar's context label, so it's reused rather than threading a new prop).
  */
 export function Sidebar({ sections, subtitle }) {
+  const { profile } = useAuth();
+
   return (
     <aside className="w-[240px] shrink-0 h-screen sticky top-0 bg-sidebar border-r border-border flex flex-col">
-      <div className="h-16 flex flex-col justify-center gap-1 px-5 border-b border-border shrink-0">
+      <div className="min-h-[64px] flex items-center px-6 py-6 border-b border-border shrink-0">
         <Logo variant="black" className="h-5 w-auto object-contain" />
-        {subtitle && <div className="text-caption text-ink-secondary leading-tight truncate">{subtitle}</div>}
       </div>
 
-      <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4 flex flex-col gap-5">
+      {profile && (
+        <div className="px-6 py-4 border-b border-border shrink-0">
+          <p className="text-[13px] font-medium text-ink truncate">{profile.full_name}</p>
+          {subtitle && <p className="mt-0.5 text-[11px] text-ink-muted truncate">{subtitle}</p>}
+        </div>
+      )}
+
+      <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 pb-4 flex flex-col gap-5">
         {sections.map((section) => (
           <div key={section.title || 'main'}>
             {section.title && (
-              <div className="px-2 mb-1.5 text-caption font-medium uppercase tracking-wide text-ink-muted">
+              <div className="mt-6 mb-1.5 pl-4 text-[10px] font-medium uppercase tracking-widest text-ink-muted">
                 {section.title}
               </div>
             )}
@@ -31,9 +43,10 @@ export function Sidebar({ sections, subtitle }) {
                   end={item.end}
                   className={({ isActive }) =>
                     cn(
-                      'interactive relative h-9 flex items-center gap-2.5 rounded-lg px-2.5 text-body',
+                      'interactive relative h-9 flex items-center gap-2 rounded-md px-3 text-body',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/15',
                       isActive
-                        ? 'bg-white text-ink font-medium shadow-card'
+                        ? 'bg-surface-subtle text-ink font-medium'
                         : 'text-ink-secondary hover:bg-surface-subtle hover:text-ink'
                     )
                   }
@@ -41,7 +54,7 @@ export function Sidebar({ sections, subtitle }) {
                   {({ isActive }) => (
                     <>
                       {isActive && (
-                        <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-ink" />
+                        <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full bg-ink" />
                       )}
                       <span className="w-4 h-4 shrink-0">{item.icon}</span>
                       <span className="truncate">{item.label}</span>

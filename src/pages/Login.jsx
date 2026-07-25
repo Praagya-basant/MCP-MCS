@@ -49,13 +49,18 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row animate-[fadeIn_0.4s_ease]">
-      {/* Left — brand panel */}
-      <div className="relative flex flex-col items-center justify-center bg-ink text-white px-8 py-16 md:w-1/2 md:min-h-screen">
-        <div className="flex flex-col items-center">
+      {/* Left — brand panel. Content is vertically anchored at 40% (not
+          50%) of the panel height on desktop for a more intentional feel;
+          on mobile the panel is content-sized, so it just centers normally. */}
+      <div
+        className="relative flex flex-col items-center justify-center bg-ink text-white px-8 py-16 md:w-1/2 md:min-h-screen shadow-[inset_-1px_0_0_rgba(0,0,0,0.1)]"
+      >
+        <div className="flex flex-col items-center md:absolute md:left-1/2 md:top-[40%] md:w-full md:-translate-x-1/2 md:-translate-y-1/2 md:px-8">
           <Logo variant="white" className="h-10 md:h-12 w-auto object-contain" />
           <p className="mt-4 text-caption tracking-[0.15em] uppercase text-white/50">
             furniture | lighting | homedecor
           </p>
+          <div className="mt-6 w-10 h-px bg-white/15" />
         </div>
       </div>
 
@@ -115,8 +120,6 @@ export default function Login() {
               Sign in
             </button>
           </form>
-
-          <p className="mt-8 text-caption text-ink-muted">Contact your administrator for access.</p>
         </div>
       </div>
     </div>

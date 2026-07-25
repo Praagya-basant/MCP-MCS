@@ -186,26 +186,37 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
               ) : movements.length === 0 ? (
                 <EmptyState title="No movement yet" description="This sample hasn't left the hall." className="py-8" />
               ) : (
-                <ul className="flex flex-col gap-4">
-                  {movements.map((m) => (
-                    <li key={m.id} className="relative pl-4 border-l-2 border-border">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-body font-medium text-ink">
-                          {m.status === 'out' ? 'Issued' : 'Returned'}
-                        </span>
-                        <span className="text-caption text-ink-muted shrink-0">{formatDateTime(m.picked_at)}</span>
-                      </div>
-                      <p className="text-caption text-ink-secondary mt-1">
-                        {m.picked_by_name} → {m.destination} · {m.reason === 'Other' ? m.reason_other : m.reason}
-                      </p>
-                      {m.status === 'returned' && (
-                        <p className="text-caption text-status-in-hall-text mt-1">
-                          Returned {formatDateTime(m.returned_at)}
+                <ul className="flex flex-col">
+                  {movements.map((m, i) => {
+                    const isReturned = m.status === 'returned';
+                    const isLast = i === movements.length - 1;
+                    return (
+                      <li key={m.id} className={cn('relative pl-5', !isLast && 'pb-4')}>
+                        <span
+                          className={cn(
+                            'absolute left-0 top-1 w-1.5 h-1.5 rounded-full',
+                            isReturned ? 'bg-status-in-hall-text' : 'bg-status-checked-out-text'
+                          )}
+                        />
+                        {!isLast && <span className="absolute left-[2.5px] top-3 bottom-0 w-px bg-border" />}
+
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-body font-semibold text-ink">{isReturned ? 'Returned' : 'Issued'}</span>
+                          <span className="text-[12px] text-ink-muted shrink-0">{formatDateTime(m.picked_at)}</span>
+                        </div>
+                        <p className="mt-1 text-[13px] text-ink-secondary">To: {m.destination}</p>
+                        <p className="mt-0.5 text-[13px] text-ink-secondary">
+                          Reason: {m.reason === 'Other' ? m.reason_other : m.reason}
                         </p>
-                      )}
-                      {m.notes && <p className="text-caption text-ink-muted mt-1">{m.notes}</p>}
-                    </li>
-                  ))}
+                        {isReturned && (
+                          <p className="mt-0.5 text-[12px] text-status-in-hall-text">
+                            Returned: {formatDateTime(m.returned_at)}
+                          </p>
+                        )}
+                        {m.notes && <p className="mt-0.5 text-[13px] text-ink-muted">{m.notes}</p>}
+                      </li>
+                    );
+                  })}
                 </ul>
               ))}
 
