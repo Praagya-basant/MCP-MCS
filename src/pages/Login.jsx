@@ -51,16 +51,12 @@ export default function Login() {
             furniture | lighting | homedecor
           </p>
         </div>
-        <p className="absolute bottom-10 left-0 right-0 text-center text-caption text-white/40">
-          Signed Sample Management System
-        </p>
       </div>
 
       {/* Right — login form */}
       <div className="flex flex-1 items-center justify-center bg-white px-6 py-16 md:py-0">
         <div className="w-full max-w-[360px]">
           <h1 className="text-heading font-semibold text-ink">Sign in</h1>
-          <p className="mt-1 text-body text-ink-secondary">Sign in to your BASANT SSM account.</p>
 
           <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5" noValidate>
             <div className="flex flex-col gap-1.5">
@@ -114,7 +110,7 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="mt-8 text-caption text-ink-muted">Access is managed by your administrator.</p>
+          <p className="mt-8 text-caption text-ink-muted">Contact your administrator for access.</p>
         </div>
       </div>
     </div>
