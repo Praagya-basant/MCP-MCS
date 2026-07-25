@@ -64,8 +64,8 @@ function buildEmailHtml({ heading, rows, btCode }) {
       const border = i < visibleRows.length - 1 ? 'border-bottom:1px solid #E8E8E5;' : '';
       return `
         <tr>
-          <td style="padding:10px 0;font-size:14px;line-height:20px;color:#6B6B6B;${border}">${escapeHtml(r.label)}</td>
-          <td style="padding:10px 0;font-size:14px;line-height:20px;color:#1A1A1A;font-weight:500;text-align:right;${border}">${escapeHtml(r.value)}</td>
+          <td style="padding:7px 0;font-size:13px;line-height:18px;color:#6B6B6B;${border}">${escapeHtml(r.label)}</td>
+          <td style="padding:7px 0;font-size:13px;line-height:18px;color:#1A1A1A;font-weight:500;text-align:right;${border}">${escapeHtml(r.value)}</td>
         </tr>`;
     })
     .join('');
@@ -75,28 +75,28 @@ function buildEmailHtml({ heading, rows, btCode }) {
   return `<!doctype html>
 <html>
   <body style="margin:0;padding:0;background-color:#F8F8F7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F8F8F7;padding:24px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F8F8F7;padding:20px 0;">
       <tr>
         <td align="center">
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#FFFFFF;">
             <tr>
-              <td style="padding:24px 32px;text-align:left;">
-                <img src="${LOGO_URL}" alt="BASANT" height="36" style="height:36px;width:auto;display:block;border:0;" />
+              <td style="padding:16px 20px;text-align:left;">
+                <img src="${LOGO_URL}" alt="BASANT" height="28" style="height:28px;width:auto;display:block;border:0;" />
               </td>
             </tr>
             <tr>
               <td style="border-bottom:1px solid #E8E8E5;line-height:1px;font-size:1px;">&nbsp;</td>
             </tr>
             <tr>
-              <td style="padding:32px;">
-                <h1 style="margin:0 0 20px;font-size:20px;line-height:28px;font-weight:600;color:#1A1A1A;">${escapeHtml(heading)}</h1>
+              <td style="padding:20px;">
+                <h1 style="margin:0 0 14px;font-size:16px;line-height:22px;font-weight:600;color:#1A1A1A;">${escapeHtml(heading)}</h1>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   ${rowsHtml}
                 </table>
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
                   <tr>
                     <td align="center">
-                      <a href="${sampleUrl}" style="display:inline-block;background-color:#1A1A1A;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:500;padding:10px 24px;border-radius:6px;">View Sample</a>
+                      <a href="${sampleUrl}" style="display:inline-block;background-color:#1A1A1A;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:500;padding:10px 24px;border-radius:6px;">View Sample</a>
                     </td>
                   </tr>
                 </table>
@@ -106,7 +106,7 @@ function buildEmailHtml({ heading, rows, btCode }) {
               <td style="border-bottom:1px solid #E8E8E5;line-height:1px;font-size:1px;">&nbsp;</td>
             </tr>
             <tr>
-              <td style="padding:20px 32px;text-align:center;">
+              <td style="padding:14px 20px;text-align:center;">
                 <p style="margin:0;font-size:12px;line-height:16px;color:#9B9B9B;">BASANT SSM &middot; Signed Sample Management</p>
               </td>
             </tr>
@@ -201,7 +201,7 @@ async function handleCheckout(payload) {
 
   await sendEmail({
     to: merchantEmails,
-    subject: `Sample Picked Up — ${btCode}`,
+    subject: `Sample Issued — ${btCode} · ${productName}`,
     heading: 'Sample Issued',
     rows,
     btCode,
@@ -209,7 +209,7 @@ async function handleCheckout(payload) {
 
   await sendEmail({
     to: pickedByEmail,
-    subject: `Sample Collection Confirmation — ${btCode}`,
+    subject: `Sample Collection Confirmation — ${btCode} · ${productName}`,
     heading: 'Sample Issued',
     rows,
     btCode,
@@ -222,7 +222,7 @@ async function handleReturn(payload) {
 
   await sendEmail({
     to: merchantEmails,
-    subject: `Sample Returned — ${btCode}`,
+    subject: `Sample Returned — ${btCode} · ${productName}`,
     heading: 'Sample Returned',
     rows: [
       { label: 'BT Code', value: btCode },
@@ -240,7 +240,7 @@ async function handleRecall(payload) {
 
   await sendEmail({
     to: hallManagerEmails,
-    subject: `Recall Request — ${btCode}`,
+    subject: `Recall Request — ${btCode} · ${productName}`,
     heading: 'Recall Request',
     rows: [
       { label: 'BT Code', value: btCode },
