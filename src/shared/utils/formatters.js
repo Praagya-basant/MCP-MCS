@@ -45,6 +45,18 @@ export function initials(name) {
     .join('');
 }
 
+/**
+ * Display-only shortening for buyer names — DB keeps the full legal name,
+ * the UI shows the short form everywhere. Applied at the API boundary
+ * (see buyersApi/samplesApi/movementsApi/usersApi/AuthContext) so every
+ * component that renders a buyer name gets it automatically.
+ */
+export function shortenBuyerName(name) {
+  if (!name) return name;
+  if (/maison du monde/i.test(name)) return 'MDM';
+  return name;
+}
+
 export function isToday(value) {
   if (!value) return false;
   const d = new Date(value);

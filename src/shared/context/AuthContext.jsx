@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/shared/lib/supabaseClient';
+import { shortenBuyerName } from '@/shared/utils/formatters';
 
 const AuthContext = createContext(null);
 
@@ -25,7 +26,7 @@ export function AuthProvider({ children }) {
       setProfile(null);
       return;
     }
-    setProfile(data);
+    setProfile(data.buyer ? { ...data, buyer: { ...data.buyer, name: shortenBuyerName(data.buyer.name) } } : data);
   }, []);
 
   useEffect(() => {

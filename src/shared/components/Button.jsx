@@ -10,6 +10,10 @@ const VARIANTS = {
     'bg-transparent text-ink hover:bg-surface-subtle disabled:opacity-40',
   danger:
     'bg-white text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-40',
+  success:
+    'bg-status-in-hall-text text-white hover:bg-[#128a3e] disabled:opacity-40',
+  warning:
+    'bg-status-checked-out-text text-white hover:bg-[#b45f04] disabled:opacity-40',
 };
 
 const SIZES = {

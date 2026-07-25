@@ -1,4 +1,5 @@
 import { supabase } from '@/shared/lib/supabaseClient';
+import { shortenBuyerName } from '@/shared/utils/formatters';
 
 export async function listUsers() {
   const { data, error } = await supabase
@@ -6,7 +7,7 @@ export async function listUsers() {
     .select('*, hall:halls(id, hall_number), buyer:buyers(id, name)')
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return data;
+  return data.map((u) => (u.buyer ? { ...u, buyer: { ...u.buyer, name: shortenBuyerName(u.buyer.name) } } : u));
 }
 
 /**

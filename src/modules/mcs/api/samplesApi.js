@@ -1,6 +1,11 @@
 import { supabase, SAMPLE_IMAGES_BUCKET } from '@/shared/lib/supabaseClient';
+import { shortenBuyerName } from '@/shared/utils/formatters';
 
 const SAMPLE_SELECT = '*, buyer:buyers(id, name), hall:halls(id, hall_number)';
+
+function mapSample(sample) {
+  return sample.buyer ? { ...sample, buyer: { ...sample.buyer, name: shortenBuyerName(sample.buyer.name) } } : sample;
+}
 
 export async function listSamples() {
   const { data, error } = await supabase
@@ -8,13 +13,13 @@ export async function listSamples() {
     .select(SAMPLE_SELECT)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return data;
+  return data.map(mapSample);
 }
 
 export async function getSample(id) {
   const { data, error } = await supabase.from('samples').select(SAMPLE_SELECT).eq('id', id).single();
   if (error) throw error;
-  return data;
+  return mapSample(data);
 }
 
 export async function createSample({ buyerId, hallId, btCode, productRef, productName, imageUrl }) {
@@ -31,7 +36,7 @@ export async function createSample({ buyerId, hallId, btCode, productRef, produc
     .select(SAMPLE_SELECT)
     .single();
   if (error) throw error;
-  return data;
+  return mapSample(data);
 }
 
 /**

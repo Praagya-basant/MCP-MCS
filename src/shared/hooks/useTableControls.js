@@ -8,11 +8,11 @@ import { PAGE_SIZE } from '@/shared/utils/constants';
  * table's search/filter/sort/pagination behavior consistent and simple.
  *
  * @param {object[]} rows
- * @param {{ searchFields?: string[], initialSort?: { key: string, dir: 'asc'|'desc' } }} options
+ * @param {{ searchFields?: string[], initialSort?: { key: string, dir: 'asc'|'desc' }, initialFilters?: object }} options
  */
-export function useTableControls(rows, { searchFields = [], initialSort = null } = {}) {
+export function useTableControls(rows, { searchFields = [], initialSort = null, initialFilters = {} } = {}) {
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState(initialFilters);
   const [sort, setSort] = useState(initialSort);
   const [page, setPage] = useState(1);
 

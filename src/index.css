@@ -47,6 +47,22 @@
     background-color: #d4d4cf;
     border-radius: 100px;
   }
+
+  .drawer-overlay {
+    transition: opacity 0.25s ease;
+  }
+
+  .drawer-panel {
+    transition: transform 0.25s ease;
+  }
+
+  .modal-overlay {
+    transition: opacity 0.2s ease;
+  }
+
+  .modal-panel {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
 }
 
 @layer utilities {
@@ -66,6 +82,17 @@
     }
     to {
       transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes toastIn {
+    from {
+      transform: translateY(12px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
       opacity: 1;
     }
   }

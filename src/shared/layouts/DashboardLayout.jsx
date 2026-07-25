@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from '@/shared/layouts/Sidebar';
 import { Topbar } from '@/shared/layouts/Topbar';
 
@@ -11,13 +11,19 @@ import { Topbar } from '@/shared/layouts/Topbar';
  * nav sections alongside MCS's.
  */
 export function DashboardLayout({ navSections, sidebarSubtitle, contextLabel }) {
+  const location = useLocation();
+
   return (
     <div className="flex min-h-screen bg-bg">
       <Sidebar sections={navSections} subtitle={sidebarSubtitle} />
       <div className="flex-1 min-w-0 flex flex-col">
         <Topbar contextLabel={contextLabel} />
         <main className="flex-1 p-6 md:p-8">
-          <Outlet />
+          {/* Subtle per-page fade — remounts (and re-animates) on every
+              route change since `key` is the pathname. */}
+          <div key={location.pathname} className="animate-[fadeIn_0.2s_ease]">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

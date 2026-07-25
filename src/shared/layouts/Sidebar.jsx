@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/shared/utils/cn';
+import { Logo } from '@/shared/components/Logo';
 
 /**
  * Renders one or more nav sections. Each module (mcs, and eventually mcp)
@@ -9,14 +10,9 @@ import { cn } from '@/shared/utils/cn';
 export function Sidebar({ sections, subtitle }) {
   return (
     <aside className="w-[240px] shrink-0 h-screen sticky top-0 bg-sidebar border-r border-border flex flex-col">
-      <div className="h-16 flex items-center gap-2.5 px-5 border-b border-border shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-ink flex items-center justify-center text-white text-caption font-semibold shrink-0">
-          B
-        </div>
-        <div className="min-w-0">
-          <div className="text-body font-semibold text-ink leading-tight truncate">BASANT SSM</div>
-          {subtitle && <div className="text-caption text-ink-secondary leading-tight truncate">{subtitle}</div>}
-        </div>
+      <div className="h-16 flex flex-col justify-center gap-1 px-5 border-b border-border shrink-0">
+        <Logo variant="black" className="h-5 w-auto object-contain" />
+        {subtitle && <div className="text-caption text-ink-secondary leading-tight truncate">{subtitle}</div>}
       </div>
 
       <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4 flex flex-col gap-5">

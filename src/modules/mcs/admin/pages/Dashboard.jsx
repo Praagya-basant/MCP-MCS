@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { StatCard } from '@/shared/components/StatCard';
 import { StatCardSkeleton, TableSkeleton } from '@/shared/components/Skeleton';
@@ -11,18 +12,24 @@ import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
-import { formatRelativeTime, formatDateTime, isToday } from '@/shared/utils/formatters';
-import { IconBox, IconBuilding, IconLayers, IconMove } from '@/shared/components/icons';
+import { listRecalls } from '@/modules/mcs/api/recallsApi';
+import { isToday } from '@/shared/utils/formatters';
+import { IconBox, IconBuilding, IconLayers, IconMove, IconBell } from '@/shared/components/icons';
+import { SAMPLE_STATUS } from '@/shared/utils/constants';
+import { ActivityFeed } from '@/modules/mcs/components/ActivityFeed';
+import { buildActivityFeed } from '@/modules/mcs/utils/activity';
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const { data, loading } = useAsyncData(async () => {
-    const [samples, movements, buyers, halls] = await Promise.all([
+    const [samples, movements, buyers, halls, recalls] = await Promise.all([
       listSamples(),
       listMovements(),
       listBuyers(),
       listHalls(),
+      listRecalls(),
     ]);
-    return { samples, movements, buyers, halls };
+    return { samples, movements, buyers, halls, recalls };
   }, []);
 
   const stats = useMemo(() => {
@@ -33,6 +40,7 @@ export default function AdminDashboard() {
       checkedOutToday,
       totalBuyers: data.buyers.length,
       activeHalls: data.halls.length,
+      currentlyIssued: data.samples.filter((s) => s.status === SAMPLE_STATUS.CHECKED_OUT).length,
     };
   }, [data]);
 
@@ -41,7 +49,10 @@ export default function AdminDashboard() {
     [data]
   );
 
-  const recentMovements = useMemo(() => (data ? data.movements.slice(0, 8) : []), [data]);
+  const activity = useMemo(
+    () => (data ? buildActivityFeed({ movements: data.movements, recalls: data.recalls }).slice(0, 8) : []),
+    [data]
+  );
 
   return (
     <div>
@@ -58,7 +69,12 @@ export default function AdminDashboard() {
         ) : (
           <>
             <StatCard label="Total Samples" value={stats.totalSamples} icon={<IconBox className="w-4 h-4" />} />
-            <StatCard label="Checked Out Today" value={stats.checkedOutToday} icon={<IconMove className="w-4 h-4" />} />
+            <StatCard
+              label="Currently Issued"
+              value={stats.currentlyIssued}
+              icon={<IconMove className="w-4 h-4" />}
+              onClick={() => navigate('/admin/samples', { state: { statusFilter: SAMPLE_STATUS.CHECKED_OUT } })}
+            />
             <StatCard label="Total Buyers" value={stats.totalBuyers} icon={<IconBuilding className="w-4 h-4" />} />
             <StatCard label="Active Halls" value={stats.activeHalls} icon={<IconLayers className="w-4 h-4" />} />
           </>
@@ -68,12 +84,12 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <Card className="lg:col-span-3">
           <CardHeader>
-            <h2 className="text-body-lg font-semibold text-ink">Samples Currently Out</h2>
+            <h2 className="text-body-lg font-semibold text-ink">Samples Currently Issued</h2>
           </CardHeader>
           {loading ? (
             <TableSkeleton rows={5} cols={4} />
           ) : samplesOut.length === 0 ? (
-            <EmptyState title="Nothing checked out" description="Every sample is currently in its hall." />
+            <EmptyState title="Nothing issued" description="Every sample is currently in its hall." />
           ) : (
             <Table>
               <Thead>
@@ -87,7 +103,7 @@ export default function AdminDashboard() {
               <Tbody>
                 {samplesOut.slice(0, 8).map((s) => (
                   <Tr key={s.id}>
-                    <Td className="font-medium">{s.bt_code}</Td>
+                    <Td className="font-medium font-mono">{s.bt_code}</Td>
                     <Td>{s.product_name}</Td>
                     <Td>Hall {s.hall?.hall_number}</Td>
                     <Td>
@@ -111,30 +127,10 @@ export default function AdminDashboard() {
                   <div key={i} className="h-4 bg-surface-subtle rounded skeleton" />
                 ))}
               </div>
-            ) : recentMovements.length === 0 ? (
-              <EmptyState title="No activity yet" description="Movements will appear here as they happen." />
+            ) : activity.length === 0 ? (
+              <EmptyState icon={<IconBell className="w-12 h-12 text-ink-muted" />} title="No activity yet" description="Movements will appear here as they happen." />
             ) : (
-              <ul className="flex flex-col gap-4">
-                {recentMovements.map((m) => (
-                  <li key={m.id} className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-body text-ink truncate">
-                        <span className="font-medium">{m.sample?.bt_code}</span>{' '}
-                        {m.status === 'out' ? 'checked out by' : 'returned by'} {m.picked_by_name}
-                      </p>
-                      <p className="text-caption text-ink-secondary">
-                        Hall {m.sample?.hall?.hall_number} · {m.sample?.buyer?.name}
-                      </p>
-                    </div>
-                    <span
-                      className="text-caption text-ink-muted shrink-0"
-                      title={formatDateTime(m.status === 'out' ? m.picked_at : m.returned_at)}
-                    >
-                      {formatRelativeTime(m.status === 'out' ? m.picked_at : m.returned_at)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <ActivityFeed items={activity} />
             )}
           </CardBody>
         </Card>

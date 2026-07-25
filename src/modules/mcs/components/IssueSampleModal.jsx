@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
 import { Input, Select, Textarea, FormField } from '@/shared/components/Input';
-import { checkoutSample } from '@/modules/mcs/api/movementsApi';
+import { issueSample } from '@/modules/mcs/api/movementsApi';
 import { useToast } from '@/shared/context/ToastContext';
 import { useAuth } from '@/shared/context/AuthContext';
 import { DESTINATION_OPTIONS, REASON_OPTIONS } from '@/shared/utils/constants';
+import { cn } from '@/shared/utils/cn';
 
 const EMPTY = { pickedByName: '', pickedByEmail: '', destination: '', reason: '', reasonOther: '', notes: '' };
 
-export function CheckoutModal({ open, onClose, sample, onSuccess }) {
+export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
   const toast = useToast();
   const { profile } = useAuth();
   const [form, setForm] = useState(EMPTY);
@@ -30,7 +31,7 @@ export function CheckoutModal({ open, onClose, sample, onSuccess }) {
     e.preventDefault();
     setError('');
 
-    if (!form.pickedByName.trim() || !form.pickedByEmail.trim() || !form.destination || !form.reason) {
+    if (!form.pickedByName.trim() || !form.destination || !form.reason) {
       setError('Fill in all required fields.');
       return;
     }
@@ -41,7 +42,10 @@ export function CheckoutModal({ open, onClose, sample, onSuccess }) {
 
     setSubmitting(true);
     try {
-      await checkoutSample({
+      // Fire the DB write and return immediately — the caller updates
+      // status/toast/drawer right away; issueSample() itself fires the
+      // confirmation emails in the background without blocking this call.
+      await issueSample({
         sample,
         pickedByName: form.pickedByName.trim(),
         pickedByEmail: form.pickedByEmail.trim(),
@@ -51,12 +55,12 @@ export function CheckoutModal({ open, onClose, sample, onSuccess }) {
         notes: form.notes.trim(),
         loggedByName: profile?.full_name,
       });
-      toast.success(`${sample.bt_code} checked out`);
+      toast.success('Sample issued successfully');
       onSuccess?.();
+      setSubmitting(false);
       handleClose();
     } catch (err) {
       setError(err.message);
-    } finally {
       setSubmitting(false);
     }
   }
@@ -67,30 +71,44 @@ export function CheckoutModal({ open, onClose, sample, onSuccess }) {
     <Modal
       open={open}
       onClose={handleClose}
-      title="Log Checkout"
+      title="Issue Sample"
+      maxWidth="max-w-[520px]"
       footer={
         <>
-          <Button variant="secondary" onClick={handleClose} disabled={submitting}>
+          <Button variant="ghost" onClick={handleClose} disabled={submitting}>
             Cancel
           </Button>
           <Button onClick={handleSubmit} loading={submitting}>
-            Confirm Checkout
+            Issue Sample
           </Button>
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="rounded-control bg-surface-subtle px-3 py-2.5">
-          <p className="text-body font-medium text-ink">{sample.bt_code}</p>
-          <p className="text-caption text-ink-secondary">{sample.product_name} · {sample.buyer?.name}</p>
-        </div>
+      <div className="mb-5 -mt-1">
+        <p className="text-caption text-ink-secondary">
+          <span className="font-mono text-ink font-medium">{sample.bt_code}</span> · {sample.product_name}
+        </p>
+      </div>
 
-        <FormField label="Picker Name" htmlFor="picker-name" required>
-          <Input id="picker-name" value={form.pickedByName} onChange={(e) => set('pickedByName', e.target.value)} autoFocus />
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+        <FormField label="Issued To" htmlFor="picker-name" required>
+          <Input
+            id="picker-name"
+            placeholder="Picker name"
+            value={form.pickedByName}
+            onChange={(e) => set('pickedByName', e.target.value)}
+            autoFocus
+          />
         </FormField>
 
-        <FormField label="Picker Email" htmlFor="picker-email" required>
-          <Input id="picker-email" type="email" value={form.pickedByEmail} onChange={(e) => set('pickedByEmail', e.target.value)} />
+        <FormField label="Contact Email" htmlFor="picker-email" hint="Optional">
+          <Input
+            id="picker-email"
+            type="email"
+            placeholder="picker@example.com"
+            value={form.pickedByEmail}
+            onChange={(e) => set('pickedByEmail', e.target.value)}
+          />
         </FormField>
 
         <FormField label="Destination" htmlFor="destination" required>
@@ -104,15 +122,27 @@ export function CheckoutModal({ open, onClose, sample, onSuccess }) {
           </Select>
         </FormField>
 
-        <FormField label="Reason" htmlFor="reason" required>
-          <Select id="reason" value={form.reason} onChange={(e) => set('reason', e.target.value)}>
-            <option value="">Select reason</option>
-            {REASON_OPTIONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </Select>
+        <FormField label="Reason" required>
+          <div className="flex flex-wrap gap-2">
+            {REASON_OPTIONS.map((r) => {
+              const active = form.reason === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => set('reason', r)}
+                  className={cn(
+                    'interactive h-8 px-3 rounded-control text-caption font-medium border',
+                    active
+                      ? 'bg-ink text-white border-ink'
+                      : 'bg-white text-ink-secondary border-border hover:bg-surface-subtle hover:text-ink'
+                  )}
+                >
+                  {r}
+                </button>
+              );
+            })}
+          </div>
         </FormField>
 
         {form.reason === 'Other' && (
@@ -122,7 +152,13 @@ export function CheckoutModal({ open, onClose, sample, onSuccess }) {
         )}
 
         <FormField label="Notes" htmlFor="notes" hint="Optional">
-          <Textarea id="notes" value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} />
+          <Textarea
+            id="notes"
+            placeholder="Any additional notes..."
+            value={form.notes}
+            onChange={(e) => set('notes', e.target.value)}
+            rows={3}
+          />
         </FormField>
 
         {error && <p className="text-caption text-red-600">{error}</p>}

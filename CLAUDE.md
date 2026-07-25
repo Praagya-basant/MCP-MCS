@@ -14,9 +14,15 @@ meant to plug in beside it without touching MCS code — see
 
 Three roles, three separate app experiences, one codebase:
 
-- **Admin** — full visibility, manages buyers/halls/users.
-- **Hall Manager** — scoped to one hall; adds samples, logs checkouts/returns.
+- **Admin** (role `super_admin` in the DB) — full visibility, manages buyers/halls/users.
+- **Manager** (role `hall_manager` in the DB) — scoped to one hall; adds
+  samples, issues/returns them.
 - **Merchant** — scoped to one buyer, read-only + comments/recalls/export.
+
+Role *display* labels ("Admin", "Manager") live in `ROLE_LABELS`
+(`shared/utils/constants.js`) and are intentionally shorter than the DB
+`role` values (`super_admin`, `hall_manager`) — never rename the DB
+values to match, always go through `ROLE_LABELS`.
 
 ## Tech stack
 
@@ -48,9 +54,20 @@ src/
     mcs/                    Module 1 — Master Counter Sample (this build)
       api/                  Data access: buyersApi, hallsApi, usersApi,
                              samplesApi, movementsApi, recallsApi, commentsApi
+      components/           Cross-role MCS UI: SampleDetailDrawer (the
+                             drawer every sample row opens, tabbed
+                             Details/Movement History/Comments, with
+                             role-gated Issue/Return/Raise Recall footer
+                             actions), IssueSampleModal, SampleThumbnail,
+                             ActivityFeed
+      utils/                activity.js — merges movements+recalls into
+                             one timestamp-sorted dashboard feed
       admin/                Admin: AdminLayout, pages/, components/
-      hall/                 Hall Manager: HallLayout, pages/, components/
+      hall/                 Manager: HallLayout, pages/, components/
       merchant/             Merchant: MerchantLayout, pages/, components/
+                             (RaiseRecallModal lives here but is imported
+                             by the shared SampleDetailDrawer too — fine,
+                             it's a same-module cross-role import)
     mcp/                    Module 2 — not built yet (see below)
 supabase/
   sql/schema.sql            Full DB schema, RLS, RPCs, storage — run once
@@ -97,7 +114,8 @@ peer, not a rewrite:
   `super_admin | hall_manager | merchant`. `hall_id` set for hall
   managers, `buyer_id` set for merchants.
 - `samples` — one row per physical sample (`bt_code` unique). `status` is
-  `in_hall | checked_out`.
+  `in_hall | checked_out` (displayed in the UI as "In Hall" / "Issued" —
+  see `SAMPLE_STATUS_LABELS` in `constants.js`; the DB value is untouched).
 - `movements` — one row per checkout, updated in place on return
   (`status: out -> returned`, `returned_at` set). This is the audit trail.
 - `merchant_contacts` — join table: which profiles receive email
@@ -120,9 +138,13 @@ and `movements` rows change. They:
    separate RLS `UPDATE` policy is needed on `samples`/`movements` for
    hall managers.
 
-Frontend callers: `modules/mcs/api/movementsApi.js` → `checkoutSample()` /
-`returnSample()`. Don't add direct `.from('samples').update(...)` calls
-for status changes — go through the RPCs.
+Frontend callers: `modules/mcs/api/movementsApi.js` → `issueSample()` /
+`returnSample()`. (The JS function is named `issueSample` to match the
+"Issue" terminology used in the UI; the underlying RPC is still named
+`checkout_sample` in Postgres — deliberately not renamed, since renaming
+a `SECURITY DEFINER` function means touching `schema.sql`.) Don't add
+direct `.from('samples').update(...)` calls for status changes — go
+through the RPCs.
 
 ### RLS model
 
@@ -202,6 +224,25 @@ adding UI:
 - Toasts (bottom-right, 3s auto-dismiss) via `useToast()` from
   `shared/context/ToastContext.jsx` — call `.success()`, `.error()`, or
   `.info()`, never render a toast manually.
+- `Logo` (`shared/components/Logo.jsx`) renders `public/logo-black.png`
+  (light surfaces — sidebar) or `public/logo-white.png` (dark surfaces —
+  login left panel). Both are the wordmark only, tagline trimmed off;
+  render the "furniture I lighting I homedecor" tagline as separate
+  styled text where needed (see `Login.jsx`).
+  `PillTabs` (`shared/components/PillTabs.jsx`) is the segmented
+  All/In&nbsp;Hall/Issued-style status filter used on every sample list —
+  prefer it over a `<Select>` for any status-shaped filter.
+- `Modal` and `Drawer` (`shared/components/`) both animate open *and*
+  close (mount vs. visible are separate state, unmount is deferred by a
+  `setTimeout` matching the CSS transition duration) — don't replace
+  their conditional rendering with a plain `if (!open) return null`, that
+  brings back the "vanishes instantly on close" bug.
+- Buyer names are shortened for display only (`shortenBuyerName()` in
+  `shared/utils/formatters.js`, e.g. "Maison du Monde (MDM)" → "MDM"),
+  applied at the API boundary (`buyersApi`, `samplesApi`, `movementsApi`,
+  `usersApi`, `AuthContext`) so every component that renders `buyer.name`
+  gets the short form automatically — don't shorten again in components,
+  and don't touch the DB value.
 
 ## Setup checklist (fresh Supabase project)
 

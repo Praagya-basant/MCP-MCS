@@ -1,8 +1,17 @@
 import { supabase } from '@/shared/lib/supabaseClient';
 import { sendNotification } from '@/shared/lib/notify';
+import { shortenBuyerName } from '@/shared/utils/formatters';
 
 const MOVEMENT_SELECT =
   '*, sample:samples(id, bt_code, product_name, buyer_id, hall_id, buyer:buyers(id, name), hall:halls(id, hall_number))';
+
+function mapMovement(movement) {
+  if (!movement?.sample?.buyer) return movement;
+  return {
+    ...movement,
+    sample: { ...movement.sample, buyer: { ...movement.sample.buyer, name: shortenBuyerName(movement.sample.buyer.name) } },
+  };
+}
 
 export async function listMovements() {
   const { data, error } = await supabase
@@ -10,7 +19,7 @@ export async function listMovements() {
     .select(MOVEMENT_SELECT)
     .order('picked_at', { ascending: false });
   if (error) throw error;
-  return data;
+  return data.map(mapMovement);
 }
 
 export async function getOpenMovementForSample(sampleId) {
@@ -23,7 +32,7 @@ export async function getOpenMovementForSample(sampleId) {
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return data ? mapMovement(data) : data;
 }
 
 export async function listMovementsForSample(sampleId) {
@@ -37,12 +46,14 @@ export async function listMovementsForSample(sampleId) {
 }
 
 /**
- * Logs a checkout via the atomic `checkout_sample` RPC (updates
- * samples.status + inserts the movement row in one transaction), then
- * fires the two checkout emails. Returns the full sample+movement info
- * needed by the caller to update its local state / show a toast.
+ * Logs an issue via the atomic `checkout_sample` RPC (updates
+ * samples.status + inserts the movement row in one transaction — the RPC
+ * name matches the DB function, which we don't rename since schema.sql is
+ * untouched). Email is intentionally NOT awaited: it must never delay the
+ * UI response to a successful DB write, and `sendNotification` already
+ * swallows its own errors so a failed send can't surface here either.
  */
-export async function checkoutSample({
+export async function issueSample({
   sample,
   pickedByName,
   pickedByEmail,
@@ -55,7 +66,7 @@ export async function checkoutSample({
   const { data: movement, error } = await supabase.rpc('checkout_sample', {
     p_sample_id: sample.id,
     p_picked_by_name: pickedByName,
-    p_picked_by_email: pickedByEmail,
+    p_picked_by_email: pickedByEmail || '',
     p_destination: destination,
     p_reason: reason,
     p_reason_other: reasonOther || null,
@@ -64,7 +75,7 @@ export async function checkoutSample({
 
   if (error) throw error;
 
-  await sendNotification('checkout', {
+  sendNotification('checkout', {
     btCode: sample.bt_code,
     productName: sample.product_name,
     hallNumber: sample.hall?.hall_number,
@@ -81,8 +92,8 @@ export async function checkoutSample({
 }
 
 /**
- * Confirms a return via the atomic `return_sample` RPC, then fires the
- * return email to the buyer's merchant contacts.
+ * Confirms a return via the atomic `return_sample` RPC. Same
+ * fire-and-forget email treatment as issueSample above.
  */
 export async function returnSample({ movement, sample }) {
   const { data: returned, error } = await supabase.rpc('return_sample', {
@@ -91,7 +102,7 @@ export async function returnSample({ movement, sample }) {
 
   if (error) throw error;
 
-  await sendNotification('return', {
+  sendNotification('return', {
     btCode: sample.bt_code,
     productName: sample.product_name,
     hallNumber: sample.hall?.hall_number,

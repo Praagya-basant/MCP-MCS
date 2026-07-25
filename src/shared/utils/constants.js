@@ -10,7 +10,7 @@ export const ROLES = {
 
 export const ROLE_LABELS = {
   [ROLES.SUPER_ADMIN]: 'Admin',
-  [ROLES.HALL_MANAGER]: 'Hall Manager',
+  [ROLES.HALL_MANAGER]: 'Manager',
   [ROLES.MERCHANT]: 'Merchant',
 };
 
@@ -27,7 +27,7 @@ export const SAMPLE_STATUS = {
 
 export const SAMPLE_STATUS_LABELS = {
   [SAMPLE_STATUS.IN_HALL]: 'In Hall',
-  [SAMPLE_STATUS.CHECKED_OUT]: 'Checked Out',
+  [SAMPLE_STATUS.CHECKED_OUT]: 'Issued',
 };
 
 export const MOVEMENT_STATUS = {
@@ -47,7 +47,11 @@ export const RECALL_STATUS_LABELS = {
   [RECALL_STATUS.RESOLVED]: 'Resolved',
 };
 
-export const HALL_NUMBERS = [2, 5, 8, 10, 11];
+// Destination dropdown options only — the actual `halls` table (seeded
+// with 2/5/8/10/11 in schema.sql) is unrelated and untouched. "Hall 3"
+// exists here as a valid pick-up/drop-off destination even though it
+// isn't a hall this app tracks samples within.
+export const HALL_NUMBERS = [2, 3, 5, 8, 10, 11];
 
 export const DESTINATION_OPTIONS = [
   ...HALL_NUMBERS.map((n) => `Hall ${n}`),

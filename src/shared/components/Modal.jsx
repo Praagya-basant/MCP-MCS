@@ -1,10 +1,29 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/shared/utils/cn';
 
+/**
+ * Stays mounted for the close transition (mounted vs. visible are
+ * separate states) instead of vanishing instantly, so both open and
+ * close animate.
+ */
 export function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-[480px]' }) {
+  const [mounted, setMounted] = useState(open);
+  const [visible, setVisible] = useState(false);
+
   useEffect(() => {
-    if (!open) return;
+    if (open) {
+      setMounted(true);
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setVisible(false);
+    const timer = setTimeout(() => setMounted(false), 200);
+    return () => clearTimeout(timer);
+  }, [open]);
+
+  useEffect(() => {
+    if (!mounted) return;
     const onKey = (e) => {
       if (e.key === 'Escape') onClose?.();
     };
@@ -14,19 +33,20 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 'max-
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
-  }, [open, onClose]);
+  }, [mounted, onClose]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40 animate-[fadeIn_0.15s_ease]"
+        className={cn('modal-overlay absolute inset-0 bg-black/40', visible ? 'opacity-100' : 'opacity-0')}
         onClick={onClose}
       />
       <div
         className={cn(
-          'relative w-full bg-white rounded-modal shadow-xl flex flex-col max-h-[90vh] animate-[fadeIn_0.15s_ease]',
+          'modal-panel relative w-full bg-white rounded-modal shadow-xl flex flex-col max-h-[90vh]',
+          visible ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.98]',
           maxWidth
         )}
         role="dialog"

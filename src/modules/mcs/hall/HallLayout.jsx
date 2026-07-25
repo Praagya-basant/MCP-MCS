@@ -21,8 +21,8 @@ export default function HallLayout() {
   return (
     <DashboardLayout
       navSections={navSections}
-      sidebarSubtitle="Hall Manager"
-      contextLabel={hallNumber ? `Hall ${hallNumber}` : 'Hall Manager'}
+      sidebarSubtitle="Manager"
+      contextLabel={hallNumber ? `Hall ${hallNumber}` : 'Manager'}
     />
   );
 }

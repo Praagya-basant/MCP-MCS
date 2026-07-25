@@ -1,9 +1,10 @@
 import { supabase } from '@/shared/lib/supabaseClient';
+import { shortenBuyerName } from '@/shared/utils/formatters';
 
 export async function listBuyers() {
   const { data, error } = await supabase.from('buyers').select('*').order('name');
   if (error) throw error;
-  return data;
+  return data.map((b) => ({ ...b, name: shortenBuyerName(b.name) }));
 }
 
 /**
@@ -25,6 +26,7 @@ export async function listBuyersWithDetails() {
 
   return buyers.map((buyer) => ({
     ...buyer,
+    name: shortenBuyerName(buyer.name),
     sampleCount: samples.filter((s) => s.buyer_id === buyer.id).length,
     contacts: contacts.filter((c) => c.buyer_id === buyer.id),
   }));
@@ -33,7 +35,7 @@ export async function listBuyersWithDetails() {
 export async function createBuyer({ name }) {
   const { data, error } = await supabase.from('buyers').insert({ name }).select().single();
   if (error) throw error;
-  return data;
+  return { ...data, name: shortenBuyerName(data.name) };
 }
 
 export async function addMerchantContact({ buyerId, profileId }) {

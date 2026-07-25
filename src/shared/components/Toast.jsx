@@ -49,7 +49,7 @@ export function ToastContainer() {
           key={t.id}
           role="status"
           className={cn(
-            'interactive flex items-start gap-2 rounded-lg border shadow-card px-4 py-3 text-body animate-[fadeIn_0.15s_ease]',
+            'interactive flex items-start gap-2 rounded-lg border shadow-card px-4 py-3 text-body animate-[toastIn_0.2s_ease]',
             VARIANT_STYLES[t.variant]
           )}
         >

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Card } from '@/shared/components/Card';
 import { Button } from '@/shared/components/Button';
@@ -8,24 +8,24 @@ import { TableSkeleton } from '@/shared/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SearchInput } from '@/shared/components/SearchInput';
 import { Pagination } from '@/shared/components/Pagination';
-import { Select } from '@/shared/components/Input';
+import { PillTabs } from '@/shared/components/PillTabs';
 import { StatusBadge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
-import { PAGE_SIZE, SAMPLE_STATUS, SAMPLE_STATUS_LABELS } from '@/shared/utils/constants';
+import { PAGE_SIZE, SAMPLE_STATUS } from '@/shared/utils/constants';
 import { IconBox, IconPlus } from '@/shared/components/icons';
 import { formatRelativeTime } from '@/shared/utils/formatters';
-import { CheckoutModal } from '@/modules/mcs/hall/components/CheckoutModal';
-import { ReturnModal } from '@/modules/mcs/hall/components/ReturnModal';
+import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
+import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
 
 export default function HallSamples() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: samples, loading, reload } = useAsyncData(listSamples, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listMovements, []);
-  const [checkoutSample, setCheckoutSample] = useState(null);
-  const [returnSample, setReturnSample] = useState(null);
+  const [selected, setSelected] = useState(null);
 
   const lastMovementMap = useMemo(() => {
     const map = {};
@@ -44,9 +44,21 @@ export default function HallSamples() {
   );
 
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
-    useTableControls(rows, { searchFields: ['bt_code', 'product_name', 'buyer_name'] });
+    useTableControls(rows, {
+      searchFields: ['bt_code', 'product_name', 'buyer_name'],
+      initialFilters: location.state?.statusFilter ? { status: location.state.statusFilter } : undefined,
+    });
 
-  function handleActionSuccess() {
+  const statusTabs = useMemo(
+    () => [
+      { value: 'all', label: 'All', count: rows.length },
+      { value: SAMPLE_STATUS.IN_HALL, label: 'In Hall', count: rows.filter((r) => r.status === SAMPLE_STATUS.IN_HALL).length },
+      { value: SAMPLE_STATUS.CHECKED_OUT, label: 'Issued', count: rows.filter((r) => r.status === SAMPLE_STATUS.CHECKED_OUT).length },
+    ],
+    [rows]
+  );
+
+  function handleChanged() {
     reload();
     reloadMovements();
   }
@@ -65,16 +77,9 @@ export default function HallSamples() {
       />
 
       <Card>
-        <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search BT code, name, buyer..." className="max-w-xs" />
-          <Select value={filters.status || 'all'} onChange={(e) => setFilter('status', e.target.value)} className="w-auto min-w-[140px]">
-            <option value="all">All statuses</option>
-            {Object.values(SAMPLE_STATUS).map((s) => (
-              <option key={s} value={s}>
-                {SAMPLE_STATUS_LABELS[s]}
-              </option>
-            ))}
-          </Select>
+        <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-3">
+          <PillTabs options={statusTabs} value={filters.status || 'all'} onChange={(v) => setFilter('status', v)} />
+          <SearchInput value={search} onChange={setSearch} placeholder="Search BT code, name, buyer..." className="max-w-xs ml-auto" />
         </div>
 
         {loading ? (
@@ -94,18 +99,21 @@ export default function HallSamples() {
             <Table>
               <Thead>
                 <Tr>
+                  <Th className="w-[64px]"></Th>
                   <Th>BT Code</Th>
                   <Th>Product</Th>
                   <Th>Buyer</Th>
                   <Th>Status</Th>
                   <Th>Last Movement</Th>
-                  <Th>Action</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {pageRows.map((s) => (
-                  <Tr key={s.id}>
-                    <Td className="font-medium">{s.bt_code}</Td>
+                  <Tr key={s.id} onClick={() => setSelected(s)}>
+                    <Td>
+                      <SampleThumbnail sample={s} />
+                    </Td>
+                    <Td className="font-medium font-mono">{s.bt_code}</Td>
                     <Td>{s.product_name}</Td>
                     <Td className="text-ink-secondary">{s.buyer_name}</Td>
                     <Td>
@@ -113,17 +121,6 @@ export default function HallSamples() {
                     </Td>
                     <Td className="text-ink-secondary">
                       {s.lastMovement ? formatRelativeTime(s.lastMovement) : '—'}
-                    </Td>
-                    <Td>
-                      {s.status === SAMPLE_STATUS.IN_HALL ? (
-                        <Button size="sm" variant="secondary" onClick={() => setCheckoutSample(s)}>
-                          Check Out
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="secondary" onClick={() => setReturnSample(s)}>
-                          Return
-                        </Button>
-                      )}
                     </Td>
                   </Tr>
                 ))}
@@ -134,18 +131,7 @@ export default function HallSamples() {
         )}
       </Card>
 
-      <CheckoutModal
-        open={!!checkoutSample}
-        sample={checkoutSample}
-        onClose={() => setCheckoutSample(null)}
-        onSuccess={handleActionSuccess}
-      />
-      <ReturnModal
-        open={!!returnSample}
-        sample={returnSample}
-        onClose={() => setReturnSample(null)}
-        onSuccess={handleActionSuccess}
-      />
+      <SampleDetailDrawer open={!!selected} sample={selected} onClose={() => setSelected(null)} onChanged={handleChanged} />
     </div>
   );
 }

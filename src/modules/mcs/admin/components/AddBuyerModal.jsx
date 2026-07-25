@@ -56,7 +56,7 @@ export function AddBuyerModal({ open, onClose, onCreated }) {
         <FormField label="Buyer Name" htmlFor="buyer-name" required error={error}>
           <Input
             id="buyer-name"
-            placeholder="e.g. Maison du Monde (MDM)"
+            placeholder="e.g. IKEA"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus

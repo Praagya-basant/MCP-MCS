@@ -57,7 +57,7 @@ function AppRoutes() {
         </Route>
       </Route>
 
-      {/* Hall Manager */}
+      {/* Manager (hall_manager role) */}
       <Route element={<ProtectedRoute allowedRoles={[ROLES.HALL_MANAGER]} />}>
         <Route path="/hall" element={<HallLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
