@@ -56,7 +56,6 @@ export async function listMovementsForSample(sampleId) {
 export async function issueSample({
   sample,
   pickedByName,
-  pickedByEmail,
   destination,
   reason,
   reasonOther,
@@ -66,7 +65,10 @@ export async function issueSample({
   const { data: movement, error } = await supabase.rpc('checkout_sample', {
     p_sample_id: sample.id,
     p_picked_by_name: pickedByName,
-    p_picked_by_email: pickedByEmail || '',
+    // The app no longer collects a picker email, but the DB column is
+    // NOT NULL (schema.sql is untouched) — an empty string satisfies
+    // that constraint without needing a migration.
+    p_picked_by_email: '',
     p_destination: destination,
     p_reason: reason,
     p_reason_other: reasonOther || null,
@@ -81,7 +83,6 @@ export async function issueSample({
     hallNumber: sample.hall?.hall_number,
     buyerId: sample.buyer_id,
     pickedByName,
-    pickedByEmail,
     destination,
     reason: reason === 'Other' ? reasonOther : reason,
     pickedAt: movement.picked_at,

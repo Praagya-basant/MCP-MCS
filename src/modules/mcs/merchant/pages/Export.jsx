@@ -34,7 +34,6 @@ function movementsToRows(movements) {
     'BT Code': m.sample?.bt_code,
     'Product Name': m.sample?.product_name,
     'Picked By': m.picked_by_name,
-    'Picked By Email': m.picked_by_email,
     Destination: m.destination,
     Reason: m.reason === 'Other' ? m.reason_other : m.reason,
     Status: m.status === 'out' ? 'Out' : 'Returned',

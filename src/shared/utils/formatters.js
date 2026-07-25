@@ -1,13 +1,22 @@
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * Fixed "25 Jul 2026, 1:17 PM" format, built manually rather than via
+ * Intl/toLocaleString — locale-based formatting varies by browser/OS for
+ * both date ordering and AM/PM casing, which made table columns render
+ * inconsistently wide. This is deterministic everywhere.
+ */
 export function formatDateTime(value) {
   if (!value) return '—';
   const date = new Date(value);
-  return date.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = SHORT_MONTHS[date.getMonth()];
+  const year = date.getFullYear();
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const period = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${day} ${month} ${year}, ${hours}:${minutes} ${period}`;
 }
 
 export function formatDate(value) {

@@ -8,7 +8,7 @@ import { useAuth } from '@/shared/context/AuthContext';
 import { DESTINATION_OPTIONS, REASON_OPTIONS } from '@/shared/utils/constants';
 import { cn } from '@/shared/utils/cn';
 
-const EMPTY = { pickedByName: '', pickedByEmail: '', destination: '', reason: '', reasonOther: '', notes: '' };
+const EMPTY = { pickedByName: '', destination: '', reason: '', reasonOther: '', notes: '' };
 
 export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
   const toast = useToast();
@@ -44,11 +44,10 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
     try {
       // Fire the DB write and return immediately — the caller updates
       // status/toast/drawer right away; issueSample() itself fires the
-      // confirmation emails in the background without blocking this call.
+      // notification emails in the background without blocking this call.
       await issueSample({
         sample,
         pickedByName: form.pickedByName.trim(),
-        pickedByEmail: form.pickedByEmail.trim(),
         destination: form.destination,
         reason: form.reason,
         reasonOther: form.reasonOther.trim(),
@@ -84,13 +83,13 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
         </>
       }
     >
-      <div className="mb-5 -mt-1">
+      <div className="mb-6 -mt-1">
         <p className="text-caption text-ink-secondary">
           <span className="font-mono text-ink font-medium">{sample.bt_code}</span> · {sample.product_name}
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
         <FormField label="Issued To" htmlFor="picker-name" required>
           <Input
             id="picker-name"
@@ -98,16 +97,6 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
             value={form.pickedByName}
             onChange={(e) => set('pickedByName', e.target.value)}
             autoFocus
-          />
-        </FormField>
-
-        <FormField label="Contact Email" htmlFor="picker-email" hint="Optional">
-          <Input
-            id="picker-email"
-            type="email"
-            placeholder="picker@example.com"
-            value={form.pickedByEmail}
-            onChange={(e) => set('pickedByEmail', e.target.value)}
           />
         </FormField>
 
@@ -134,8 +123,8 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
                   className={cn(
                     'interactive h-8 px-3 rounded-control text-caption font-medium border',
                     active
-                      ? 'bg-ink text-white border-ink'
-                      : 'bg-white text-ink-secondary border-border hover:bg-surface-subtle hover:text-ink'
+                      ? 'bg-ink text-white border-ink scale-105'
+                      : 'bg-white text-ink-secondary border-border hover:bg-surface-subtle hover:text-ink scale-100'
                   )}
                 >
                   {r}

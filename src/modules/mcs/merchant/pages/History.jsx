@@ -103,8 +103,8 @@ export default function MerchantHistory() {
                   <Th>Hall</Th>
                   <Th>Picked By</Th>
                   <Th>Reason</Th>
-                  <Th>Picked At</Th>
-                  <Th>Returned At</Th>
+                  <Th className="text-right">Picked At</Th>
+                  <Th className="text-right">Returned At</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -116,8 +116,8 @@ export default function MerchantHistory() {
                     <Td>
                       <Badge>{m.reason === 'Other' ? m.reason_other || 'Other' : m.reason}</Badge>
                     </Td>
-                    <Td className="text-ink-secondary">{formatDateTime(m.picked_at)}</Td>
-                    <Td className="text-ink-secondary">{m.status === 'returned' ? formatDateTime(m.returned_at) : '—'}</Td>
+                    <Td className="text-right text-ink-secondary text-[13px] whitespace-nowrap">{formatDateTime(m.picked_at)}</Td>
+                    <Td className="text-right text-ink-secondary text-[13px] whitespace-nowrap">{m.status === 'returned' ? formatDateTime(m.returned_at) : '—'}</Td>
                   </Tr>
                 ))}
               </Tbody>

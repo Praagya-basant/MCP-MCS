@@ -30,15 +30,22 @@ const APP_URL = 'https://mcp-mcs.vercel.app';
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Matches the frontend's formatDateTime() exactly ("25 Jul 2026, 1:17 PM")
+// — built manually rather than via toLocaleString so it can't drift from
+// the app's formatting depending on ICU/locale quirks.
 function formatDateTime(iso) {
   if (!iso) return '';
-  return new Date(iso).toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const date = new Date(iso);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = SHORT_MONTHS[date.getMonth()];
+  const year = date.getFullYear();
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const period = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${day} ${month} ${year}, ${hours}:${minutes} ${period}`;
 }
 
 function escapeHtml(value) {
@@ -53,8 +60,9 @@ function escapeHtml(value) {
 
 /**
  * Shared layout for every transactional email: logo, divider, heading,
- * a label/value info block, a "View Sample" button, and a plain footer.
- * Deliberately minimal — no marketing styling, no images besides the logo.
+ * a compact label/value info block, a "View Sample" button, and a plain
+ * footer. Deliberately minimal — no marketing styling, no images besides
+ * the logo, no "SSM"/"Signed Sample Management" anywhere.
  */
 function buildEmailHtml({ heading, rows, btCode }) {
   const visibleRows = rows.filter((r) => r.value);
@@ -64,8 +72,8 @@ function buildEmailHtml({ heading, rows, btCode }) {
       const border = i < visibleRows.length - 1 ? 'border-bottom:1px solid #E8E8E5;' : '';
       return `
         <tr>
-          <td style="padding:7px 0;font-size:13px;line-height:18px;color:#6B6B6B;${border}">${escapeHtml(r.label)}</td>
-          <td style="padding:7px 0;font-size:13px;line-height:18px;color:#1A1A1A;font-weight:500;text-align:right;${border}">${escapeHtml(r.value)}</td>
+          <td style="padding:7px 0;font-size:12px;line-height:16px;color:#6B6B6B;${border}">${escapeHtml(r.label)}</td>
+          <td style="padding:7px 0;font-size:14px;line-height:18px;color:#1A1A1A;font-weight:500;text-align:right;${border}">${escapeHtml(r.value)}</td>
         </tr>`;
     })
     .join('');
@@ -78,9 +86,9 @@ function buildEmailHtml({ heading, rows, btCode }) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F8F8F7;padding:20px 0;">
       <tr>
         <td align="center">
-          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#FFFFFF;">
+          <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:#FFFFFF;">
             <tr>
-              <td style="padding:16px 20px;text-align:left;">
+              <td style="padding:20px;text-align:left;">
                 <img src="${LOGO_URL}" alt="BASANT" height="28" style="height:28px;width:auto;display:block;border:0;" />
               </td>
             </tr>
@@ -96,7 +104,7 @@ function buildEmailHtml({ heading, rows, btCode }) {
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
                   <tr>
                     <td align="center">
-                      <a href="${sampleUrl}" style="display:inline-block;background-color:#1A1A1A;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:500;padding:10px 24px;border-radius:6px;">View Sample</a>
+                      <a href="${sampleUrl}" style="display:inline-block;background-color:#1A1A1A;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:500;padding:8px 20px;border-radius:6px;">View Sample</a>
                     </td>
                   </tr>
                 </table>
@@ -107,7 +115,7 @@ function buildEmailHtml({ heading, rows, btCode }) {
             </tr>
             <tr>
               <td style="padding:14px 20px;text-align:center;">
-                <p style="margin:0;font-size:12px;line-height:16px;color:#9B9B9B;">BASANT SSM &middot; Signed Sample Management</p>
+                <p style="margin:0;font-size:12px;line-height:16px;color:#9B9B9B;">BASANT &middot; For access issues contact praagya@basant.info</p>
               </td>
             </tr>
           </table>
@@ -181,37 +189,66 @@ async function getHallManagerEmails(hallId) {
   return data.map((row) => row.email).filter(Boolean);
 }
 
+async function getHallIdByNumber(hallNumber) {
+  const { data, error } = await supabase.from('halls').select('id').eq('hall_number', hallNumber).maybeSingle();
+  if (error) {
+    console.error('Failed to look up hall by number', error);
+    return null;
+  }
+  return data?.id ?? null;
+}
+
+/**
+ * Checkout ("Sample Issued") fires exactly two emails:
+ *   1. The buyer's merchant contacts — always.
+ *   2. The manager of the *destination* hall — only when the destination
+ *      is one of our tracked halls ("Hall N"); skipped for Supplier/Other,
+ *      and skipped if that hall has no manager on file. No email to the
+ *      picker and none to the *source* hall's manager (they're the one
+ *      who just logged this, they already know).
+ */
 async function handleCheckout(payload) {
-  const {
-    btCode, productName, hallNumber, buyerId,
-    pickedByName, pickedByEmail, destination, reason, pickedAt, loggedByName,
-  } = payload;
+  const { btCode, productName, hallNumber, buyerId, pickedByName, destination, reason, pickedAt, loggedByName } = payload;
 
   const merchantEmails = await getMerchantContactEmails(buyerId);
-  const rows = [
-    { label: 'BT Code', value: btCode },
-    { label: 'Product Name', value: productName },
-    { label: 'Hall', value: hallNumber ? `Hall ${hallNumber}` : '' },
-    { label: 'Issued To', value: pickedByName },
-    { label: 'Destination', value: destination },
-    { label: 'Reason', value: reason },
-    { label: 'Date & Time', value: formatDateTime(pickedAt) },
-    { label: 'Logged By', value: loggedByName },
-  ];
+  const when = formatDateTime(pickedAt);
 
   await sendEmail({
     to: merchantEmails,
     subject: `Sample Issued — ${btCode} · ${productName}`,
     heading: 'Sample Issued',
-    rows,
+    rows: [
+      { label: 'BT Code', value: btCode },
+      { label: 'Product Name', value: productName },
+      { label: 'Hall', value: hallNumber ? `Hall ${hallNumber}` : '' },
+      { label: 'Destination', value: destination },
+      { label: 'Reason', value: reason },
+      { label: 'Date & Time', value: when },
+      { label: 'Logged By', value: loggedByName },
+    ],
     btCode,
   });
 
+  const destinationHallNumber = /^Hall\s+(\d+)$/i.exec((destination || '').trim())?.[1];
+  if (!destinationHallNumber) return;
+
+  const destHallId = await getHallIdByNumber(Number(destinationHallNumber));
+  if (!destHallId) return;
+
+  const destManagerEmails = await getHallManagerEmails(destHallId);
+
   await sendEmail({
-    to: pickedByEmail,
-    subject: `Sample Collection Confirmation — ${btCode} · ${productName}`,
+    to: destManagerEmails,
+    subject: `Sample Issued — ${btCode} · ${productName}`,
     heading: 'Sample Issued',
-    rows,
+    rows: [
+      { label: 'BT Code', value: btCode },
+      { label: 'Product Name', value: productName },
+      { label: 'From Hall', value: hallNumber ? `Hall ${hallNumber}` : '' },
+      { label: 'Picker', value: pickedByName },
+      { label: 'Reason', value: reason },
+      { label: 'Date & Time', value: when },
+    ],
     btCode,
   });
 }
