@@ -199,16 +199,19 @@ async function getHallIdByNumber(hallNumber) {
 }
 
 /**
- * Checkout ("Sample Issued") fires exactly two emails:
- *   1. The buyer's merchant contacts — always.
- *   2. The manager of the *destination* hall — only when the destination
- *      is one of our tracked halls ("Hall N"); skipped for Supplier/Other,
- *      and skipped if that hall has no manager on file. No email to the
- *      picker and none to the *source* hall's manager (they're the one
- *      who just logged this, they already know).
+ * Checkout ("Sample Issued") currently fires exactly one email, to the
+ * buyer's merchant contacts. No email to the picker and none to the
+ * *source* hall's manager (they're the one who just logged this, they
+ * already know).
+ *
+ * A second email — to the manager of the *destination* hall — is wired
+ * up below but disabled for now (commented out, not removed). To
+ * re-enable it, uncomment the block; it already handles parsing "Hall N"
+ * out of `destination`, skipping Supplier/Other, and skipping halls with
+ * no manager on file.
  */
 async function handleCheckout(payload) {
-  const { btCode, productName, hallNumber, buyerId, pickedByName, destination, reason, pickedAt, loggedByName } = payload;
+  const { btCode, productName, hallNumber, buyerId, /* pickedByName, */ destination, reason, pickedAt, loggedByName } = payload;
 
   const merchantEmails = await getMerchantContactEmails(buyerId);
   const when = formatDateTime(pickedAt);
@@ -229,28 +232,29 @@ async function handleCheckout(payload) {
     btCode,
   });
 
-  const destinationHallNumber = /^Hall\s+(\d+)$/i.exec((destination || '').trim())?.[1];
-  if (!destinationHallNumber) return;
-
-  const destHallId = await getHallIdByNumber(Number(destinationHallNumber));
-  if (!destHallId) return;
-
-  const destManagerEmails = await getHallManagerEmails(destHallId);
-
-  await sendEmail({
-    to: destManagerEmails,
-    subject: `Sample Issued — ${btCode} · ${productName}`,
-    heading: 'Sample Issued',
-    rows: [
-      { label: 'BT Code', value: btCode },
-      { label: 'Product Name', value: productName },
-      { label: 'From Hall', value: hallNumber ? `Hall ${hallNumber}` : '' },
-      { label: 'Picker', value: pickedByName },
-      { label: 'Reason', value: reason },
-      { label: 'Date & Time', value: when },
-    ],
-    btCode,
-  });
+  // --- Destination hall manager email — disabled for now, see docstring above ---
+  // const destinationHallNumber = /^Hall\s+(\d+)$/i.exec((destination || '').trim())?.[1];
+  // if (!destinationHallNumber) return;
+  //
+  // const destHallId = await getHallIdByNumber(Number(destinationHallNumber));
+  // if (!destHallId) return;
+  //
+  // const destManagerEmails = await getHallManagerEmails(destHallId);
+  //
+  // await sendEmail({
+  //   to: destManagerEmails,
+  //   subject: `Sample Issued — ${btCode} · ${productName}`,
+  //   heading: 'Sample Issued',
+  //   rows: [
+  //     { label: 'BT Code', value: btCode },
+  //     { label: 'Product Name', value: productName },
+  //     { label: 'From Hall', value: hallNumber ? `Hall ${hallNumber}` : '' },
+  //     { label: 'Picker', value: pickedByName },
+  //     { label: 'Reason', value: reason },
+  //     { label: 'Date & Time', value: when },
+  //   ],
+  //   btCode,
+  // });
 }
 
 async function handleReturn(payload) {
