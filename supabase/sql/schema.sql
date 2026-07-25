@@ -408,7 +408,7 @@ begin
   end if;
 
   update samples set status = 'in_hall' where status = 'checked_out';
-  delete from movements;
+  delete from movements where true;
 end;
 $$;
 
