@@ -146,6 +146,19 @@ a `SECURITY DEFINER` function means touching `schema.sql`.) Don't add
 direct `.from('samples').update(...)` calls for status changes — go
 through the RPCs.
 
+A third RPC, `clear_movement_history()`, follows the same pattern for a
+different reason: `movements` has no DELETE policy at all (checkout/return
+never needed one, since they go through the RPCs above), so wiping the
+audit trail requires a SECURITY DEFINER function regardless. It checks
+`is_super_admin()` itself, deletes every `movements` row, and resets any
+`checked_out` sample back to `in_hall` in the same transaction. Frontend:
+`movementsApi.js` → `clearMovementHistory()`, wired to the "Clear Test
+Data" button on `/admin/movements`
+(`admin/components/ClearMovementHistoryDialog.jsx`, which requires typing
+"DELETE" before the button enables — this is a genuinely irreversible
+bulk delete, so it gets a harder-to-misclick confirmation than the
+standard `ConfirmDialog`).
+
 ### RLS model
 
 Every table has RLS enabled. Scoping is driven by three `SECURITY DEFINER`

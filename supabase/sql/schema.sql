@@ -390,6 +390,31 @@ grant execute on function public.checkout_sample to authenticated;
 grant execute on function public.return_sample to authenticated;
 
 -- ----------------------------------------------------------------------------
+-- 5b. TEST-DATA UTILITY — clear all movement history (admin only)
+-- Wipes the movements audit trail and resets any currently-issued
+-- samples back to 'in_hall' in the same transaction, so nothing is left
+-- stuck "Issued" with no movement record to return against. There is no
+-- direct DELETE policy on `movements` — this SECURITY DEFINER function
+-- (which checks is_super_admin() itself) is the only way to remove
+-- movement rows, same pattern as checkout_sample/return_sample.
+-- ----------------------------------------------------------------------------
+
+create or replace function public.clear_movement_history()
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_super_admin() then
+    raise exception 'Only admins can clear movement history';
+  end if;
+
+  update samples set status = 'in_hall' where status = 'checked_out';
+  delete from movements;
+end;
+$$;
+
+grant execute on function public.clear_movement_history to authenticated;
+
+-- ----------------------------------------------------------------------------
 -- 6. STORAGE — sample images
 -- Public bucket so <img> tags can render image_url directly with no auth
 -- header; uploads restricted to hall managers and admins.

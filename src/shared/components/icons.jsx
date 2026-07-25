@@ -137,3 +137,13 @@ export function IconAlert(props) {
     </svg>
   );
 }
+
+export function IconTrash(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4.5 7h15M9.5 7V5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 0114.5 5v2" />
+      <path d="M6.5 7l.9 12.1a2 2 0 002 1.9h5.2a2 2 0 002-1.9L17.5 7" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}

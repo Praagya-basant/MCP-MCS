@@ -14,15 +14,18 @@ import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, REASON_OPTIONS } from '@/shared/utils/constants';
-import { IconMove } from '@/shared/components/icons';
+import { IconMove, IconTrash } from '@/shared/components/icons';
 import { formatDateTime } from '@/shared/utils/formatters';
+import { Button } from '@/shared/components/Button';
+import { ClearMovementHistoryDialog } from '@/modules/mcs/admin/components/ClearMovementHistoryDialog';
 
 export default function AdminMovements() {
-  const { data: movements, loading } = useAsyncData(listMovements, []);
+  const { data: movements, loading, reload } = useAsyncData(listMovements, []);
   const { data: buyers } = useAsyncData(listBuyers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [clearOpen, setClearOpen] = useState(false);
 
   const flatRows = useMemo(
     () =>
@@ -146,6 +149,26 @@ export default function AdminMovements() {
           </>
         )}
       </Card>
+
+      <div className="mt-8 bg-white border border-red-200 rounded-card shadow-card px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 text-red-500 shrink-0">
+            <IconTrash className="w-5 h-5" />
+          </span>
+          <div>
+            <h2 className="text-body-lg font-semibold text-ink">Clear Test Data</h2>
+            <p className="mt-0.5 text-body text-ink-secondary max-w-md">
+              Permanently deletes every movement record across every hall and buyer. Use this to
+              wipe test checkouts/returns before going live — it cannot be undone.
+            </p>
+          </div>
+        </div>
+        <Button variant="danger" onClick={() => setClearOpen(true)} disabled={loading || movements?.length === 0}>
+          Clear Test Data
+        </Button>
+      </div>
+
+      <ClearMovementHistoryDialog open={clearOpen} onClose={() => setClearOpen(false)} onCleared={reload} />
     </div>
   );
 }

@@ -113,3 +113,15 @@ export async function returnSample({ movement, sample }) {
 
   return returned;
 }
+
+/**
+ * Wipes the entire movements audit trail — admin only, enforced inside
+ * the `clear_movement_history` RPC itself (SECURITY DEFINER, checks
+ * is_super_admin()). It also resets any currently-issued samples back to
+ * 'in_hall' in the same transaction, so nothing is left stuck "Issued"
+ * with no movement record to return against. Irreversible.
+ */
+export async function clearMovementHistory() {
+  const { error } = await supabase.rpc('clear_movement_history');
+  if (error) throw error;
+}
