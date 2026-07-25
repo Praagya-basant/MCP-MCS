@@ -162,11 +162,30 @@ all scoping.
    `profiles` row (with `hall`/`buyer` joined) whenever the session
    changes.
 2. `ProtectedRoute` (`shared/routes/ProtectedRoute.jsx`) gates a route
-   subtree: no session → `/login`; wrong role → redirected to *their own*
-   home via `ROLE_HOME` (never stuck on an error page).
+   subtree: no session → `/login?redirectTo=<path+search>`; wrong role →
+   redirected to *their own* home via `ROLE_HOME` (never stuck on an
+   error page). `Login.jsx` reads `redirectTo` back out (validated to be
+   a same-site path — see `safeRedirect()`) and lands there after a
+   successful sign-in, falling back to `ROLE_HOME[role]` if there wasn't
+   one. This is what makes the email "View Sample" link work for a
+   logged-out visitor — see [Deep-linking a sample](#deep-linking-a-sample-samplebtcode).
 3. There is **no signup page** — admins create every account. Login reads
    `role` from `profiles` and `App.jsx`'s `RootRedirect` sends the user to
    `/admin`, `/hall`, or `/merchant` accordingly.
+
+### Deep-linking a sample (`/sample/:btCode`)
+
+The "View Sample" button in every notification email points at
+`https://mcp-mcs.vercel.app/sample/<bt_code>`. That route (`pages/SampleRedirect.jsx`,
+behind a bare `<ProtectedRoute />` — any authenticated role) looks the
+sample up via `samplesApi.getSampleByBtCode()` (RLS-scoped, so it
+resolves to "not found" rather than leaking another buyer's sample) and
+redirects into that role's own `/*/samples` list with
+`state: { openSampleId }`. Each role's Samples page picks that up via
+`modules/mcs/hooks/useOpenSampleFromLocation.js` and opens the
+`SampleDetailDrawer` for it. If not logged in, `ProtectedRoute` bounces
+through `/login?redirectTo=/sample/<bt_code>` first (see above), so the
+whole round trip works from a cold, logged-out click.
 
 ### Creating users (why it needs an Edge Function)
 
@@ -187,6 +206,21 @@ and is **fire-and-forget**: a failed email must never fail or roll back a
 checkout/return/recall that already succeeded in the database. If you add
 a new email type, add a `case` in that function's `switch`, not a new
 function.
+
+Every email is sent as both `html` and a plain-text fallback, built by
+the shared `buildEmailHtml`/`buildEmailText({ heading, rows, btCode })`
+helpers in that same file — a logo, a heading, a label/value info block,
+and a "View Sample" button. Add a new row by pushing onto the `rows`
+array in the relevant `handle*` function, don't hand-roll new markup.
+Sender is `BASANT <noreply@basant.info>` (`FROM_ADDRESS`) — "BASANT", not
+"BASANT SSM", is what shows in the recipient's from field.
+
+The logo the emails reference is a plain object in the public
+`sample-images` storage bucket (`.../storage/v1/object/public/sample-images/logo-black.png`),
+uploaded once via `supabase storage cp public/logo-black.png ss:///sample-images/logo-black.png --linked --experimental`
+— it's not part of any sample's data, just parked at the bucket root. The
+"View Sample" button always links at `https://mcp-mcs.vercel.app` (the
+`APP_URL` constant), regardless of which environment triggered the send.
 
 `.env` / `.env.example` documents `VITE_RESEND_API_KEY` but no frontend
 code reads it — it's a placeholder for the name only. The real key is set

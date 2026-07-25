@@ -7,6 +7,7 @@ import { ROLE_HOME, ROLES } from '@/shared/utils/constants';
 
 import Login from '@/pages/Login';
 import NotFound from '@/pages/NotFound';
+import SampleRedirect from '@/pages/SampleRedirect';
 
 import AdminLayout from '@/modules/mcs/admin/AdminLayout';
 import AdminDashboard from '@/modules/mcs/admin/pages/Dashboard';
@@ -41,6 +42,13 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<Login />} />
+
+      {/* Email "View Sample" deep link — any authenticated role lands
+          here, gets bounced to their own role-scoped samples list with
+          the drawer pre-opened for that BT code. */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/sample/:btCode" element={<SampleRedirect />} />
+      </Route>
 
       {/* Admin — Module 1 (MCS). Module 2 (MCP) would add its own
           sibling <Route path="mcp/*"> block under the same

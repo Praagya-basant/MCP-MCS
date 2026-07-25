@@ -18,12 +18,14 @@ import { IconBox } from '@/shared/components/icons';
 import { formatRelativeTime } from '@/shared/utils/formatters';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
+import { useOpenSampleFromLocation } from '@/modules/mcs/hooks/useOpenSampleFromLocation';
 
 export default function MerchantSamples() {
   const location = useLocation();
   const { data: samples, loading, reload } = useAsyncData(listSamples, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listMovements, []);
   const [selected, setSelected] = useState(null);
+  useOpenSampleFromLocation(samples, setSelected);
 
   const openDestinationMap = useMemo(() => {
     const map = {};

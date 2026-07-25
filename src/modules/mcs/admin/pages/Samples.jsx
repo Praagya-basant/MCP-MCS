@@ -20,6 +20,7 @@ import { IconBox } from '@/shared/components/icons';
 import { formatDate } from '@/shared/utils/formatters';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
+import { useOpenSampleFromLocation } from '@/modules/mcs/hooks/useOpenSampleFromLocation';
 
 export default function AdminSamples() {
   const location = useLocation();
@@ -27,6 +28,7 @@ export default function AdminSamples() {
   const { data: buyers } = useAsyncData(listBuyers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [selected, setSelected] = useState(null);
+  useOpenSampleFromLocation(samples, setSelected);
 
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
     useTableControls(samples || [], {

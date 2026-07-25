@@ -19,6 +19,7 @@ import { IconBox, IconPlus } from '@/shared/components/icons';
 import { formatRelativeTime } from '@/shared/utils/formatters';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
+import { useOpenSampleFromLocation } from '@/modules/mcs/hooks/useOpenSampleFromLocation';
 
 export default function HallSamples() {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ export default function HallSamples() {
   const { data: samples, loading, reload } = useAsyncData(listSamples, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listMovements, []);
   const [selected, setSelected] = useState(null);
+  useOpenSampleFromLocation(samples, setSelected);
 
   const lastMovementMap = useMemo(() => {
     const map = {};

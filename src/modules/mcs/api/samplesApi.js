@@ -22,6 +22,19 @@ export async function getSample(id) {
   return mapSample(data);
 }
 
+/**
+ * Used by the /sample/:btCode email deep link. `maybeSingle` (not
+ * `single`) so a missing or RLS-blocked BT code resolves to `null`
+ * instead of throwing — the caller shows a "not found" state either way,
+ * which also keeps this from leaking whether a code exists outside the
+ * viewer's scope.
+ */
+export async function getSampleByBtCode(btCode) {
+  const { data, error } = await supabase.from('samples').select(SAMPLE_SELECT).eq('bt_code', btCode).maybeSingle();
+  if (error) throw error;
+  return data ? mapSample(data) : null;
+}
+
 export async function createSample({ buyerId, hallId, btCode, productRef, productName, imageUrl }) {
   const { data, error } = await supabase
     .from('samples')

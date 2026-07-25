@@ -1,15 +1,22 @@
 import { useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useToast } from '@/shared/context/ToastContext';
 import { Logo } from '@/shared/components/Logo';
 import { ROLE_HOME } from '@/shared/utils/constants';
 import { cn } from '@/shared/utils/cn';
 
+// Only ever follow a same-site path (must start with "/", not "//" —
+// the latter is protocol-relative and would silently redirect off-site).
+function safeRedirect(raw) {
+  return raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : null;
+}
+
 export default function Login() {
   const { session, role, signIn, loading: authLoading } = useAuth();
   const toast = useToast();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const redirectTo = safeRedirect(searchParams.get('redirectTo'));
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,8 +24,7 @@ export default function Login() {
   const [error, setError] = useState('');
 
   if (!authLoading && session && role) {
-    const redirectTo = location.state?.from || ROLE_HOME[role] || '/login';
-    return <Navigate to={redirectTo} replace />;
+    return <Navigate to={redirectTo || ROLE_HOME[role] || '/login'} replace />;
   }
 
   async function handleSubmit(e) {
