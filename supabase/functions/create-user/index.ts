@@ -69,12 +69,6 @@ Deno.serve(async (req) => {
         headers: jsonHeaders,
       });
     }
-    if (password.length < 8) {
-      return new Response(JSON.stringify({ error: 'Password must be at least 8 characters' }), {
-        status: 400,
-        headers: jsonHeaders,
-      });
-    }
     if (role === 'hall_manager' && !hall_id) {
       return new Response(JSON.stringify({ error: 'Hall managers require a hall assignment' }), {
         status: 400,

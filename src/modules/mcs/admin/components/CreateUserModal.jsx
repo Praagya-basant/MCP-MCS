@@ -32,10 +32,6 @@ export function CreateUserModal({ open, onClose, onCreated, halls }) {
       setError('Fill in all required fields.');
       return;
     }
-    if (form.password.length < 8) {
-      setError('Password must be at least 8 characters.');
-      return;
-    }
     if (form.role === ROLES.HALL_MANAGER && !form.hallId) {
       setError('Select a hall for this hall manager.');
       return;
@@ -90,7 +86,7 @@ export function CreateUserModal({ open, onClose, onCreated, halls }) {
           />
         </FormField>
 
-        <FormField label="Password" htmlFor="user-password" required hint="At least 8 characters.">
+        <FormField label="Password" htmlFor="user-password" required>
           <Input
             id="user-password"
             type="password"
