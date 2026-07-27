@@ -17,13 +17,14 @@ import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, SAMPLE_STATUS } from '@/shared/utils/constants';
-import { IconBox, IconCamera, IconLayers, IconUpload } from '@/shared/components/icons';
+import { IconBox, IconCamera, IconLayers, IconUpload, IconTrash } from '@/shared/components/icons';
 import { formatDate } from '@/shared/utils/formatters';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
 import { SampleImageModal } from '@/modules/mcs/components/SampleImageModal';
 import { BulkImageUploadModal } from '@/modules/mcs/admin/components/BulkImageUploadModal';
 import { EditSampleHallModal } from '@/modules/mcs/admin/components/EditSampleHallModal';
+import { DeleteSampleModal } from '@/modules/mcs/admin/components/DeleteSampleModal';
 import { useOpenSampleFromLocation } from '@/modules/mcs/hooks/useOpenSampleFromLocation';
 
 export default function AdminSamples() {
@@ -34,6 +35,7 @@ export default function AdminSamples() {
   const [selected, setSelected] = useState(null);
   const [imageSample, setImageSample] = useState(null);
   const [hallSample, setHallSample] = useState(null);
+  const [sampleToDelete, setSampleToDelete] = useState(null);
   const [bulkImageOpen, setBulkImageOpen] = useState(false);
   useOpenSampleFromLocation(samples, setSelected);
 
@@ -46,6 +48,10 @@ export default function AdminSamples() {
       const map = new Map(updatedList.map((s) => [s.id, s]));
       return (prev || []).map((s) => map.get(s.id) || s);
     });
+  }
+
+  function handleSampleDeleted(deletedId) {
+    setData((prev) => (prev || []).filter((s) => s.id !== deletedId));
   }
 
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
@@ -182,6 +188,17 @@ export default function AdminSamples() {
                       >
                         <IconLayers className="w-4 h-4" />
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label="Delete sample"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSampleToDelete(s);
+                        }}
+                      >
+                        <IconTrash className="w-4 h-4" />
+                      </Button>
                     </Td>
                   </Tr>
                 ))}
@@ -213,6 +230,13 @@ export default function AdminSamples() {
         samples={samples}
         onClose={() => setBulkImageOpen(false)}
         onUploaded={handleBulkImagesUploaded}
+      />
+
+      <DeleteSampleModal
+        open={!!sampleToDelete}
+        sample={sampleToDelete}
+        onClose={() => setSampleToDelete(null)}
+        onDeleted={handleSampleDeleted}
       />
     </div>
   );

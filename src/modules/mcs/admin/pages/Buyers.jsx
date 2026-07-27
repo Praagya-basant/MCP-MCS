@@ -11,16 +11,18 @@ import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listBuyersWithDetails } from '@/modules/mcs/api/buyersApi';
 import { PAGE_SIZE } from '@/shared/utils/constants';
-import { IconPlus, IconBuilding, IconUpload, IconEdit } from '@/shared/components/icons';
+import { IconPlus, IconBuilding, IconUpload, IconEdit, IconTrash } from '@/shared/components/icons';
 import { AddBuyerModal } from '@/modules/mcs/admin/components/AddBuyerModal';
 import { EditBuyerModal } from '@/modules/mcs/admin/components/EditBuyerModal';
 import { UploadSamplesModal } from '@/modules/mcs/admin/components/UploadSamplesModal';
+import { DeleteBuyerModal } from '@/modules/mcs/admin/components/DeleteBuyerModal';
 
 export default function Buyers() {
   const { data: buyers, loading, reload, setData } = useAsyncData(listBuyersWithDetails, []);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBuyer, setEditingBuyer] = useState(null);
   const [uploadForBuyer, setUploadForBuyer] = useState(null);
+  const [deletingBuyer, setDeletingBuyer] = useState(null);
 
   const { search, setSearch, page, setPage, totalPages, totalCount, pageRows } = useTableControls(
     buyers || [],
@@ -28,11 +30,15 @@ export default function Buyers() {
   );
 
   function handleCreated(buyer) {
-    setData((prev) => [...(prev || []), { sampleCount: 0, contacts: [], ...buyer }]);
+    setData((prev) => [...(prev || []), { sampleCount: 0, issuedCount: 0, contacts: [], ...buyer }]);
   }
 
   function handleUpdated(updatedBuyer) {
     setData((prev) => (prev || []).map((b) => (b.id === updatedBuyer.id ? { ...b, ...updatedBuyer } : b)));
+  }
+
+  function handleDeleted(deletedId) {
+    setData((prev) => (prev || []).filter((b) => b.id !== deletedId));
   }
 
   return (
@@ -98,6 +104,9 @@ export default function Buyers() {
                           <IconUpload className="w-3.5 h-3.5" />
                           Upload Samples
                         </Button>
+                        <Button size="sm" variant="ghost" aria-label="Delete buyer" onClick={() => setDeletingBuyer(b)}>
+                          <IconTrash className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     </Td>
                   </Tr>
@@ -123,6 +132,13 @@ export default function Buyers() {
         buyer={uploadForBuyer}
         onClose={() => setUploadForBuyer(null)}
         onImported={reload}
+      />
+
+      <DeleteBuyerModal
+        open={!!deletingBuyer}
+        buyer={deletingBuyer}
+        onClose={() => setDeletingBuyer(null)}
+        onDeleted={handleDeleted}
       />
     </div>
   );

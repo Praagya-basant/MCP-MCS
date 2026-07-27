@@ -16,7 +16,7 @@ export async function listBuyersWithDetails() {
   const [{ data: buyers, error: buyersErr }, { data: samples, error: samplesErr }, { data: contacts, error: contactsErr }] =
     await Promise.all([
       supabase.from('buyers').select('*').order('name'),
-      supabase.from('samples').select('buyer_id'),
+      supabase.from('samples').select('buyer_id, status'),
       supabase.from('merchant_contacts').select('id, buyer_id, profile:profiles(id, full_name, email)'),
     ]);
 
@@ -28,6 +28,7 @@ export async function listBuyersWithDetails() {
     ...buyer,
     name: shortenBuyerName(buyer.name),
     sampleCount: samples.filter((s) => s.buyer_id === buyer.id).length,
+    issuedCount: samples.filter((s) => s.buyer_id === buyer.id && s.status === 'checked_out').length,
     contacts: contacts.filter((c) => c.buyer_id === buyer.id),
   }));
 }
@@ -36,6 +37,18 @@ export async function createBuyer({ name }) {
   const { data, error } = await supabase.from('buyers').insert({ name }).select().single();
   if (error) throw error;
   return { ...data, name: shortenBuyerName(data.name) };
+}
+
+/**
+ * Permanently deletes a buyer, all their samples, and all associated
+ * movement/recall/comment history. None of those tables has a direct
+ * DELETE policy, so this goes through the delete_buyer() SECURITY
+ * DEFINER RPC (same pattern as delete_sample), which also rejects the
+ * call server-side if any of the buyer's samples is currently issued.
+ */
+export async function deleteBuyer(buyerId) {
+  const { error } = await supabase.rpc('delete_buyer', { p_buyer_id: buyerId });
+  if (error) throw error;
 }
 
 /**

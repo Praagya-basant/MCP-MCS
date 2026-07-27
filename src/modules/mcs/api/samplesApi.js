@@ -131,6 +131,18 @@ export async function updateSampleHall({ sampleId, hallId }) {
 }
 
 /**
+ * Permanently deletes a sample and its movement/recall/comment history.
+ * There's no direct DELETE policy on any of those tables, so this goes
+ * through the delete_sample() SECURITY DEFINER RPC (same pattern as
+ * checkout_sample/return_sample), which also rejects the call server-side
+ * if the sample is currently checked out.
+ */
+export async function deleteSample(sampleId) {
+  const { error } = await supabase.rpc('delete_sample', { p_sample_id: sampleId });
+  if (error) throw error;
+}
+
+/**
  * Uploads to the public `sample-images` bucket and returns the public URL
  * to store on the sample row (see schema.sql storage policies).
  */

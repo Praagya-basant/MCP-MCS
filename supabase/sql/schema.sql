@@ -461,6 +461,82 @@ $$;
 grant execute on function public.set_sample_image to authenticated;
 
 -- ----------------------------------------------------------------------------
+-- 5d. Delete a single sample (admin only) — permanently removes the sample
+-- and its full history (movements, recalls, comments). Blocked while the
+-- sample is checked out, same "don't leave an issue dangling" judgment as
+-- clear_movement_history. No direct DELETE policy exists on
+-- samples/movements/recall_requests/sample_comments, so this SECURITY
+-- DEFINER function is the only way to remove them.
+-- ----------------------------------------------------------------------------
+
+create or replace function public.delete_sample(p_sample_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_status text;
+begin
+  if not public.is_super_admin() then
+    raise exception 'Only admins can delete samples';
+  end if;
+
+  select status into v_status from samples where id = p_sample_id;
+
+  if v_status is null then
+    raise exception 'Sample not found';
+  end if;
+
+  if v_status = 'checked_out' then
+    raise exception 'Cannot delete a sample that is currently issued';
+  end if;
+
+  delete from recall_requests where sample_id = p_sample_id;
+  delete from sample_comments where sample_id = p_sample_id;
+  delete from movements where sample_id = p_sample_id;
+  delete from samples where id = p_sample_id;
+end;
+$$;
+
+grant execute on function public.delete_sample to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 5e. Delete a buyer (admin only) — permanently removes the buyer, every
+-- one of their samples, and all associated movement/recall/comment
+-- history. Blocked if any of the buyer's samples is currently checked
+-- out. Merchant profiles pointed at this buyer are unassigned (buyer_id
+-- set to null) rather than left dangling on a deleted row — same
+-- direction as unchecking a merchant contact in syncMerchantContacts().
+-- ----------------------------------------------------------------------------
+
+create or replace function public.delete_buyer(p_buyer_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_super_admin() then
+    raise exception 'Only admins can delete buyers';
+  end if;
+
+  if not exists (select 1 from buyers where id = p_buyer_id) then
+    raise exception 'Buyer not found';
+  end if;
+
+  if exists (select 1 from samples where buyer_id = p_buyer_id and status = 'checked_out') then
+    raise exception 'Cannot delete a buyer with samples currently issued';
+  end if;
+
+  delete from recall_requests where sample_id in (select id from samples where buyer_id = p_buyer_id);
+  delete from sample_comments where sample_id in (select id from samples where buyer_id = p_buyer_id);
+  delete from movements where sample_id in (select id from samples where buyer_id = p_buyer_id);
+  delete from samples where buyer_id = p_buyer_id;
+
+  update profiles set buyer_id = null where buyer_id = p_buyer_id;
+  delete from merchant_contacts where buyer_id = p_buyer_id;
+  delete from buyers where id = p_buyer_id;
+end;
+$$;
+
+grant execute on function public.delete_buyer to authenticated;
+
+-- ----------------------------------------------------------------------------
 -- 6. STORAGE — sample images
 -- Public bucket so <img> tags can render image_url directly with no auth
 -- header; uploads restricted to hall managers and admins.
