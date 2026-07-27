@@ -15,25 +15,19 @@ import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { PAGE_SIZE, SAMPLE_STATUS } from '@/shared/utils/constants';
-import { IconBox, IconPlus, IconCamera } from '@/shared/components/icons';
+import { IconBox, IconPlus } from '@/shared/components/icons';
 import { formatRelativeTime } from '@/shared/utils/formatters';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
-import { SampleImageModal } from '@/modules/mcs/components/SampleImageModal';
 import { useOpenSampleFromLocation } from '@/modules/mcs/hooks/useOpenSampleFromLocation';
 
 export default function HallSamples() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: samples, loading, reload, setData } = useAsyncData(listSamples, []);
+  const { data: samples, loading, reload } = useAsyncData(listSamples, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listMovements, []);
   const [selected, setSelected] = useState(null);
-  const [imageSample, setImageSample] = useState(null);
   useOpenSampleFromLocation(samples, setSelected);
-
-  function handleImageSaved(updated) {
-    setData((prev) => (prev || []).map((s) => (s.id === updated.id ? updated : s)));
-  }
 
   const lastMovementMap = useMemo(() => {
     const map = {};
@@ -113,7 +107,6 @@ export default function HallSamples() {
                   <Th>Buyer</Th>
                   <Th>Status</Th>
                   <Th>Last Movement</Th>
-                  <Th></Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -131,19 +124,6 @@ export default function HallSamples() {
                     <Td className="text-ink-secondary">
                       {s.lastMovement ? formatRelativeTime(s.lastMovement) : '—'}
                     </Td>
-                    <Td className="text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        aria-label="Upload sample image"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setImageSample(s);
-                        }}
-                      >
-                        <IconCamera className="w-4 h-4" />
-                      </Button>
-                    </Td>
                   </Tr>
                 ))}
               </Tbody>
@@ -154,13 +134,6 @@ export default function HallSamples() {
       </Card>
 
       <SampleDetailDrawer open={!!selected} sample={selected} onClose={() => setSelected(null)} onChanged={handleChanged} />
-
-      <SampleImageModal
-        open={!!imageSample}
-        sample={imageSample}
-        onClose={() => setImageSample(null)}
-        onSaved={handleImageSaved}
-      />
     </div>
   );
 }

@@ -53,14 +53,17 @@ export async function createSample({ buyerId, hallId, btCode, productRef, produc
 }
 
 /**
- * Bulk-inserts parsed Excel rows for the admin "Upload Samples" flow.
- * BT codes already present in the DB — or repeated within the same
- * file — are skipped rather than sent to the insert, since `bt_code` is
+ * Bulk-inserts parsed Excel rows for the admin "Upload Samples" flow. Each
+ * row carries its own resolved `hallId` (parsed from the file — see
+ * UploadSamplesModal), not a single hall shared across the batch. Callers
+ * should only pass rows that already validated (status "valid"); BT codes
+ * already present in the DB — or repeated within the same file — are
+ * still skipped here rather than sent to the insert, since `bt_code` is
  * unique and a single conflicting row would otherwise fail the whole
  * batch. Returns the inserted samples plus the rows that were skipped
  * (each tagged with why) so the caller can show both counts.
  */
-export async function bulkImportSamples({ buyerId, hallId, rows }) {
+export async function bulkImportSamples({ buyerId, rows }) {
   const seen = new Set();
   const withinFileDuplicates = [];
   const uniqueRows = [];
@@ -91,7 +94,7 @@ export async function bulkImportSamples({ buyerId, hallId, rows }) {
       .insert(
         toInsert.map((r) => ({
           buyer_id: buyerId,
-          hall_id: hallId,
+          hall_id: r.hallId,
           bt_code: r.btCode,
           product_ref: r.productRef || null,
           product_name: r.productName,
@@ -108,6 +111,23 @@ export async function bulkImportSamples({ buyerId, hallId, rows }) {
     inserted,
     skipped: [...alreadyInDb, ...withinFileDuplicates],
   };
+}
+
+/**
+ * Admin-only hall reassignment (Edit Sample Hall). Plain direct update —
+ * `samples_update_admin` RLS already grants admins full UPDATE on
+ * `samples`, so unlike checkout/return this doesn't need a SECURITY
+ * DEFINER RPC.
+ */
+export async function updateSampleHall({ sampleId, hallId }) {
+  const { data, error } = await supabase
+    .from('samples')
+    .update({ hall_id: hallId })
+    .eq('id', sampleId)
+    .select(SAMPLE_SELECT)
+    .single();
+  if (error) throw error;
+  return mapSample(data);
 }
 
 /**

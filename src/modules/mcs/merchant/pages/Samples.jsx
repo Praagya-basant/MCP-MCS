@@ -6,14 +6,12 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
 import { TableSkeleton } from '@/shared/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SearchInput } from '@/shared/components/SearchInput';
-import { Pagination } from '@/shared/components/Pagination';
 import { PillTabs } from '@/shared/components/PillTabs';
 import { StatusBadge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
-import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
-import { PAGE_SIZE, SAMPLE_STATUS } from '@/shared/utils/constants';
+import { SAMPLE_STATUS } from '@/shared/utils/constants';
 import { IconBox } from '@/shared/components/icons';
 import { formatRelativeTime } from '@/shared/utils/formatters';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
@@ -25,6 +23,8 @@ export default function MerchantSamples() {
   const { data: samples, loading, reload } = useAsyncData(listSamples, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listMovements, []);
   const [selected, setSelected] = useState(null);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState(location.state?.statusFilter || 'all');
   useOpenSampleFromLocation(samples, setSelected);
 
   const openDestinationMap = useMemo(() => {
@@ -54,12 +54,6 @@ export default function MerchantSamples() {
     [samples, openDestinationMap, lastMovementMap]
   );
 
-  const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
-    useTableControls(rows, {
-      searchFields: ['bt_code', 'product_name'],
-      initialFilters: location.state?.statusFilter ? { status: location.state.statusFilter } : undefined,
-    });
-
   const statusTabs = useMemo(
     () => [
       { value: 'all', label: 'All', count: rows.length },
@@ -68,6 +62,24 @@ export default function MerchantSamples() {
     ],
     [rows]
   );
+
+  const filteredRows = useMemo(() => {
+    let result = rows;
+    if (status !== 'all') result = result.filter((r) => r.status === status);
+    const q = search.trim().toLowerCase();
+    if (q) result = result.filter((r) => r.bt_code?.toLowerCase().includes(q) || r.product_name?.toLowerCase().includes(q));
+    return result;
+  }, [rows, status, search]);
+
+  const groups = useMemo(() => {
+    const byHall = new Map();
+    filteredRows.forEach((r) => {
+      const key = r.hall_id || 'unknown';
+      if (!byHall.has(key)) byHall.set(key, { hall: r.hall, rows: [] });
+      byHall.get(key).rows.push(r);
+    });
+    return Array.from(byHall.values()).sort((a, b) => (a.hall?.hall_number ?? 999) - (b.hall?.hall_number ?? 999));
+  }, [filteredRows]);
 
   function handleChanged() {
     reload();
@@ -80,7 +92,7 @@ export default function MerchantSamples() {
 
       <Card>
         <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-3">
-          <PillTabs options={statusTabs} value={filters.status || 'all'} onChange={(v) => setFilter('status', v)} />
+          <PillTabs options={statusTabs} value={status} onChange={setStatus} />
           <SearchInput value={search} onChange={setSearch} placeholder="Search BT code or name..." className="max-w-xs ml-auto" />
         </div>
 
@@ -88,40 +100,46 @@ export default function MerchantSamples() {
           <TableSkeleton rows={8} cols={5} />
         ) : samples.length === 0 ? (
           <EmptyState icon={<IconBox className="w-12 h-12 text-ink-muted" />} title="No samples yet" description="Samples signed in by hall managers will appear here." />
-        ) : pageRows.length === 0 ? (
+        ) : filteredRows.length === 0 ? (
           <EmptyState title="No matches" description="Try adjusting your search or filters." />
         ) : (
-          <>
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th className="w-[64px]"></Th>
-                  <Th>BT Code</Th>
-                  <Th>Product</Th>
-                  <Th>Status</Th>
-                  <Th>Location</Th>
-                  <Th>Last Movement</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {pageRows.map((s) => (
-                  <Tr key={s.id} onClick={() => setSelected(s)}>
-                    <Td>
-                      <SampleThumbnail sample={s} />
-                    </Td>
-                    <Td className="font-medium font-mono">{s.bt_code}</Td>
-                    <Td>{s.product_name}</Td>
-                    <Td>
-                      <StatusBadge status={s.status} />
-                    </Td>
-                    <Td className="text-ink-secondary">{s.location}</Td>
-                    <Td className="text-ink-secondary">{s.lastMovement ? formatRelativeTime(s.lastMovement) : '—'}</Td>
+          groups.map((group) => (
+            <div key={group.hall?.id || 'unknown'} className="border-b border-border last:border-b-0">
+              <div className="px-4 py-2.5 bg-surface-subtle">
+                <p className="text-caption font-medium text-ink-secondary">
+                  {group.hall?.name || 'Unassigned'} — {group.rows.length} sample{group.rows.length === 1 ? '' : 's'}
+                </p>
+              </div>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th className="w-[64px]"></Th>
+                    <Th>BT Code</Th>
+                    <Th>Product</Th>
+                    <Th>Status</Th>
+                    <Th>Location</Th>
+                    <Th>Last Movement</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
-            <Pagination page={page} totalPages={totalPages} totalCount={totalCount} pageSize={PAGE_SIZE} onPageChange={setPage} />
-          </>
+                </Thead>
+                <Tbody>
+                  {group.rows.map((s) => (
+                    <Tr key={s.id} onClick={() => setSelected(s)}>
+                      <Td>
+                        <SampleThumbnail sample={s} />
+                      </Td>
+                      <Td className="font-medium font-mono">{s.bt_code}</Td>
+                      <Td>{s.product_name}</Td>
+                      <Td>
+                        <StatusBadge status={s.status} />
+                      </Td>
+                      <Td className="text-ink-secondary">{s.location}</Td>
+                      <Td className="text-ink-secondary">{s.lastMovement ? formatRelativeTime(s.lastMovement) : '—'}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </div>
+          ))
         )}
       </Card>
 

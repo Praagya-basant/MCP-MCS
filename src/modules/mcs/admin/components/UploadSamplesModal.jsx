@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
-import { Select, FormField } from '@/shared/components/Input';
+import { FormField } from '@/shared/components/Input';
+import { Badge } from '@/shared/components/Badge';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useToast } from '@/shared/context/ToastContext';
@@ -12,27 +13,106 @@ import { cn } from '@/shared/utils/cn';
 
 const ACCEPTED_EXTENSIONS = ['.xlsx', '.xls'];
 
-/**
- * Column layout is fixed by spec, not read from a header row: first
- * sheet, data starting row 2 (row 1 is the header we skip), columns
- * A=S.N. (ignored), B=Product Image (ignored, embedded images aren't
- * read in this flow), C=BT Code, D=Product Ref, E=Product Name.
- */
-async function parseExcelFile(file) {
+const HEADER_ALIASES = {
+  btCode: ['btcode'],
+  productName: ['productname', 'name', 'itemname'],
+  productRef: ['productref', 'ref', 'reference'],
+  hall: ['hall', 'hallno', 'hallnumber'],
+};
+
+// Column-position fallback when the header row doesn't match known
+// aliases: A=S.N., B=Product Image (both ignored), C=BT Code,
+// D=Product Ref, E=Product Name, F=Hall.
+const FALLBACK_COLUMNS = { btCode: 2, productRef: 3, productName: 4, hall: 5 };
+
+function normalizeHeader(value) {
+  return String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function detectColumns(headerRow) {
+  const columns = {};
+  (headerRow || []).forEach((cell, index) => {
+    const normalized = normalizeHeader(cell);
+    for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
+      if (columns[field] === undefined && aliases.includes(normalized)) {
+        columns[field] = index;
+      }
+    }
+  });
+  return columns;
+}
+
+/** Resolves an Excel hall cell (e.g. "5", "Hall 5", "Mandore") against the halls table by name or hall_number. */
+function resolveHall(raw, halls) {
+  const value = String(raw ?? '').trim();
+  if (!value) return null;
+
+  const byName = (halls || []).find((h) => h.name?.toLowerCase() === value.toLowerCase());
+  if (byName) return byName;
+
+  const numMatch = value.match(/(\d+)/);
+  if (numMatch) {
+    const num = Number(numMatch[1]);
+    const byNumber = (halls || []).find((h) => h.hall_number === num);
+    if (byNumber) return byNumber;
+  }
+  return null;
+}
+
+async function parseExcelFile(file, halls) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!sheet) throw new Error('The workbook has no sheets.');
 
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
-  return rows
+  const sheetRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+  if (sheetRows.length === 0) return [];
+
+  const detected = detectColumns(sheetRows[0]);
+  const columns = {
+    btCode: detected.btCode !== undefined && detected.productName !== undefined ? detected.btCode : FALLBACK_COLUMNS.btCode,
+    productName: detected.btCode !== undefined && detected.productName !== undefined ? detected.productName : FALLBACK_COLUMNS.productName,
+    productRef: detected.btCode !== undefined && detected.productName !== undefined ? detected.productRef : FALLBACK_COLUMNS.productRef,
+    hall: detected.btCode !== undefined && detected.productName !== undefined ? detected.hall : FALLBACK_COLUMNS.hall,
+  };
+
+  return sheetRows
     .slice(1)
-    .map((row) => ({
-      btCode: String(row[2] ?? '').trim(),
-      productRef: String(row[3] ?? '').trim(),
-      productName: String(row[4] ?? '').trim(),
-    }))
-    .filter((r) => r.btCode && r.productName);
+    .map((row) => {
+      const btCode = String(row[columns.btCode] ?? '').trim();
+      const productName = String(row[columns.productName] ?? '').trim();
+      const productRef = columns.productRef !== undefined ? String(row[columns.productRef] ?? '').trim() : '';
+      const hallRaw = columns.hall !== undefined ? String(row[columns.hall] ?? '').trim() : '';
+      const matchedHall = resolveHall(hallRaw, halls);
+
+      let status = 'valid';
+      let errorReason = '';
+      if (!btCode) {
+        status = 'error';
+        errorReason = 'Missing BT Code';
+      } else if (!productName) {
+        status = 'error';
+        errorReason = 'Missing Product Name';
+      } else if (!hallRaw) {
+        status = 'error';
+        errorReason = 'Missing Hall';
+      } else if (!matchedHall) {
+        status = 'error';
+        errorReason = `Unrecognized hall "${hallRaw}"`;
+      }
+
+      return {
+        btCode,
+        productRef,
+        productName,
+        hallRaw,
+        hallId: matchedHall?.id || null,
+        hallName: matchedHall?.name || hallRaw,
+        status,
+        errorReason,
+      };
+    })
+    .filter((r) => r.btCode || r.productName || r.hallRaw);
 }
 
 function isAcceptedFile(file) {
@@ -45,7 +125,6 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
   const inputRef = useRef(null);
   const { data: halls } = useAsyncData(listHalls, []);
 
-  const [hallId, setHallId] = useState('');
   const [fileName, setFileName] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [parsing, setParsing] = useState(false);
@@ -55,7 +134,6 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
   const [result, setResult] = useState(null);
 
   function reset() {
-    setHallId('');
     setFileName('');
     setDragOver(false);
     setParsing(false);
@@ -86,9 +164,9 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
 
     setParsing(true);
     try {
-      const parsed = await parseExcelFile(file);
+      const parsed = await parseExcelFile(file, halls);
       if (parsed.length === 0) {
-        setParseError('No valid rows found — every row is missing a BT Code or Product Name.');
+        setParseError('No rows found in that file.');
         setFileName('');
         return;
       }
@@ -101,12 +179,15 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
     }
   }
 
+  const validRows = (rows || []).filter((r) => r.status === 'valid');
+  const errorRows = (rows || []).filter((r) => r.status === 'error');
+
   async function handleImport() {
     setImporting(true);
     try {
-      const { inserted, skipped } = await bulkImportSamples({ buyerId: buyer.id, hallId, rows });
+      const { inserted, skipped } = await bulkImportSamples({ buyerId: buyer.id, rows: validRows });
       toast.success(`${inserted.length} sample${inserted.length === 1 ? '' : 's'} imported successfully, ${skipped.length} skipped as duplicates`);
-      setResult({ insertedCount: inserted.length, skipped });
+      setResult({ insertedCount: inserted.length, skipped, errorRows });
       onImported?.();
     } catch (err) {
       toast.error(err.message);
@@ -117,7 +198,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
 
   if (!buyer) return null;
 
-  const canImport = !!hallId && !!rows && rows.length > 0 && !parsing && !importing;
+  const canImport = !!rows && validRows.length > 0 && !parsing && !importing;
 
   return (
     <Modal
@@ -146,16 +227,12 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
             <p className="text-body font-medium text-status-in-hall-text">
               {result.insertedCount} sample{result.insertedCount === 1 ? '' : 's'} imported successfully
             </p>
-            <p className="mt-0.5 text-caption text-ink-secondary">
-              Signed into {halls?.find((h) => h.id === hallId)?.name} for {buyer.name}.
-            </p>
+            <p className="mt-0.5 text-caption text-ink-secondary">for {buyer.name}, hall taken from each row.</p>
           </div>
 
           {result.skipped.length > 0 && (
             <div>
-              <p className="text-body font-medium text-ink mb-2">
-                Skipped duplicates ({result.skipped.length})
-              </p>
+              <p className="text-body font-medium text-ink mb-2">Skipped duplicates ({result.skipped.length})</p>
               <div className="max-h-40 overflow-y-auto scrollbar-thin border border-border rounded-control">
                 <ul className="divide-y divide-border">
                   {result.skipped.map((r, i) => (
@@ -168,23 +245,29 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
               </div>
             </div>
           )}
+
+          {result.errorRows.length > 0 && (
+            <div>
+              <p className="text-body font-medium text-ink mb-2">Not imported — errors ({result.errorRows.length})</p>
+              <div className="max-h-40 overflow-y-auto scrollbar-thin border border-border rounded-control">
+                <ul className="divide-y divide-border">
+                  {result.errorRows.map((r, i) => (
+                    <li key={`${r.btCode}-${i}`} className="px-3 py-2 text-caption text-ink-secondary flex items-center justify-between gap-3">
+                      <span className="font-mono text-ink">{r.btCode || '—'}</span>
+                      <span className="truncate text-red-600">{r.errorReason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-5">
           <p className="text-caption text-ink-secondary -mt-1">
-            Uploading samples for <span className="font-medium text-ink">{buyer.name}</span>
+            Uploading samples for <span className="font-medium text-ink">{buyer.name}</span> — hall is read from each
+            row's Hall column.
           </p>
-
-          <FormField label="Hall" htmlFor="upload-hall" required hint="Default hall for every sample in this file">
-            <Select id="upload-hall" value={hallId} onChange={(e) => setHallId(e.target.value)}>
-              <option value="">Select hall</option>
-              {(halls || []).map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </Select>
-          </FormField>
 
           <FormField label="Excel File" required>
             <input
@@ -226,7 +309,8 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
                   </svg>
                   <span className="text-caption text-ink font-medium">{fileName}</span>
                   <span className="text-caption text-ink-muted">
-                    {rows.length} row{rows.length === 1 ? '' : 's'} parsed &middot; click or drop to replace
+                    {validRows.length} valid, {errorRows.length} error{errorRows.length === 1 ? '' : 's'} &middot; click or drop to
+                    replace
                   </span>
                 </>
               ) : parseError ? (
@@ -245,7 +329,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
                     <path d="M20 16v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <span className="text-caption text-ink-secondary">Click or drag an Excel file to upload</span>
-                  <span className="text-caption text-ink-muted">.xlsx or .xls only</span>
+                  <span className="text-caption text-ink-muted">.xlsx or .xls only — include a Hall column</span>
                 </>
               )}
             </div>
@@ -259,16 +343,28 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
                   <Thead>
                     <Tr>
                       <Th>BT Code</Th>
-                      <Th>Product Ref</Th>
                       <Th>Product Name</Th>
+                      <Th>Product Ref</Th>
+                      <Th>Hall</Th>
+                      <Th>Status</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
                     {rows.map((r, i) => (
                       <Tr key={`${r.btCode}-${i}`}>
-                        <Td className="font-mono">{r.btCode}</Td>
+                        <Td className="font-mono">{r.btCode || '—'}</Td>
+                        <Td>{r.productName || '—'}</Td>
                         <Td className="text-ink-secondary">{r.productRef || '—'}</Td>
-                        <Td>{r.productName}</Td>
+                        <Td className="text-ink-secondary">{r.hallName || '—'}</Td>
+                        <Td>
+                          {r.status === 'valid' ? (
+                            <Badge className="bg-status-in-hall-bg text-status-in-hall-text">Valid</Badge>
+                          ) : (
+                            <span title={r.errorReason}>
+                              <Badge className="bg-red-50 text-red-600">Error</Badge>
+                            </span>
+                          )}
+                        </Td>
                       </Tr>
                     ))}
                   </Tbody>

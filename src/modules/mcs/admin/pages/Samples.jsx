@@ -17,11 +17,13 @@ import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, SAMPLE_STATUS } from '@/shared/utils/constants';
-import { IconBox, IconCamera } from '@/shared/components/icons';
+import { IconBox, IconCamera, IconLayers, IconUpload } from '@/shared/components/icons';
 import { formatDate } from '@/shared/utils/formatters';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
 import { SampleImageModal } from '@/modules/mcs/components/SampleImageModal';
+import { BulkImageUploadModal } from '@/modules/mcs/admin/components/BulkImageUploadModal';
+import { EditSampleHallModal } from '@/modules/mcs/admin/components/EditSampleHallModal';
 import { useOpenSampleFromLocation } from '@/modules/mcs/hooks/useOpenSampleFromLocation';
 
 export default function AdminSamples() {
@@ -31,10 +33,19 @@ export default function AdminSamples() {
   const { data: halls } = useAsyncData(listHalls, []);
   const [selected, setSelected] = useState(null);
   const [imageSample, setImageSample] = useState(null);
+  const [hallSample, setHallSample] = useState(null);
+  const [bulkImageOpen, setBulkImageOpen] = useState(false);
   useOpenSampleFromLocation(samples, setSelected);
 
   function handleImageSaved(updated) {
     setData((prev) => (prev || []).map((s) => (s.id === updated.id ? updated : s)));
+  }
+
+  function handleBulkImagesUploaded(updatedList) {
+    setData((prev) => {
+      const map = new Map(updatedList.map((s) => [s.id, s]));
+      return (prev || []).map((s) => map.get(s.id) || s);
+    });
   }
 
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
@@ -66,7 +77,16 @@ export default function AdminSamples() {
 
   return (
     <div>
-      <PageHeader title="Samples" description="Every signed sample across every hall." />
+      <PageHeader
+        title="Samples"
+        description="Every signed sample across every hall."
+        actions={
+          <Button variant="secondary" onClick={() => setBulkImageOpen(true)}>
+            <IconUpload className="w-4 h-4" />
+            Upload Images
+          </Button>
+        }
+      />
 
       <Card>
         <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-3">
@@ -139,7 +159,7 @@ export default function AdminSamples() {
                       <StatusBadge status={s.status} />
                     </Td>
                     <Td className="text-ink-secondary">{formatDate(s.created_at)}</Td>
-                    <Td className="text-right">
+                    <Td className="text-right whitespace-nowrap">
                       <Button
                         size="sm"
                         variant="ghost"
@@ -150,6 +170,17 @@ export default function AdminSamples() {
                         }}
                       >
                         <IconCamera className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label="Edit sample hall"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHallSample(s);
+                        }}
+                      >
+                        <IconLayers className="w-4 h-4" />
                       </Button>
                     </Td>
                   </Tr>
@@ -168,6 +199,20 @@ export default function AdminSamples() {
         sample={imageSample}
         onClose={() => setImageSample(null)}
         onSaved={handleImageSaved}
+      />
+
+      <EditSampleHallModal
+        open={!!hallSample}
+        sample={hallSample}
+        onClose={() => setHallSample(null)}
+        onSaved={handleImageSaved}
+      />
+
+      <BulkImageUploadModal
+        open={bulkImageOpen}
+        samples={samples}
+        onClose={() => setBulkImageOpen(false)}
+        onUploaded={handleBulkImagesUploaded}
       />
     </div>
   );

@@ -10,6 +10,28 @@ export async function listHalls() {
  * Halls joined with their assigned manager + sample count, for the
  * Admin /admin/halls table.
  */
+/**
+ * Admin "Add Hall" — the UI only asks for a name, but `hall_number` is
+ * `not null unique`, so it's auto-assigned as the next free number
+ * rather than surfaced as a field. `halls_write_admin` RLS already
+ * grants admins full CRUD on `halls`, so no new RPC is needed.
+ */
+export async function createHall({ name }) {
+  const { data: existing, error: fetchErr } = await supabase.from('halls').select('hall_number');
+  if (fetchErr) throw fetchErr;
+  const nextNumber = existing.reduce((max, h) => Math.max(max, h.hall_number || 0), 0) + 1;
+
+  const { data, error } = await supabase.from('halls').insert({ name, hall_number: nextNumber }).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function renameHall({ id, name }) {
+  const { data, error } = await supabase.from('halls').update({ name }).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
+}
+
 export async function listHallsWithDetails() {
   const [{ data: halls, error: hallsErr }, { data: managers, error: managersErr }, { data: samples, error: samplesErr }] =
     await Promise.all([
