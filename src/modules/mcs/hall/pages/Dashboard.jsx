@@ -44,7 +44,7 @@ export default function HallDashboard() {
   return (
     <div>
       <PageHeader
-        title={`Hall ${profile?.hall?.hall_number ?? ''} Dashboard`}
+        title={`${profile?.hall?.name || 'Hall'} Dashboard`}
         description="Samples and movements for your hall."
       />
 

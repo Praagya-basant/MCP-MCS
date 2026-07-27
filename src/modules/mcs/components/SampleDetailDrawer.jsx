@@ -136,7 +136,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
               <h3 className="mt-0.5 text-body-lg font-semibold text-ink">{localSample.product_name}</h3>
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                 {localSample.buyer?.name && <Badge>{localSample.buyer.name}</Badge>}
-                {localSample.hall?.hall_number && <Badge>Hall {localSample.hall.hall_number}</Badge>}
+                {localSample.hall?.name && <Badge>{localSample.hall.name}</Badge>}
                 <StatusBadge status={localSample.status} />
               </div>
             </div>
@@ -170,7 +170,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
                 <dt className="text-ink-secondary">Buyer</dt>
                 <dd className="text-ink">{localSample.buyer?.name || '—'}</dd>
                 <dt className="text-ink-secondary">Hall</dt>
-                <dd className="text-ink">Hall {localSample.hall?.hall_number}</dd>
+                <dd className="text-ink">{localSample.hall?.name}</dd>
                 <dt className="text-ink-secondary">Status</dt>
                 <dd>
                   <StatusBadge status={localSample.status} />
@@ -302,7 +302,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
         onClose={() => setReturnConfirmOpen(false)}
         onConfirm={handleConfirmReturn}
         title="Confirm Return"
-        description={`Mark ${localSample.bt_code} as returned to Hall ${localSample.hall?.hall_number}? The return time is recorded automatically.`}
+        description={`Mark ${localSample.bt_code} as returned to ${localSample.hall?.name}? The return time is recorded automatically.`}
         confirmLabel="Confirm Return"
         loading={returning}
       />

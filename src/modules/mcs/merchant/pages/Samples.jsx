@@ -48,7 +48,7 @@ export default function MerchantSamples() {
     () =>
       (samples || []).map((s) => ({
         ...s,
-        location: s.status === 'checked_out' ? openDestinationMap[s.id] || 'Unknown' : `Hall ${s.hall?.hall_number}`,
+        location: s.status === 'checked_out' ? openDestinationMap[s.id] || 'Unknown' : s.hall?.name,
         lastMovement: lastMovementMap[s.id],
       })),
     [samples, openDestinationMap, lastMovementMap]

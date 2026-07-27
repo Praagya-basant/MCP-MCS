@@ -27,7 +27,7 @@ export default function MerchantHistory() {
         ...m,
         bt_code: m.sample?.bt_code,
         product_name: m.sample?.product_name,
-        hall_number: m.sample?.hall?.hall_number,
+        hall_name: m.sample?.hall?.name,
       })),
     [movements]
   );
@@ -105,7 +105,7 @@ export default function MerchantHistory() {
                 {pageRows.map((m) => (
                   <Tr key={m.id}>
                     <Td className="font-medium">{m.bt_code}</Td>
-                    <Td className="text-ink-secondary">Hall {m.hall_number}</Td>
+                    <Td className="text-ink-secondary">{m.hall_name}</Td>
                     <Td>{m.picked_by_name}</Td>
                     <Td>
                       <Badge>{m.reason === 'Other' ? m.reason_other || 'Other' : m.reason}</Badge>

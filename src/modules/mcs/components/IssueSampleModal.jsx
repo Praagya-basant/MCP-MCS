@@ -3,9 +3,11 @@ import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
 import { Input, Select, Textarea, FormField } from '@/shared/components/Input';
 import { issueSample } from '@/modules/mcs/api/movementsApi';
+import { listHalls } from '@/modules/mcs/api/hallsApi';
+import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useToast } from '@/shared/context/ToastContext';
 import { useAuth } from '@/shared/context/AuthContext';
-import { DESTINATION_OPTIONS, REASON_OPTIONS } from '@/shared/utils/constants';
+import { NON_HALL_DESTINATIONS, REASON_OPTIONS } from '@/shared/utils/constants';
 import { cn } from '@/shared/utils/cn';
 
 const EMPTY = { pickedByName: '', destination: '', reason: '', reasonOther: '', notes: '' };
@@ -13,9 +15,12 @@ const EMPTY = { pickedByName: '', destination: '', reason: '', reasonOther: '', 
 export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
   const toast = useToast();
   const { profile } = useAuth();
+  const { data: halls } = useAsyncData(listHalls, []);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const destinationOptions = [...(halls || []).map((h) => h.name), ...NON_HALL_DESTINATIONS];
 
   function set(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -103,7 +108,7 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
         <FormField label="Destination" htmlFor="destination" required>
           <Select id="destination" value={form.destination} onChange={(e) => set('destination', e.target.value)}>
             <option value="">Select destination</option>
-            {DESTINATION_OPTIONS.map((d) => (
+            {destinationOptions.map((d) => (
               <option key={d} value={d}>
                 {d}
               </option>

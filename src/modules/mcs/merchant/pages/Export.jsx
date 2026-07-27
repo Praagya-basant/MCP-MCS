@@ -24,7 +24,7 @@ function samplesToRows(samples) {
     'Product Name': s.product_name,
     'Product Ref': s.product_ref || '',
     Status: s.status === 'checked_out' ? 'Issued' : 'In Hall',
-    Hall: s.hall?.hall_number ?? '',
+    Hall: s.hall?.name ?? '',
     'Added On': formatDateTime(s.created_at),
   }));
 }

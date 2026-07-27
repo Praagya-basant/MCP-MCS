@@ -80,7 +80,7 @@ export default function Users() {
                       <RoleBadge role={u.role} label={ROLE_LABELS[u.role]} />
                     </Td>
                     <Td className="text-ink-secondary">
-                      {u.hall ? `Hall ${u.hall.hall_number}` : u.buyer ? u.buyer.name : '—'}
+                      {u.hall ? u.hall.name : u.buyer ? u.buyer.name : '—'}
                     </Td>
                   </Tr>
                 ))}

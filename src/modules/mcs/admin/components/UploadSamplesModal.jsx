@@ -147,7 +147,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
               {result.insertedCount} sample{result.insertedCount === 1 ? '' : 's'} imported successfully
             </p>
             <p className="mt-0.5 text-caption text-ink-secondary">
-              Signed into Hall {halls?.find((h) => h.id === hallId)?.hall_number} for {buyer.name}.
+              Signed into {halls?.find((h) => h.id === hallId)?.name} for {buyer.name}.
             </p>
           </div>
 
@@ -180,7 +180,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
               <option value="">Select hall</option>
               {(halls || []).map((h) => (
                 <option key={h.id} value={h.id}>
-                  Hall {h.hall_number}
+                  {h.name}
                 </option>
               ))}
             </Select>

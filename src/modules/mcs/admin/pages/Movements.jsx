@@ -37,7 +37,7 @@ export default function AdminMovements() {
         buyer_id: m.sample?.buyer_id,
         buyer_name: m.sample?.buyer?.name,
         hall_id: m.sample?.hall_id,
-        hall_number: m.sample?.hall?.hall_number,
+        hall_name: m.sample?.hall?.name,
       })),
     [movements]
   );
@@ -69,7 +69,7 @@ export default function AdminMovements() {
             <option value="all">All halls</option>
             {(halls || []).map((h) => (
               <option key={h.id} value={h.id}>
-                Hall {h.hall_number}
+                {h.name}
               </option>
             ))}
           </Select>
@@ -128,7 +128,7 @@ export default function AdminMovements() {
                   <Tr key={m.id}>
                     <Td className="font-medium">{m.bt_code}</Td>
                     <Td className="text-ink-secondary">{m.buyer_name}</Td>
-                    <Td className="text-ink-secondary">Hall {m.hall_number}</Td>
+                    <Td className="text-ink-secondary">{m.hall_name}</Td>
                     <Td>{m.picked_by_name}</Td>
                     <Td>
                       <Badge>{m.reason === 'Other' ? m.reason_other || 'Other' : m.reason}</Badge>

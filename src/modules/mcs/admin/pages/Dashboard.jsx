@@ -105,7 +105,7 @@ export default function AdminDashboard() {
                   <Tr key={s.id}>
                     <Td className="font-medium font-mono">{s.bt_code}</Td>
                     <Td>{s.product_name}</Td>
-                    <Td>Hall {s.hall?.hall_number}</Td>
+                    <Td>{s.hall?.name}</Td>
                     <Td>
                       <StatusBadge status={s.status} />
                     </Td>

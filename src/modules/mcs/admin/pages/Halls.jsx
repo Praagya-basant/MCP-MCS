@@ -30,7 +30,7 @@ export default function Halls() {
             <Tbody>
               {halls.map((h) => (
                 <Tr key={h.id}>
-                  <Td className="font-medium">Hall {h.hall_number}</Td>
+                  <Td className="font-medium">{h.name}</Td>
                   <Td>
                     {h.managers.length === 0 ? (
                       <span className="text-ink-muted">Unassigned</span>

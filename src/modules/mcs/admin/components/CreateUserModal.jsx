@@ -116,7 +116,7 @@ export function CreateUserModal({ open, onClose, onCreated, halls }) {
               <option value="">Select a hall</option>
               {halls.map((h) => (
                 <option key={h.id} value={h.id}>
-                  Hall {h.hall_number}
+                  {h.name}
                 </option>
               ))}
             </Select>

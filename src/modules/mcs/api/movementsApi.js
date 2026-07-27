@@ -3,7 +3,7 @@ import { sendNotification } from '@/shared/lib/notify';
 import { shortenBuyerName } from '@/shared/utils/formatters';
 
 const MOVEMENT_SELECT =
-  '*, sample:samples(id, bt_code, product_name, buyer_id, hall_id, buyer:buyers(id, name), hall:halls(id, hall_number))';
+  '*, sample:samples(id, bt_code, product_name, buyer_id, hall_id, buyer:buyers(id, name), hall:halls(id, hall_number, name))';
 
 function mapMovement(movement) {
   if (!movement?.sample?.buyer) return movement;
@@ -80,7 +80,7 @@ export async function issueSample({
   sendNotification('checkout', {
     btCode: sample.bt_code,
     productName: sample.product_name,
-    hallNumber: sample.hall?.hall_number,
+    hallName: sample.hall?.name,
     buyerId: sample.buyer_id,
     pickedByName,
     destination,
@@ -106,7 +106,7 @@ export async function returnSample({ movement, sample }) {
   sendNotification('return', {
     btCode: sample.bt_code,
     productName: sample.product_name,
-    hallNumber: sample.hall?.hall_number,
+    hallName: sample.hall?.name,
     buyerId: sample.buyer_id,
     returnedAt: returned.returned_at,
   });

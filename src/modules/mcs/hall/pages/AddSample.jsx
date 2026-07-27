@@ -53,7 +53,7 @@ export default function AddSample() {
         imageUrl,
       });
 
-      toast.success(`${sample.bt_code} added to Hall ${profile.hall?.hall_number}`);
+      toast.success(`${sample.bt_code} added to ${profile.hall?.name}`);
       navigate('/hall/samples');
     } catch (err) {
       setError(err.message?.includes('duplicate') ? 'A sample with this BT code already exists.' : err.message);

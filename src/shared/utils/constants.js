@@ -47,17 +47,10 @@ export const RECALL_STATUS_LABELS = {
   [RECALL_STATUS.RESOLVED]: 'Resolved',
 };
 
-// Destination dropdown options only — the actual `halls` table (seeded
-// with 2/5/8/10/11 in schema.sql) is unrelated and untouched. "Hall 3"
-// exists here as a valid pick-up/drop-off destination even though it
-// isn't a hall this app tracks samples within.
-export const HALL_NUMBERS = [2, 3, 5, 8, 10, 11];
-
-export const DESTINATION_OPTIONS = [
-  ...HALL_NUMBERS.map((n) => `Hall ${n}`),
-  'Supplier',
-  'Other',
-];
+// Non-hall destination options for the Issue Sample form — the hall
+// portion of that dropdown is read live from the `halls` table (see
+// IssueSampleModal), not hardcoded here.
+export const NON_HALL_DESTINATIONS = ['Supplier', 'Other'];
 
 export const REASON_OPTIONS = [
   'Inspection',

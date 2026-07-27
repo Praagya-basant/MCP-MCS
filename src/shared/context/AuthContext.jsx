@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
     }
     const { data, error } = await supabase
       .from('profiles')
-      .select('*, hall:halls(id, hall_number), buyer:buyers(id, name)')
+      .select('*, hall:halls(id, hall_number, name), buyer:buyers(id, name)')
       .eq('id', userId)
       .single();
 

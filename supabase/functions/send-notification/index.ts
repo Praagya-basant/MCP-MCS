@@ -189,10 +189,10 @@ async function getHallManagerEmails(hallId) {
   return data.map((row) => row.email).filter(Boolean);
 }
 
-async function getHallIdByNumber(hallNumber) {
-  const { data, error } = await supabase.from('halls').select('id').eq('hall_number', hallNumber).maybeSingle();
+async function getHallIdByName(name) {
+  const { data, error } = await supabase.from('halls').select('id').eq('name', name).maybeSingle();
   if (error) {
-    console.error('Failed to look up hall by number', error);
+    console.error('Failed to look up hall by name', error);
     return null;
   }
   return data?.id ?? null;
@@ -206,12 +206,13 @@ async function getHallIdByNumber(hallNumber) {
  *
  * A second email — to the manager of the *destination* hall — is wired
  * up below but disabled for now (commented out, not removed). To
- * re-enable it, uncomment the block; it already handles parsing "Hall N"
- * out of `destination`, skipping Supplier/Other, and skipping halls with
- * no manager on file.
+ * re-enable it, uncomment the block; it looks the destination hall up by
+ * *name* (via getHallIdByName, since halls now have a name column and
+ * `destination` is that name — no longer a parseable "Hall N" string),
+ * skipping Supplier/Other and halls with no manager on file.
  */
 async function handleCheckout(payload) {
-  const { btCode, productName, hallNumber, buyerId, /* pickedByName, */ destination, reason, pickedAt, loggedByName } = payload;
+  const { btCode, productName, hallName, buyerId, /* pickedByName, */ destination, reason, pickedAt, loggedByName } = payload;
 
   const merchantEmails = await getMerchantContactEmails(buyerId);
   const when = formatDateTime(pickedAt);
@@ -223,7 +224,7 @@ async function handleCheckout(payload) {
     rows: [
       { label: 'BT Code', value: btCode },
       { label: 'Product Name', value: productName },
-      { label: 'Hall', value: hallNumber ? `Hall ${hallNumber}` : '' },
+      { label: 'Hall', value: hallName || '' },
       { label: 'Destination', value: destination },
       { label: 'Reason', value: reason },
       { label: 'Date & Time', value: when },
@@ -233,11 +234,8 @@ async function handleCheckout(payload) {
   });
 
   // --- Destination hall manager email — disabled for now, see docstring above ---
-  // const destinationHallNumber = /^Hall\s+(\d+)$/i.exec((destination || '').trim())?.[1];
-  // if (!destinationHallNumber) return;
-  //
-  // const destHallId = await getHallIdByNumber(Number(destinationHallNumber));
-  // if (!destHallId) return;
+  // const destHallId = await getHallIdByName(destination);
+  // if (!destHallId) return; // Supplier/Other, or a name that isn't a tracked hall
   //
   // const destManagerEmails = await getHallManagerEmails(destHallId);
   //
@@ -248,7 +246,7 @@ async function handleCheckout(payload) {
   //   rows: [
   //     { label: 'BT Code', value: btCode },
   //     { label: 'Product Name', value: productName },
-  //     { label: 'From Hall', value: hallNumber ? `Hall ${hallNumber}` : '' },
+  //     { label: 'From Hall', value: hallName || '' },
   //     { label: 'Picker', value: pickedByName },
   //     { label: 'Reason', value: reason },
   //     { label: 'Date & Time', value: when },
@@ -258,7 +256,7 @@ async function handleCheckout(payload) {
 }
 
 async function handleReturn(payload) {
-  const { btCode, productName, hallNumber, buyerId, returnedAt } = payload;
+  const { btCode, productName, hallName, buyerId, returnedAt } = payload;
   const merchantEmails = await getMerchantContactEmails(buyerId);
 
   await sendEmail({
@@ -268,7 +266,7 @@ async function handleReturn(payload) {
     rows: [
       { label: 'BT Code', value: btCode },
       { label: 'Product Name', value: productName },
-      { label: 'Hall', value: hallNumber ? `Hall ${hallNumber}` : '' },
+      { label: 'Hall', value: hallName || '' },
       { label: 'Date & Time', value: formatDateTime(returnedAt) },
     ],
     btCode,

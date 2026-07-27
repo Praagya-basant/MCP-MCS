@@ -20,9 +20,20 @@ create table if not exists halls (
   created_at timestamptz default now()
 );
 
-insert into halls (hall_number)
-select v.hall_number from (values (2),(5),(8),(10),(11)) as v(hall_number)
+-- Added after the initial schema (the app now displays this instead of
+-- "Hall {hall_number}" everywhere). `add column if not exists` keeps
+-- this script idempotent whether the column is already there — as it is
+-- on the live project — or this is a brand-new install.
+alter table halls add column if not exists name text;
+
+insert into halls (hall_number, name)
+select v.hall_number, v.name from (values (2,'Hall 2'),(5,'Hall 5'),(8,'Hall 8'),(10,'Hall 10'),(11,'Hall 11')) as v(hall_number, name)
 where not exists (select 1 from halls h where h.hall_number = v.hall_number);
+
+-- Backfills any hall row that predates the `name` column (e.g. seeded
+-- before this change). Add further/renamed halls (like a "Mandore") by
+-- hand via SQL insert — this seed only knows about the original 5.
+update halls set name = 'Hall ' || hall_number where name is null;
 
 create table if not exists profiles (
   id uuid primary key references auth.users(id),

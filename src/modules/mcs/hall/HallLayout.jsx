@@ -19,13 +19,12 @@ const navSections = [
 
 export default function HallLayout() {
   const { profile } = useAuth();
-  const hallNumber = profile?.hall?.hall_number;
 
   return (
     <DashboardLayout
       navSections={navSections}
       sidebarSubtitle="Manager"
-      contextLabel={hallNumber ? `Hall ${hallNumber}` : 'Manager'}
+      contextLabel={profile?.hall?.name || 'Manager'}
     />
   );
 }

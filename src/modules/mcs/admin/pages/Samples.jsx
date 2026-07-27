@@ -85,7 +85,7 @@ export default function AdminSamples() {
               <option value="all">All halls</option>
               {(halls || []).map((h) => (
                 <option key={h.id} value={h.id}>
-                  Hall {h.hall_number}
+                  {h.name}
                 </option>
               ))}
             </Select>
@@ -126,7 +126,7 @@ export default function AdminSamples() {
                     <Td className="font-medium font-mono">{s.bt_code}</Td>
                     <Td>{s.product_name}</Td>
                     <Td className="text-ink-secondary">{s.buyer?.name}</Td>
-                    <Td className="text-ink-secondary">Hall {s.hall?.hall_number}</Td>
+                    <Td className="text-ink-secondary">{s.hall?.name}</Td>
                     <Td>
                       <StatusBadge status={s.status} />
                     </Td>
