@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { full_name, email, password, role, hall_id, buyer_id } = await req.json();
+    const { full_name, email, password, role, hall_id } = await req.json();
 
     if (!full_name || !email || !password || !VALID_ROLES.includes(role)) {
       return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), {
@@ -81,12 +81,6 @@ Deno.serve(async (req) => {
         headers: jsonHeaders,
       });
     }
-    if (role === 'merchant' && !buyer_id) {
-      return new Response(JSON.stringify({ error: 'Merchants require a buyer assignment' }), {
-        status: 400,
-        headers: jsonHeaders,
-      });
-    }
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email,
@@ -98,6 +92,9 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: createErr.message }), { status: 400, headers: jsonHeaders });
     }
 
+    // Merchants are created with no buyer_id — that assignment (which also
+    // drives their RLS scoping) happens later from the Add/Edit Buyer
+    // form's merchant-contacts multi-select, not at user creation time.
     const { data: profile, error: profileErr } = await admin
       .from('profiles')
       .insert({
@@ -106,7 +103,7 @@ Deno.serve(async (req) => {
         email,
         role,
         hall_id: role === 'hall_manager' ? hall_id : null,
-        buyer_id: role === 'merchant' ? buyer_id : null,
+        buyer_id: null,
       })
       .select()
       .single();
@@ -115,13 +112,6 @@ Deno.serve(async (req) => {
       // Roll back the auth user so we don't leave an orphaned login with no profile.
       await admin.auth.admin.deleteUser(created.user.id);
       return new Response(JSON.stringify({ error: profileErr.message }), { status: 400, headers: jsonHeaders });
-    }
-
-    // Every merchant user is, by default, a notification recipient for
-    // their buyer's checkout/return emails — that's what merchant_contacts
-    // drives. Admins never have to wire this up separately.
-    if (role === 'merchant') {
-      await admin.from('merchant_contacts').insert({ buyer_id, profile_id: profile.id });
     }
 
     return new Response(JSON.stringify({ profile }), { headers: jsonHeaders });

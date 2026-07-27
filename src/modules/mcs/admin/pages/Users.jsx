@@ -11,7 +11,6 @@ import { RoleBadge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listUsers } from '@/modules/mcs/api/usersApi';
-import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, ROLE_LABELS } from '@/shared/utils/constants';
 import { IconPlus, IconUsers } from '@/shared/components/icons';
@@ -20,7 +19,6 @@ import { CreateUserModal } from '@/modules/mcs/admin/components/CreateUserModal'
 export default function Users() {
   const { data: users, loading, setData } = useAsyncData(listUsers, []);
   const { data: halls } = useAsyncData(listHalls, []);
-  const { data: buyers } = useAsyncData(listBuyers, []);
   const [modalOpen, setModalOpen] = useState(false);
 
   const { search, setSearch, page, setPage, totalPages, totalCount, pageRows } = useTableControls(
@@ -98,7 +96,6 @@ export default function Users() {
         onClose={() => setModalOpen(false)}
         onCreated={handleCreated}
         halls={halls || []}
-        buyers={buyers || []}
       />
     </div>
   );

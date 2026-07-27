@@ -11,13 +11,15 @@ import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listBuyersWithDetails } from '@/modules/mcs/api/buyersApi';
 import { PAGE_SIZE } from '@/shared/utils/constants';
-import { IconPlus, IconBuilding, IconUpload } from '@/shared/components/icons';
+import { IconPlus, IconBuilding, IconUpload, IconEdit } from '@/shared/components/icons';
 import { AddBuyerModal } from '@/modules/mcs/admin/components/AddBuyerModal';
+import { EditBuyerModal } from '@/modules/mcs/admin/components/EditBuyerModal';
 import { UploadSamplesModal } from '@/modules/mcs/admin/components/UploadSamplesModal';
 
 export default function Buyers() {
   const { data: buyers, loading, reload, setData } = useAsyncData(listBuyersWithDetails, []);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingBuyer, setEditingBuyer] = useState(null);
   const [uploadForBuyer, setUploadForBuyer] = useState(null);
 
   const { search, setSearch, page, setPage, totalPages, totalCount, pageRows } = useTableControls(
@@ -27,6 +29,10 @@ export default function Buyers() {
 
   function handleCreated(buyer) {
     setData((prev) => [...(prev || []), { sampleCount: 0, contacts: [], ...buyer }]);
+  }
+
+  function handleUpdated(updatedBuyer) {
+    setData((prev) => (prev || []).map((b) => (b.id === updatedBuyer.id ? { ...b, ...updatedBuyer } : b)));
   }
 
   return (
@@ -82,11 +88,17 @@ export default function Buyers() {
                         <span>{b.contacts.map((c) => c.profile?.full_name).filter(Boolean).join(', ')}</span>
                       )}
                     </Td>
-                    <Td className="text-right">
-                      <Button size="sm" variant="secondary" onClick={() => setUploadForBuyer(b)}>
-                        <IconUpload className="w-3.5 h-3.5" />
-                        Upload Samples
-                      </Button>
+                    <Td>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => setEditingBuyer(b)}>
+                          <IconEdit className="w-3.5 h-3.5" />
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => setUploadForBuyer(b)}>
+                          <IconUpload className="w-3.5 h-3.5" />
+                          Upload Samples
+                        </Button>
+                      </div>
                     </Td>
                   </Tr>
                 ))}
@@ -98,6 +110,13 @@ export default function Buyers() {
       </Card>
 
       <AddBuyerModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={handleCreated} />
+
+      <EditBuyerModal
+        open={!!editingBuyer}
+        buyer={editingBuyer}
+        onClose={() => setEditingBuyer(null)}
+        onUpdated={handleUpdated}
+      />
 
       <UploadSamplesModal
         open={!!uploadForBuyer}

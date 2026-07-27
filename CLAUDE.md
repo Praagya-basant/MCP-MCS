@@ -112,16 +112,33 @@ peer, not a rewrite:
 - `halls` — the 5 physical halls (2, 5, 8, 10, 11), seeded once.
 - `profiles` — one row per login, `id` = `auth.users.id`. `role` is
   `super_admin | hall_manager | merchant`. `hall_id` set for hall
-  managers, `buyer_id` set for merchants.
+  managers. `buyer_id` set for merchants — but *not* at creation time; see
+  merchant assignment note below.
 - `samples` — one row per physical sample (`bt_code` unique). `status` is
   `in_hall | checked_out` (displayed in the UI as "In Hall" / "Issued" —
   see `SAMPLE_STATUS_LABELS` in `constants.js`; the DB value is untouched).
 - `movements` — one row per checkout, updated in place on return
   (`status: out -> returned`, `returned_at` set). This is the audit trail.
 - `merchant_contacts` — join table: which profiles receive email
-  notifications for a given buyer. **Auto-populated** when a merchant user
-  is created via the `create-user` edge function — admins never manage
-  this by hand.
+  notifications for a given buyer.
+
+### Merchant-to-buyer assignment lives entirely in the Buyer form
+
+Add User no longer collects a buyer for merchant role — `create-user`
+always inserts merchant profiles with `buyer_id: null`. The only place a
+merchant gets connected to a buyer is the Add/Edit Buyer form's
+"Merchant Contacts" checkbox multi-select (`admin/components/
+MerchantContactsSelect.jsx`), backed by `buyersApi.syncMerchantContacts()`.
+Checking a merchant there does two things in one call: inserts a
+`merchant_contacts` row (email routing) *and* sets that profile's
+`buyer_id` (actual RLS scoping — `current_buyer_id()` reads this column,
+`merchant_contacts` alone does not grant access). Unchecking does the
+reverse, clearing `buyer_id` only if it still points at that buyer, so it
+can't clobber a reassignment made elsewhere. A merchant profile has a
+single `buyer_id`, so this only supports one "home" buyer per merchant
+even though `merchant_contacts` itself is a many-to-many table — Edit
+Buyer is the only surface for changing it once a buyer already exists;
+Add Buyer only helps for a buyer that doesn't exist yet.
 - `recall_requests` — merchant-raised requests to return a sample early.
 - `sample_comments` — merchant comments on a sample, visible to admin/hall
   manager of that sample too.
@@ -204,10 +221,10 @@ whole round trip works from a cold, logged-out click.
 
 Supabase's `auth.admin.createUser()` requires the service-role key, which
 must never reach the browser. `supabase/functions/create-user/` verifies
-the caller is a `super_admin` (via their own JWT), creates the auth user
-server-side, inserts the `profiles` row, and — if the new user is a
-merchant — inserts them into `merchant_contacts` too. Frontend entry
-point: `modules/mcs/api/usersApi.js` → `createUser()`.
+the caller is a `super_admin` (via their own JWT), then creates the auth
+user and the matching `profiles` row server-side (`buyer_id` always
+`null` for merchants — see the merchant-assignment note above). Frontend
+entry point: `modules/mcs/api/usersApi.js` → `createUser()`.
 
 ## Email notifications
 

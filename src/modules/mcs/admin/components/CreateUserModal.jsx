@@ -6,9 +6,9 @@ import { createUser } from '@/modules/mcs/api/usersApi';
 import { useToast } from '@/shared/context/ToastContext';
 import { ROLES, ROLE_LABELS } from '@/shared/utils/constants';
 
-const EMPTY = { fullName: '', email: '', password: '', role: '', hallId: '', buyerId: '' };
+const EMPTY = { fullName: '', email: '', password: '', role: '', hallId: '' };
 
-export function CreateUserModal({ open, onClose, onCreated, halls, buyers }) {
+export function CreateUserModal({ open, onClose, onCreated, halls }) {
   const toast = useToast();
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState('');
@@ -40,10 +40,6 @@ export function CreateUserModal({ open, onClose, onCreated, halls, buyers }) {
       setError('Select a hall for this hall manager.');
       return;
     }
-    if (form.role === ROLES.MERCHANT && !form.buyerId) {
-      setError('Select a buyer for this merchant.');
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -53,7 +49,6 @@ export function CreateUserModal({ open, onClose, onCreated, halls, buyers }) {
         password: form.password,
         role: form.role,
         hallId: form.role === ROLES.HALL_MANAGER ? form.hallId : null,
-        buyerId: form.role === ROLES.MERCHANT ? form.buyerId : null,
       });
       toast.success('User created');
       onCreated?.(profile);
@@ -129,16 +124,9 @@ export function CreateUserModal({ open, onClose, onCreated, halls, buyers }) {
         )}
 
         {form.role === ROLES.MERCHANT && (
-          <FormField label="Assigned Buyer" htmlFor="user-buyer" required>
-            <Select id="user-buyer" value={form.buyerId} onChange={(e) => set('buyerId', e.target.value)}>
-              <option value="">Select a buyer</option>
-              {buyers.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </Select>
-          </FormField>
+          <p className="text-caption text-ink-muted -mt-1">
+            Buyer assignment happens from Admin &rarr; Buyers, not here.
+          </p>
         )}
 
         {error && <p className="text-caption text-red-600">{error}</p>}

@@ -12,9 +12,9 @@ export async function listUsers() {
 
 /**
  * Every merchant-role profile, for the "Merchant Contacts" multi-select
- * on Add Buyer — deliberately unfiltered by existing `buyer_id`, since
- * merchant_contacts (who gets CC'd on notification emails for a buyer)
- * is independent of which buyer a merchant's own profile belongs to.
+ * on Add/Edit Buyer — that's the only place a merchant gets connected to
+ * a buyer (see buyersApi.syncMerchantContacts), since Add User no longer
+ * collects one.
  */
 export async function listMerchantUsers() {
   const { data, error } = await supabase
@@ -31,9 +31,10 @@ export async function listMerchantUsers() {
  * the service role key — that can never live in the browser. This calls
  * the `create-user` edge function, which validates the caller is a
  * super_admin, creates the auth user, and inserts the matching profile
- * row in one server-side step.
+ * row in one server-side step. Merchants are created with no buyer —
+ * that's assigned later via the Add/Edit Buyer form.
  */
-export async function createUser({ fullName, email, password, role, hallId, buyerId }) {
+export async function createUser({ fullName, email, password, role, hallId }) {
   const { data, error } = await supabase.functions.invoke('create-user', {
     body: {
       full_name: fullName,
@@ -41,7 +42,6 @@ export async function createUser({ fullName, email, password, role, hallId, buye
       password,
       role,
       hall_id: hallId || null,
-      buyer_id: buyerId || null,
     },
   });
 

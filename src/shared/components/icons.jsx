@@ -147,6 +147,15 @@ export function IconAlert(props) {
   );
 }
 
+export function IconEdit(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M15.5 4.5l4 4L8 20H4v-4L15.5 4.5z" />
+      <path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+
 export function IconTrash(props) {
   return (
     <svg {...base} {...props}>

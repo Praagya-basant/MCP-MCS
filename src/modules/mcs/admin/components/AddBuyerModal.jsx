@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
 import { Input, FormField } from '@/shared/components/Input';
-import { createBuyer, addMerchantContacts } from '@/modules/mcs/api/buyersApi';
+import { createBuyer, syncMerchantContacts } from '@/modules/mcs/api/buyersApi';
 import { listMerchantUsers } from '@/modules/mcs/api/usersApi';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useToast } from '@/shared/context/ToastContext';
+import { MerchantContactsSelect } from '@/modules/mcs/admin/components/MerchantContactsSelect';
 
 export function AddBuyerModal({ open, onClose, onCreated }) {
   const toast = useToast();
@@ -38,7 +39,7 @@ export function AddBuyerModal({ open, onClose, onCreated }) {
 
       let contacts = [];
       if (selectedIds.length > 0) {
-        await addMerchantContacts({ buyerId: buyer.id, profileIds: selectedIds });
+        await syncMerchantContacts({ buyerId: buyer.id, addProfileIds: selectedIds });
         contacts = selectedIds.map((id) => ({
           profile: merchants.find((m) => m.id === id),
         }));
@@ -89,31 +90,7 @@ export function AddBuyerModal({ open, onClose, onCreated }) {
           label="Merchant Contacts"
           hint={selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Optional — link existing merchant users to this buyer'}
         >
-          <div className="max-h-48 overflow-y-auto scrollbar-thin border border-border rounded-control divide-y divide-border">
-            {!merchants ? (
-              <p className="px-3 py-3 text-caption text-ink-muted">Loading merchants&hellip;</p>
-            ) : merchants.length === 0 ? (
-              <p className="px-3 py-3 text-caption text-ink-muted">No merchant users yet.</p>
-            ) : (
-              merchants.map((m) => (
-                <label
-                  key={m.id}
-                  className="interactive flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-sidebar"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(m.id)}
-                    onChange={() => toggleMerchant(m.id)}
-                    className="w-4 h-4 rounded border-border-strong accent-ink focus:ring-1 focus:ring-ink"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-body text-ink truncate">{m.full_name}</p>
-                    <p className="text-caption text-ink-muted truncate">{m.email}</p>
-                  </div>
-                </label>
-              ))
-            )}
-          </div>
+          <MerchantContactsSelect merchants={merchants} selectedIds={selectedIds} onToggle={toggleMerchant} />
         </FormField>
       </form>
     </Modal>

@@ -38,31 +38,48 @@ export async function createBuyer({ name }) {
   return { ...data, name: shortenBuyerName(data.name) };
 }
 
-export async function addMerchantContact({ buyerId, profileId }) {
-  const { data, error } = await supabase
-    .from('merchant_contacts')
-    .insert({ buyer_id: buyerId, profile_id: profileId })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
 /**
- * Bulk version for the Add Buyer form's merchant-contacts multi-select —
- * one insert for every selected merchant instead of N round trips.
+ * Backs the merchant-contacts multi-select on both Add Buyer (addOnly)
+ * and Edit Buyer (add + remove diff). A merchant profile only has one
+ * `buyer_id`, so this is the single place that assignment gets made —
+ * checking a merchant here both makes them a notification recipient
+ * (`merchant_contacts`) AND sets their actual access scoping
+ * (`profiles.buyer_id`); unchecking does the reverse, clearing buyer_id
+ * only if it still points at *this* buyer (so it can't clobber a
+ * reassignment made elsewhere in the meantime).
  */
-export async function addMerchantContacts({ buyerId, profileIds }) {
-  if (!profileIds.length) return [];
-  const { data, error } = await supabase
-    .from('merchant_contacts')
-    .insert(profileIds.map((profileId) => ({ buyer_id: buyerId, profile_id: profileId })))
-    .select();
-  if (error) throw error;
-  return data;
-}
+export async function syncMerchantContacts({ buyerId, addProfileIds = [], removeProfileIds = [] }) {
+  if (addProfileIds.length > 0) {
+    const { error: insertErr } = await supabase
+      .from('merchant_contacts')
+      .insert(addProfileIds.map((profileId) => ({ buyer_id: buyerId, profile_id: profileId })));
+    if (insertErr) throw insertErr;
 
-export async function removeMerchantContact(id) {
-  const { error } = await supabase.from('merchant_contacts').delete().eq('id', id);
-  if (error) throw error;
+    const { error: assignErr } = await supabase.from('profiles').update({ buyer_id: buyerId }).in('id', addProfileIds);
+    if (assignErr) throw assignErr;
+  }
+
+  if (removeProfileIds.length > 0) {
+    const { data: rows, error: selectErr } = await supabase
+      .from('merchant_contacts')
+      .select('id')
+      .eq('buyer_id', buyerId)
+      .in('profile_id', removeProfileIds);
+    if (selectErr) throw selectErr;
+
+    if (rows.length > 0) {
+      const { error: deleteErr } = await supabase
+        .from('merchant_contacts')
+        .delete()
+        .in('id', rows.map((r) => r.id));
+      if (deleteErr) throw deleteErr;
+    }
+
+    const { error: unassignErr } = await supabase
+      .from('profiles')
+      .update({ buyer_id: null })
+      .eq('buyer_id', buyerId)
+      .in('id', removeProfileIds);
+    if (unassignErr) throw unassignErr;
+  }
 }
