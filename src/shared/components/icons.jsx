@@ -147,6 +147,15 @@ export function IconAlert(props) {
   );
 }
 
+export function IconCamera(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 8.5h3l1.3-2h7.4l1.3 2h3a1 1 0 011 1V18a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18V9.5a1 1 0 011-1z" />
+      <circle cx="12" cy="13" r="3.25" />
+    </svg>
+  );
+}
+
 export function IconEdit(props) {
   return (
     <svg {...base} {...props}>

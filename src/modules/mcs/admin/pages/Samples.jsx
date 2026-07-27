@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Card } from '@/shared/components/Card';
+import { Button } from '@/shared/components/Button';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
 import { TableSkeleton } from '@/shared/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
@@ -16,19 +17,25 @@ import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, SAMPLE_STATUS } from '@/shared/utils/constants';
-import { IconBox } from '@/shared/components/icons';
+import { IconBox, IconCamera } from '@/shared/components/icons';
 import { formatDate } from '@/shared/utils/formatters';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
+import { SampleImageModal } from '@/modules/mcs/components/SampleImageModal';
 import { useOpenSampleFromLocation } from '@/modules/mcs/hooks/useOpenSampleFromLocation';
 
 export default function AdminSamples() {
   const location = useLocation();
-  const { data: samples, loading, reload } = useAsyncData(listSamples, []);
+  const { data: samples, loading, reload, setData } = useAsyncData(listSamples, []);
   const { data: buyers } = useAsyncData(listBuyers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [selected, setSelected] = useState(null);
+  const [imageSample, setImageSample] = useState(null);
   useOpenSampleFromLocation(samples, setSelected);
+
+  function handleImageSaved(updated) {
+    setData((prev) => (prev || []).map((s) => (s.id === updated.id ? updated : s)));
+  }
 
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
     useTableControls(samples || [], {
@@ -115,6 +122,7 @@ export default function AdminSamples() {
                   <Th>Hall</Th>
                   <Th>Status</Th>
                   <Th>Added</Th>
+                  <Th></Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -131,6 +139,19 @@ export default function AdminSamples() {
                       <StatusBadge status={s.status} />
                     </Td>
                     <Td className="text-ink-secondary">{formatDate(s.created_at)}</Td>
+                    <Td className="text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label="Upload sample image"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setImageSample(s);
+                        }}
+                      >
+                        <IconCamera className="w-4 h-4" />
+                      </Button>
+                    </Td>
                   </Tr>
                 ))}
               </Tbody>
@@ -141,6 +162,13 @@ export default function AdminSamples() {
       </Card>
 
       <SampleDetailDrawer open={!!selected} sample={selected} onClose={() => setSelected(null)} onChanged={handleChanged} />
+
+      <SampleImageModal
+        open={!!imageSample}
+        sample={imageSample}
+        onClose={() => setImageSample(null)}
+        onSaved={handleImageSaved}
+      />
     </div>
   );
 }

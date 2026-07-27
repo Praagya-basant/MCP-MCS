@@ -127,3 +127,42 @@ export async function uploadSampleImage(file) {
   const { data } = supabase.storage.from(SAMPLE_IMAGES_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
+
+function sanitizePathSegment(value) {
+  return String(value || '').trim().replace(/[^a-zA-Z0-9-_]+/g, '_') || 'unknown';
+}
+
+/**
+ * Row-level "add/replace image" flow (Admin & Hall Samples' camera
+ * button) — distinct from uploadSampleImage() above, which is only used
+ * by the Add Sample form. Path is deterministic — `{buyer}/{bt_code}.ext`
+ * (e.g. `MDM/BT0069C.jpeg`) — rather than a random filename, specifically
+ * so re-uploading for the same sample overwrites the same object
+ * (`upsert: true`) instead of orphaning the old file in storage.
+ */
+export async function uploadAndSetSampleImage({ sample, file }) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const folder = sanitizePathSegment(sample.buyer?.name);
+  const path = `${folder}/${sample.bt_code}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage.from(SAMPLE_IMAGES_BUCKET).upload(path, file, {
+    cacheControl: '3600',
+    upsert: true,
+  });
+  if (uploadError) throw uploadError;
+
+  const { data: pub } = supabase.storage.from(SAMPLE_IMAGES_BUCKET).getPublicUrl(path);
+  // Same path can be re-uploaded with different content; the public URL
+  // string itself wouldn't change, so append a cache-busting query param
+  // to the value actually stored — otherwise browsers/CDNs that already
+  // cached the old image at that URL would keep showing it.
+  const imageUrl = `${pub.publicUrl}?t=${Date.now()}`;
+
+  const { data: updated, error } = await supabase.rpc('set_sample_image', {
+    p_sample_id: sample.id,
+    p_image_url: imageUrl,
+  });
+  if (error) throw error;
+
+  return mapSample({ ...sample, ...updated });
+}

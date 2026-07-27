@@ -426,6 +426,41 @@ $$;
 grant execute on function public.clear_movement_history to authenticated;
 
 -- ----------------------------------------------------------------------------
+-- 5c. Set a sample's image_url — admin or that sample's own hall manager
+-- `samples_update_admin` only grants direct table UPDATE to admins (hall
+-- managers never got one, since checkout/return went through the RPCs
+-- above instead), so hall managers have no way to set image_url via a
+-- plain `.update()`. Same pattern as checkout_sample: SECURITY DEFINER,
+-- hall-scoped check, admin bypass.
+-- ----------------------------------------------------------------------------
+
+create or replace function public.set_sample_image(p_sample_id uuid, p_image_url text)
+returns samples
+language plpgsql security definer set search_path = public as $$
+declare
+  v_hall_id uuid;
+  v_sample samples;
+begin
+  select hall_id into v_hall_id from samples where id = p_sample_id;
+
+  if v_hall_id is null then
+    raise exception 'Sample not found';
+  end if;
+
+  if not public.is_super_admin() and v_hall_id <> public.current_hall_id() then
+    raise exception 'Not authorized to update this sample';
+  end if;
+
+  update samples set image_url = p_image_url where id = p_sample_id
+  returning * into v_sample;
+
+  return v_sample;
+end;
+$$;
+
+grant execute on function public.set_sample_image to authenticated;
+
+-- ----------------------------------------------------------------------------
 -- 6. STORAGE — sample images
 -- Public bucket so <img> tags can render image_url directly with no auth
 -- header; uploads restricted to hall managers and admins.
