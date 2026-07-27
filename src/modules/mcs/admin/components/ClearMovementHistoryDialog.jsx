@@ -64,7 +64,7 @@ export function ClearMovementHistoryDialog({ open, onClose, onCleared }) {
     >
       <div className="flex flex-col gap-4">
         <p className="text-body text-ink-secondary">
-          This permanently deletes every checkout and return record across every hall and buyer.
+          This permanently deletes every movement record across every hall and buyer.
           Any sample currently issued will be reset to <span className="font-medium text-ink">In Hall</span>.
           This cannot be undone.
         </p>

@@ -6,7 +6,8 @@ import { TableSkeleton } from '@/shared/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SearchInput } from '@/shared/components/SearchInput';
 import { Pagination } from '@/shared/components/Pagination';
-import { Select, Input } from '@/shared/components/Input';
+import { Select } from '@/shared/components/Input';
+import { DateRangeFilter } from '@/shared/components/DateRangeFilter';
 import { Badge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
@@ -49,7 +50,7 @@ export default function MerchantHistory() {
 
   return (
     <div>
-      <PageHeader title="Movement History" description="Full checkout and return history for your samples." />
+      <PageHeader title="Movement History" description="Full movement history for your samples." />
 
       <Card>
         <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">
@@ -67,24 +68,17 @@ export default function MerchantHistory() {
             <option value={MOVEMENT_STATUS.OUT}>Out</option>
             <option value={MOVEMENT_STATUS.RETURNED}>Returned</option>
           </Select>
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => {
-              setDateFrom(e.target.value);
+          <DateRangeFilter
+            from={dateFrom}
+            to={dateTo}
+            onFromChange={(v) => {
+              setDateFrom(v);
               setPage(1);
             }}
-            className="w-auto"
-          />
-          <span className="text-ink-muted text-caption">to</span>
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => {
-              setDateTo(e.target.value);
+            onToChange={(v) => {
+              setDateTo(v);
               setPage(1);
             }}
-            className="w-auto"
           />
         </div>
 

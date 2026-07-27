@@ -6,7 +6,8 @@ import { TableSkeleton } from '@/shared/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SearchInput } from '@/shared/components/SearchInput';
 import { Pagination } from '@/shared/components/Pagination';
-import { Select, Input } from '@/shared/components/Input';
+import { Select } from '@/shared/components/Input';
+import { DateRangeFilter } from '@/shared/components/DateRangeFilter';
 import { Badge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
@@ -49,7 +50,7 @@ export default function HallMovements() {
 
   return (
     <div>
-      <PageHeader title="Movements" description="Checkout and return log for your hall." />
+      <PageHeader title="Movements" description="Movement log for your hall." />
 
       <Card>
         <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">
@@ -62,31 +63,24 @@ export default function HallMovements() {
               </option>
             ))}
           </Select>
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => {
-              setDateFrom(e.target.value);
+          <DateRangeFilter
+            from={dateFrom}
+            to={dateTo}
+            onFromChange={(v) => {
+              setDateFrom(v);
               setPage(1);
             }}
-            className="w-auto"
-          />
-          <span className="text-ink-muted text-caption">to</span>
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => {
-              setDateTo(e.target.value);
+            onToChange={(v) => {
+              setDateTo(v);
               setPage(1);
             }}
-            className="w-auto"
           />
         </div>
 
         {loading ? (
           <TableSkeleton rows={8} cols={6} />
         ) : movements.length === 0 ? (
-          <EmptyState icon={<IconMove className="w-12 h-12 text-ink-muted" />} title="No movements yet" description="Checkouts and returns for your hall will be logged here." />
+          <EmptyState icon={<IconMove className="w-12 h-12 text-ink-muted" />} title="No movements yet" description="Movements for your hall will be logged here." />
         ) : pageRows.length === 0 ? (
           <EmptyState title="No matches" description="Try adjusting your search or filters." />
         ) : (

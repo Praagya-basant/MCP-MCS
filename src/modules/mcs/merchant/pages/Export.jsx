@@ -14,7 +14,7 @@ import { formatDateTime } from '@/shared/utils/formatters';
 
 const OPTIONS = [
   { id: 'samples', label: 'Sample List Only', description: 'Current status and location of every sample.', icon: IconBox },
-  { id: 'history', label: 'Full History Only', description: 'Every checkout and return movement.', icon: IconHistory },
+  { id: 'history', label: 'Full History Only', description: 'Every movement.', icon: IconHistory },
   { id: 'both', label: 'Both', description: 'Sample list and full history in one file.', icon: IconDownload },
 ];
 

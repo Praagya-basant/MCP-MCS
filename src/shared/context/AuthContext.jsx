@@ -39,14 +39,24 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    // Deliberately NOT an async callback, and the profile query is
+    // deferred via setTimeout rather than awaited inline — supabase-js
+    // warns that calling its own methods synchronously inside
+    // onAuthStateChange can deadlock the internal auth lock (most
+    // visible as the session silently failing to rehydrate on reload,
+    // since the callback never resolves). Deferring one tick sidesteps it.
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (!mounted) return;
       setSession(newSession);
       if (newSession?.user) {
-        await loadProfile(newSession.user.id);
+        setTimeout(() => {
+          if (!mounted) return;
+          loadProfile(newSession.user.id).finally(() => mounted && setLoading(false));
+        }, 0);
       } else {
         setProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {

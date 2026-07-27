@@ -6,7 +6,8 @@ import { TableSkeleton } from '@/shared/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SearchInput } from '@/shared/components/SearchInput';
 import { Pagination } from '@/shared/components/Pagination';
-import { Select, Input } from '@/shared/components/Input';
+import { Select } from '@/shared/components/Input';
+import { DateRangeFilter } from '@/shared/components/DateRangeFilter';
 import { Badge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
@@ -59,7 +60,7 @@ export default function AdminMovements() {
 
   return (
     <div>
-      <PageHeader title="Movements" description="Full checkout and return log across every hall." />
+      <PageHeader title="Movements" description="Full movement log across every hall." />
 
       <Card>
         <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">
@@ -88,31 +89,24 @@ export default function AdminMovements() {
               </option>
             ))}
           </Select>
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => {
-              setDateFrom(e.target.value);
+          <DateRangeFilter
+            from={dateFrom}
+            to={dateTo}
+            onFromChange={(v) => {
+              setDateFrom(v);
               setPage(1);
             }}
-            className="w-auto"
-          />
-          <span className="text-ink-muted text-caption">to</span>
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => {
-              setDateTo(e.target.value);
+            onToChange={(v) => {
+              setDateTo(v);
               setPage(1);
             }}
-            className="w-auto"
           />
         </div>
 
         {loading ? (
           <TableSkeleton rows={8} cols={7} />
         ) : movements.length === 0 ? (
-          <EmptyState icon={<IconMove className="w-12 h-12 text-ink-muted" />} title="No movements yet" description="Checkouts and returns will be logged here." />
+          <EmptyState icon={<IconMove className="w-12 h-12 text-ink-muted" />} title="No movements yet" description="Movements will be logged here." />
         ) : pageRows.length === 0 ? (
           <EmptyState title="No matches" description="Try adjusting your search or filters." />
         ) : (
@@ -159,7 +153,7 @@ export default function AdminMovements() {
             <h2 className="text-body-lg font-semibold text-ink">Clear Test Data</h2>
             <p className="mt-0.5 text-body text-ink-secondary max-w-md">
               Permanently deletes every movement record across every hall and buyer. Use this to
-              wipe test checkouts/returns before going live — it cannot be undone.
+              wipe test movements before going live — it cannot be undone.
             </p>
           </div>
         </div>
