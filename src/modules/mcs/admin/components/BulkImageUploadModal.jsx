@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
@@ -7,9 +7,11 @@ import { useToast } from '@/shared/context/ToastContext';
 import { uploadAndSetSampleImage } from '@/modules/mcs/api/samplesApi';
 import { cn } from '@/shared/utils/cn';
 
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png'];
 const ACCEPTED_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
 
 function isAcceptedImage(file) {
+  if (ACCEPTED_TYPES.includes(file.type)) return true;
   const name = file.name.toLowerCase();
   return ACCEPTED_EXTENSIONS.some((ext) => name.endsWith(ext));
 }
@@ -23,18 +25,29 @@ function baseName(fileName) {
  * without extension == bt_code, case-insensitive) and uploads each match
  * via the same uploadAndSetSampleImage() path the per-row camera icon
  * uses — same storage layout, same "replace existing" behavior.
+ *
+ * Selected files are kept as raw state and matches are *derived* via
+ * useMemo rather than computed once inside the change handler — matching
+ * at selection time would freeze `matches` against whatever `samples`
+ * happened to be in that instant (e.g. still `null` if the page's sample
+ * list hadn't finished loading yet), silently leaving everything
+ * "unmatched" with no way to recover short of re-picking the same files.
+ * Deriving it keeps matches correct if `samples` arrives/changes after
+ * the files were picked.
  */
 export function BulkImageUploadModal({ open, samples, onClose, onUploaded }) {
   const toast = useToast();
   const inputRef = useRef(null);
 
-  const [matches, setMatches] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState(null);
+  const [selectError, setSelectError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState(null);
 
   function reset() {
-    setMatches(null);
+    setSelectedFiles(null);
+    setSelectError('');
     setUploading(false);
     setProgress(0);
     setResult(null);
@@ -45,18 +58,29 @@ export function BulkImageUploadModal({ open, samples, onClose, onUploaded }) {
     onClose();
   }
 
-  function handleFiles(files) {
-    const accepted = Array.from(files || []).filter(isAcceptedImage);
-    if (accepted.length === 0) return;
+  function handleFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (files.length === 0) return;
 
-    const built = accepted.map((file) => {
+    const accepted = files.filter(isAcceptedImage);
+    if (accepted.length === 0) {
+      setSelectError('No .jpg, .jpeg, or .png files found in that selection.');
+      return;
+    }
+
+    setSelectError('');
+    setSelectedFiles(accepted);
+    setResult(null);
+  }
+
+  const matches = useMemo(() => {
+    if (!selectedFiles) return null;
+    return selectedFiles.map((file) => {
       const name = baseName(file.name);
       const sample = (samples || []).find((s) => s.bt_code?.toLowerCase() === name.toLowerCase()) || null;
       return { file, name, sample };
     });
-    setMatches(built);
-    setResult(null);
-  }
+  }, [selectedFiles, samples]);
 
   const matchedCount = (matches || []).filter((m) => m.sample).length;
   const unmatchedCount = (matches || []).filter((m) => !m.sample).length;
@@ -146,16 +170,22 @@ export function BulkImageUploadModal({ open, samples, onClose, onUploaded }) {
             <input
               ref={inputRef}
               type="file"
-              accept=".jpg,.jpeg,.png"
+              accept=".jpg,.jpeg,.png,image/jpeg,image/png"
               multiple
               className="hidden"
-              onChange={(e) => handleFiles(e.target.files)}
+              onChange={(e) => {
+                handleFiles(e.target.files);
+                // Reset so picking the exact same file(s) again still fires
+                // onChange next time — the browser only fires `change` when
+                // the input's value actually differs from before.
+                e.target.value = '';
+              }}
             />
             <div
               onClick={() => inputRef.current?.click()}
               className={cn(
                 'interactive cursor-pointer rounded-control border border-dashed flex flex-col items-center justify-center gap-1.5 px-4 py-6 text-center',
-                'border-border-strong bg-surface'
+                selectError ? 'border-red-400 bg-red-50' : 'border-border-strong bg-surface'
               )}
             >
               <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-ink-muted">
@@ -167,6 +197,7 @@ export function BulkImageUploadModal({ open, samples, onClose, onUploaded }) {
               </span>
               <span className="text-caption text-ink-muted">.jpg, .jpeg, .png only</span>
             </div>
+            {selectError && <p className="mt-1.5 text-caption text-red-600">{selectError}</p>}
           </div>
 
           {uploading && (
