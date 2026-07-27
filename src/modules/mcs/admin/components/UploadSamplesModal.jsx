@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
-import { FormField } from '@/shared/components/Input';
+import { Select, FormField } from '@/shared/components/Input';
 import { Badge } from '@/shared/components/Badge';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
@@ -59,6 +59,14 @@ function resolveHall(raw, halls) {
   return null;
 }
 
+/**
+ * Parses raw rows only — no hall dropdown fallback is applied here, since
+ * the fallback hall can be picked (or changed) after the file is already
+ * parsed. `hallRaw` stays empty when the sheet has no Hall column at all
+ * or the cell itself is blank, which is exactly the signal
+ * applyHallFallback() below uses to decide whether to fall back to the
+ * dropdown.
+ */
 async function parseExcelFile(file, halls) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
@@ -85,34 +93,52 @@ async function parseExcelFile(file, halls) {
       const hallRaw = columns.hall !== undefined ? String(row[columns.hall] ?? '').trim() : '';
       const matchedHall = resolveHall(hallRaw, halls);
 
-      let status = 'valid';
-      let errorReason = '';
-      if (!btCode) {
-        status = 'error';
-        errorReason = 'Missing BT Code';
-      } else if (!productName) {
-        status = 'error';
-        errorReason = 'Missing Product Name';
-      } else if (!hallRaw) {
-        status = 'error';
-        errorReason = 'Missing Hall';
-      } else if (!matchedHall) {
-        status = 'error';
-        errorReason = `Unrecognized hall "${hallRaw}"`;
-      }
-
-      return {
-        btCode,
-        productRef,
-        productName,
-        hallRaw,
-        hallId: matchedHall?.id || null,
-        hallName: matchedHall?.name || hallRaw,
-        status,
-        errorReason,
-      };
+      return { btCode, productRef, productName, hallRaw, matchedHall };
     })
     .filter((r) => r.btCode || r.productName || r.hallRaw);
+}
+
+/**
+ * Applies the fallback dropdown hall to rows whose file didn't supply one
+ * (no Hall column, or a blank cell) and computes each row's final
+ * Valid/Error status. Rows that DID have a hall value in the file, but it
+ * didn't match any known hall, still error out — the dropdown is a
+ * fallback for missing data, not a way to override a bad value.
+ */
+function applyHallFallback(parsedRows, halls, fallbackHallId) {
+  const fallbackHall = (halls || []).find((h) => h.id === fallbackHallId) || null;
+
+  return (parsedRows || []).map((r) => {
+    let hall = r.matchedHall;
+    let status = 'valid';
+    let errorReason = '';
+
+    if (!r.btCode) {
+      status = 'error';
+      errorReason = 'Missing BT Code';
+    } else if (!r.productName) {
+      status = 'error';
+      errorReason = 'Missing Product Name';
+    } else if (!r.hallRaw) {
+      if (fallbackHall) {
+        hall = fallbackHall;
+      } else {
+        status = 'error';
+        errorReason = 'Missing Hall — select a fallback hall';
+      }
+    } else if (!r.matchedHall) {
+      status = 'error';
+      errorReason = `Unrecognized hall "${r.hallRaw}"`;
+    }
+
+    return {
+      ...r,
+      hallId: hall?.id || null,
+      hallName: hall?.name || r.hallRaw,
+      status,
+      errorReason,
+    };
+  });
 }
 
 function isAcceptedFile(file) {
@@ -125,20 +151,27 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
   const inputRef = useRef(null);
   const { data: halls } = useAsyncData(listHalls, []);
 
+  const [fallbackHallId, setFallbackHallId] = useState('');
   const [fileName, setFileName] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState('');
-  const [rows, setRows] = useState(null);
+  const [parsedRows, setParsedRows] = useState(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState(null);
 
+  const rows = useMemo(
+    () => (parsedRows ? applyHallFallback(parsedRows, halls, fallbackHallId) : null),
+    [parsedRows, halls, fallbackHallId]
+  );
+
   function reset() {
+    setFallbackHallId('');
     setFileName('');
     setDragOver(false);
     setParsing(false);
     setParseError('');
-    setRows(null);
+    setParsedRows(null);
     setImporting(false);
     setResult(null);
   }
@@ -153,7 +186,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
     if (!file) return;
 
     setParseError('');
-    setRows(null);
+    setParsedRows(null);
     setFileName(file.name);
 
     if (!isAcceptedFile(file)) {
@@ -170,7 +203,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
         setFileName('');
         return;
       }
-      setRows(parsed);
+      setParsedRows(parsed);
     } catch (err) {
       setParseError(err.message || 'Could not read that file. Make sure it’s a valid Excel workbook.');
       setFileName('');
@@ -227,7 +260,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
             <p className="text-body font-medium text-status-in-hall-text">
               {result.insertedCount} sample{result.insertedCount === 1 ? '' : 's'} imported successfully
             </p>
-            <p className="mt-0.5 text-caption text-ink-secondary">for {buyer.name}, hall taken from each row.</p>
+            <p className="mt-0.5 text-caption text-ink-secondary">for {buyer.name}.</p>
           </div>
 
           {result.skipped.length > 0 && (
@@ -266,8 +299,19 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
         <div className="flex flex-col gap-5">
           <p className="text-caption text-ink-secondary -mt-1">
             Uploading samples for <span className="font-medium text-ink">{buyer.name}</span> — hall is read from each
-            row's Hall column.
+            row's Hall column when present, otherwise falls back to the hall selected below.
           </p>
+
+          <FormField label="Fallback Hall" htmlFor="upload-fallback-hall" hint="Used for rows with no Hall column, or a blank Hall cell">
+            <Select id="upload-fallback-hall" value={fallbackHallId} onChange={(e) => setFallbackHallId(e.target.value)}>
+              <option value="">No fallback selected</option>
+              {(halls || []).map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </Select>
+          </FormField>
 
           <FormField label="Excel File" required>
             <input
@@ -329,7 +373,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
                     <path d="M20 16v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <span className="text-caption text-ink-secondary">Click or drag an Excel file to upload</span>
-                  <span className="text-caption text-ink-muted">.xlsx or .xls only — include a Hall column</span>
+                  <span className="text-caption text-ink-muted">.xlsx or .xls only</span>
                 </>
               )}
             </div>
