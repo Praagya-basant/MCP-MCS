@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/shared/context/AuthContext';
 import { initials } from '@/shared/utils/formatters';
-import { IconChevronDown, IconLogout } from '@/shared/components/icons';
+import { IconChevronDown, IconLogout, IconMessage } from '@/shared/components/icons';
+import { SendFeedbackModal } from '@/shared/components/SendFeedbackModal';
+import { ROLES } from '@/shared/utils/constants';
 
 export function Topbar({ contextLabel }) {
-  const { profile, signOut } = useAuth();
+  const { profile, role, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -43,6 +46,18 @@ export function Topbar({ contextLabel }) {
                 <p className="text-body font-medium text-ink truncate">{profile?.full_name}</p>
                 <p className="text-caption text-ink-secondary truncate">{profile?.email}</p>
               </div>
+              {role !== ROLES.SUPER_ADMIN && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setSupportOpen(true);
+                  }}
+                  className="interactive w-full flex items-center gap-2 px-3 py-2 text-body text-ink-secondary hover:bg-surface-subtle hover:text-ink"
+                >
+                  <IconMessage className="w-4 h-4" />
+                  Support
+                </button>
+              )}
               <button
                 onClick={signOut}
                 className="interactive w-full flex items-center gap-2 px-3 py-2 text-body text-ink-secondary hover:bg-surface-subtle hover:text-ink"
@@ -54,6 +69,8 @@ export function Topbar({ contextLabel }) {
           )}
         </div>
       </div>
+
+      <SendFeedbackModal open={supportOpen} onClose={() => setSupportOpen(false)} />
     </header>
   );
 }

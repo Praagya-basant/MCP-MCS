@@ -7,7 +7,7 @@ import { useToast } from '@/shared/context/ToastContext';
 import { submitFeedback } from '@/shared/lib/feedbackApi';
 import { ROLE_LABELS } from '@/shared/utils/constants';
 
-/** Manager/merchant "Send Feedback" — reached from the sidebar footer. */
+/** Manager/merchant "Support" — reached from the Topbar's user dropdown. */
 export function SendFeedbackModal({ open, onClose }) {
   const { profile } = useAuth();
   const toast = useToast();
@@ -52,7 +52,7 @@ export function SendFeedbackModal({ open, onClose }) {
     <Modal
       open={open}
       onClose={handleClose}
-      title="Send Feedback"
+      title="Support"
       footer={
         <>
           <Button variant="secondary" onClick={handleClose} disabled={submitting}>
@@ -72,6 +72,8 @@ export function SendFeedbackModal({ open, onClose }) {
         <FormField label="Message" htmlFor="feedback-message" required>
           <Textarea id="feedback-message" rows={5} value={message} onChange={(e) => setMessage(e.target.value)} />
         </FormField>
+
+        <p className="text-caption text-ink-muted">Your message will be sent to praagya@basant.info</p>
       </form>
     </Modal>
   );

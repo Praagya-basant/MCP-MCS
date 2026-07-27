@@ -1,15 +1,8 @@
-import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/shared/utils/cn';
 import { Logo } from '@/shared/components/Logo';
-import { Button } from '@/shared/components/Button';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useFeedback } from '@/shared/context/FeedbackContext';
-import { SendFeedbackModal } from '@/shared/components/SendFeedbackModal';
-import { IconMessage } from '@/shared/components/icons';
-import { ROLES } from '@/shared/utils/constants';
-
-const CONTACT_EMAIL = 'praagya@basant.info';
 
 /**
  * Renders one or more nav sections. Each module (mcs, and eventually mcp)
@@ -25,9 +18,8 @@ const CONTACT_EMAIL = 'praagya@basant.info';
  * generic so a future badge just needs its own key added to `badgeValues`.
  */
 export function Sidebar({ sections, subtitle }) {
-  const { profile, role } = useAuth();
+  const { profile } = useAuth();
   const { unreadCount } = useFeedback() || {};
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const badgeValues = { feedbackUnread: unreadCount || 0 };
 
@@ -88,31 +80,6 @@ export function Sidebar({ sections, subtitle }) {
           </div>
         ))}
       </nav>
-
-      {/* Quiet footer — not styled as a feature. Send Feedback only makes
-          sense for roles that report *to* an admin, not the admin itself
-          (they get the Feedback nav item + unread badge above instead). */}
-      <div className="shrink-0 border-t border-border px-3 py-3 flex flex-col gap-0.5">
-        {role !== ROLES.SUPER_ADMIN && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2"
-            onClick={() => setFeedbackOpen(true)}
-          >
-            <IconMessage className="w-4 h-4" />
-            Send Feedback
-          </Button>
-        )}
-        <a
-          href={`mailto:${CONTACT_EMAIL}`}
-          className="interactive px-3 py-1 text-[11px] text-[#9B9B9B] hover:text-[#6B6B6B]"
-        >
-          Contact admin for support
-        </a>
-      </div>
-
-      <SendFeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </aside>
   );
 }
