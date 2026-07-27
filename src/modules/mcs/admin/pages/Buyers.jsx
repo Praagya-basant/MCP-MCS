@@ -26,7 +26,7 @@ export default function Buyers() {
   );
 
   function handleCreated(buyer) {
-    setData((prev) => [...(prev || []), { ...buyer, sampleCount: 0, contacts: [] }]);
+    setData((prev) => [...(prev || []), { sampleCount: 0, contacts: [], ...buyer }]);
   }
 
   return (

@@ -11,6 +11,22 @@ export async function listUsers() {
 }
 
 /**
+ * Every merchant-role profile, for the "Merchant Contacts" multi-select
+ * on Add Buyer — deliberately unfiltered by existing `buyer_id`, since
+ * merchant_contacts (who gets CC'd on notification emails for a buyer)
+ * is independent of which buyer a merchant's own profile belongs to.
+ */
+export async function listMerchantUsers() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, email')
+    .eq('role', 'merchant')
+    .order('full_name');
+  if (error) throw error;
+  return data;
+}
+
+/**
  * Creating a login user requires the Supabase Auth admin API, which needs
  * the service role key — that can never live in the browser. This calls
  * the `create-user` edge function, which validates the caller is a

@@ -48,6 +48,20 @@ export async function addMerchantContact({ buyerId, profileId }) {
   return data;
 }
 
+/**
+ * Bulk version for the Add Buyer form's merchant-contacts multi-select —
+ * one insert for every selected merchant instead of N round trips.
+ */
+export async function addMerchantContacts({ buyerId, profileIds }) {
+  if (!profileIds.length) return [];
+  const { data, error } = await supabase
+    .from('merchant_contacts')
+    .insert(profileIds.map((profileId) => ({ buyer_id: buyerId, profile_id: profileId })))
+    .select();
+  if (error) throw error;
+  return data;
+}
+
 export async function removeMerchantContact(id) {
   const { error } = await supabase.from('merchant_contacts').delete().eq('id', id);
   if (error) throw error;
