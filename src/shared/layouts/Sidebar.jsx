@@ -1,7 +1,15 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/shared/utils/cn';
 import { Logo } from '@/shared/components/Logo';
+import { Button } from '@/shared/components/Button';
 import { useAuth } from '@/shared/context/AuthContext';
+import { useFeedback } from '@/shared/context/FeedbackContext';
+import { SendFeedbackModal } from '@/shared/components/SendFeedbackModal';
+import { IconMessage } from '@/shared/components/icons';
+import { ROLES } from '@/shared/utils/constants';
+
+const CONTACT_EMAIL = 'praagya@basant.info';
 
 /**
  * Renders one or more nav sections. Each module (mcs, and eventually mcp)
@@ -10,9 +18,18 @@ import { useAuth } from '@/shared/context/AuthContext';
  * `subtitle` doubles as the role line shown under the signed-in user's
  * name (each role layout already passes its role label here for the
  * Topbar's context label, so it's reused rather than threading a new prop).
+ *
+ * A nav item can carry a `badgeKey` (see AdminLayout's Feedback entry) to
+ * show a live count pill next to its label — currently only
+ * `feedbackUnread`, sourced from FeedbackContext, but the lookup is
+ * generic so a future badge just needs its own key added to `badgeValues`.
  */
 export function Sidebar({ sections, subtitle }) {
-  const { profile } = useAuth();
+  const { profile, role } = useAuth();
+  const { unreadCount } = useFeedback() || {};
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  const badgeValues = { feedbackUnread: unreadCount || 0 };
 
   return (
     <aside className="w-[240px] shrink-0 h-screen sticky top-0 bg-sidebar border-r border-border flex flex-col">
@@ -58,6 +75,11 @@ export function Sidebar({ sections, subtitle }) {
                       )}
                       <span className="w-4 h-4 shrink-0">{item.icon}</span>
                       <span className="truncate">{item.label}</span>
+                      {item.badgeKey && badgeValues[item.badgeKey] > 0 && (
+                        <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-ink text-white text-[10px] font-medium flex items-center justify-center">
+                          {badgeValues[item.badgeKey]}
+                        </span>
+                      )}
                     </>
                   )}
                 </NavLink>
@@ -66,6 +88,31 @@ export function Sidebar({ sections, subtitle }) {
           </div>
         ))}
       </nav>
+
+      {/* Quiet footer — not styled as a feature. Send Feedback only makes
+          sense for roles that report *to* an admin, not the admin itself
+          (they get the Feedback nav item + unread badge above instead). */}
+      <div className="shrink-0 border-t border-border px-3 py-3 flex flex-col gap-0.5">
+        {role !== ROLES.SUPER_ADMIN && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2"
+            onClick={() => setFeedbackOpen(true)}
+          >
+            <IconMessage className="w-4 h-4" />
+            Send Feedback
+          </Button>
+        )}
+        <a
+          href={`mailto:${CONTACT_EMAIL}`}
+          className="interactive px-3 py-1 text-[11px] text-[#9B9B9B] hover:text-[#6B6B6B]"
+        >
+          Contact admin for support
+        </a>
+      </div>
+
+      <SendFeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </aside>
   );
 }

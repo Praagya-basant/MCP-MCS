@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/shared/context/AuthContext';
 import { ToastProvider } from '@/shared/context/ToastContext';
+import { FeedbackProvider } from '@/shared/context/FeedbackContext';
 import { ToastContainer } from '@/shared/components/Toast';
 import { ProtectedRoute } from '@/shared/routes/ProtectedRoute';
 import { ROLE_HOME, ROLES } from '@/shared/utils/constants';
@@ -16,6 +17,7 @@ import AdminHalls from '@/modules/mcs/admin/pages/Halls';
 import AdminUsers from '@/modules/mcs/admin/pages/Users';
 import AdminSamples from '@/modules/mcs/admin/pages/Samples';
 import AdminMovements from '@/modules/mcs/admin/pages/Movements';
+import AdminFeedback from '@/modules/mcs/admin/pages/Feedback';
 
 import HallLayout from '@/modules/mcs/hall/HallLayout';
 import HallDashboard from '@/modules/mcs/hall/pages/Dashboard';
@@ -62,6 +64,7 @@ function AppRoutes() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="samples" element={<AdminSamples />} />
           <Route path="movements" element={<AdminMovements />} />
+          <Route path="feedback" element={<AdminFeedback />} />
         </Route>
       </Route>
 
@@ -96,12 +99,14 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <ToastProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-        <ToastContainer />
-      </ToastProvider>
+      <FeedbackProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+          <ToastContainer />
+        </ToastProvider>
+      </FeedbackProvider>
     </AuthProvider>
   );
 }

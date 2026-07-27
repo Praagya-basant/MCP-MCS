@@ -1,5 +1,5 @@
 import { DashboardLayout } from '@/shared/layouts/DashboardLayout';
-import { IconGrid, IconBuilding, IconLayers, IconUsers, IconBox, IconMove } from '@/shared/components/icons';
+import { IconGrid, IconBuilding, IconLayers, IconUsers, IconBox, IconMove, IconMessage } from '@/shared/components/icons';
 
 const navSections = [
   {
@@ -11,6 +11,9 @@ const navSections = [
       { to: '/admin/users', label: 'Users', icon: <IconUsers /> },
       { to: '/admin/samples', label: 'Samples', icon: <IconBox /> },
       { to: '/admin/movements', label: 'Movements', icon: <IconMove /> },
+      // badgeKey is read by Sidebar to render a live unread-count pill —
+      // see FeedbackContext.
+      { to: '/admin/feedback', label: 'Feedback', icon: <IconMessage />, badgeKey: 'feedbackUnread' },
     ],
   },
 ];

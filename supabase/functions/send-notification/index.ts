@@ -20,6 +20,7 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const FROM_ADDRESS = 'BASANT <noreply@basant.info>';
+const FEEDBACK_RECIPIENT = 'praagya@basant.info';
 
 // Logo uploaded to the public `sample-images` bucket root — see
 // CLAUDE.md setup checklist. App URL is the deployed Vercel frontend;
@@ -60,11 +61,17 @@ function escapeHtml(value) {
 
 /**
  * Shared layout for every transactional email: logo, divider, heading,
- * a compact label/value info block, a "View Sample" button, and a plain
- * footer. Deliberately minimal — no marketing styling, no images besides
- * the logo, no "SSM"/"Signed Sample Management" anywhere.
+ * a compact label/value info block, an optional free-text paragraph, an
+ * optional "View Sample" button, and a plain footer. Deliberately
+ * minimal — no marketing styling, no images besides the logo, no
+ * "SSM"/"Signed Sample Management" anywhere.
+ *
+ * `btCode` and `bodyText` are both optional — a feedback email has
+ * neither a sample to link nor a fixed label/value shape for its free
+ * text, so the button and paragraph blocks are only emitted when the
+ * caller actually supplies them.
  */
-function buildEmailHtml({ heading, rows, btCode }) {
+function buildEmailHtml({ heading, rows, btCode, bodyText }) {
   const visibleRows = rows.filter((r) => r.value);
 
   const rowsHtml = visibleRows
@@ -78,7 +85,19 @@ function buildEmailHtml({ heading, rows, btCode }) {
     })
     .join('');
 
-  const sampleUrl = `${APP_URL}/sample/${encodeURIComponent(btCode)}`;
+  const bodyHtml = bodyText
+    ? `<p style="margin:16px 0 0;font-size:14px;line-height:20px;color:#1A1A1A;white-space:pre-wrap;">${escapeHtml(bodyText)}</p>`
+    : '';
+
+  const buttonHtml = btCode
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+                  <tr>
+                    <td align="center">
+                      <a href="${APP_URL}/sample/${encodeURIComponent(btCode)}" style="display:inline-block;background-color:#1A1A1A;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:500;padding:8px 20px;border-radius:6px;">View Sample</a>
+                    </td>
+                  </tr>
+                </table>`
+    : '';
 
   return `<!doctype html>
 <html>
@@ -101,13 +120,8 @@ function buildEmailHtml({ heading, rows, btCode }) {
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   ${rowsHtml}
                 </table>
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
-                  <tr>
-                    <td align="center">
-                      <a href="${sampleUrl}" style="display:inline-block;background-color:#1A1A1A;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:500;padding:8px 20px;border-radius:6px;">View Sample</a>
-                    </td>
-                  </tr>
-                </table>
+                ${bodyHtml}
+                ${buttonHtml}
               </td>
             </tr>
             <tr>
@@ -126,12 +140,14 @@ function buildEmailHtml({ heading, rows, btCode }) {
 </html>`;
 }
 
-function buildEmailText({ heading, rows, btCode }) {
+function buildEmailText({ heading, rows, btCode, bodyText }) {
   const lines = rows.filter((r) => r.value).map((r) => `${r.label}: ${r.value}`);
-  return `${heading}\n\n${lines.join('\n')}\n\nView sample: ${APP_URL}/sample/${encodeURIComponent(btCode)}\n`;
+  const body = bodyText ? `\n\n${bodyText}\n` : '';
+  const link = btCode ? `\nView sample: ${APP_URL}/sample/${encodeURIComponent(btCode)}\n` : '\n';
+  return `${heading}\n\n${lines.join('\n')}${body}${link}`;
 }
 
-async function sendEmail({ to, subject, heading, rows, btCode }) {
+async function sendEmail({ to, subject, heading, rows, btCode, bodyText }) {
   if (!RESEND_API_KEY) {
     console.error('RESEND_API_KEY is not set — skipping send to', to);
     return;
@@ -151,8 +167,8 @@ async function sendEmail({ to, subject, heading, rows, btCode }) {
       from: FROM_ADDRESS,
       to,
       subject,
-      html: buildEmailHtml({ heading, rows, btCode }),
-      text: buildEmailText({ heading, rows, btCode }),
+      html: buildEmailHtml({ heading, rows, btCode, bodyText }),
+      text: buildEmailText({ heading, rows, btCode, bodyText }),
     }),
   });
 
@@ -292,6 +308,28 @@ async function handleRecall(payload) {
   });
 }
 
+/**
+ * Manager/merchant "Send Feedback" -> always goes to the fixed
+ * praagya@basant.info recipient, not a DB-looked-up admin list — this is
+ * a direct line to the app owner, independent of whichever admin
+ * accounts exist in `profiles`.
+ */
+async function handleFeedback(payload) {
+  const { subject, message, senderName, senderRole } = payload;
+
+  await sendEmail({
+    to: FEEDBACK_RECIPIENT,
+    subject: `Feedback — ${subject}`,
+    heading: 'New Feedback',
+    rows: [
+      { label: 'From', value: senderName },
+      { label: 'Role', value: senderRole },
+      { label: 'Subject', value: subject },
+    ],
+    bodyText: message,
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -309,6 +347,9 @@ Deno.serve(async (req) => {
         break;
       case 'recall':
         await handleRecall(payload);
+        break;
+      case 'feedback':
+        await handleFeedback(payload);
         break;
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {

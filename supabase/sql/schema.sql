@@ -95,6 +95,18 @@ create table if not exists sample_comments (
   created_at timestamptz default now()
 );
 
+-- Manager/merchant -> admin one-way feedback mailbox. Not part of the MCS
+-- sample-tracking model — no hall/buyer scoping, just "any signed-in user
+-- can send, only admins can read/mark read".
+create table if not exists feedback (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid references profiles(id) not null,
+  subject text not null,
+  message text not null,
+  is_read boolean default false,
+  created_at timestamptz default now()
+);
+
 insert into buyers (id, name)
 select '11111111-1111-1111-1111-111111111111', 'Maison du Monde (MDM)'
 where not exists (select 1 from buyers where id = '11111111-1111-1111-1111-111111111111');
@@ -114,6 +126,8 @@ create index if not exists idx_movements_picked_at on movements(picked_at);
 create index if not exists idx_merchant_contacts_buyer_id on merchant_contacts(buyer_id);
 create index if not exists idx_recall_requests_sample_id on recall_requests(sample_id);
 create index if not exists idx_sample_comments_sample_id on sample_comments(sample_id);
+create index if not exists idx_feedback_sender_id on feedback(sender_id);
+create index if not exists idx_feedback_created_at on feedback(created_at);
 
 -- ----------------------------------------------------------------------------
 -- 3. HELPER FUNCTIONS
@@ -159,6 +173,7 @@ alter table movements enable row level security;
 alter table merchant_contacts enable row level security;
 alter table recall_requests enable row level security;
 alter table sample_comments enable row level security;
+alter table feedback enable row level security;
 
 -- profiles: everyone can read their own row; admin reads/writes all.
 -- Regular inserts/updates for user management go through the
@@ -311,6 +326,21 @@ create policy "sample_comments_insert_merchant" on sample_comments for insert to
     and author_id = auth.uid()
     and exists (select 1 from samples s where s.id = sample_id and s.buyer_id = public.current_buyer_id())
   );
+
+-- feedback: one-way mailbox — any signed-in user can send (as themselves),
+-- only admins can read it or mark it read. No update/select policy for the
+-- sender since this isn't a two-way thread.
+drop policy if exists "feedback_select_admin" on feedback;
+create policy "feedback_select_admin" on feedback for select to authenticated
+  using (public.is_super_admin());
+
+drop policy if exists "feedback_insert_own" on feedback;
+create policy "feedback_insert_own" on feedback for insert to authenticated
+  with check (sender_id = auth.uid());
+
+drop policy if exists "feedback_update_admin" on feedback;
+create policy "feedback_update_admin" on feedback for update to authenticated
+  using (public.is_super_admin());
 
 -- ----------------------------------------------------------------------------
 -- 5. ATOMIC WORKFLOW FUNCTIONS
