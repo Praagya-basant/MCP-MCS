@@ -53,6 +53,64 @@ export async function createSample({ buyerId, hallId, btCode, productRef, produc
 }
 
 /**
+ * Bulk-inserts parsed Excel rows for the admin "Upload Samples" flow.
+ * BT codes already present in the DB — or repeated within the same
+ * file — are skipped rather than sent to the insert, since `bt_code` is
+ * unique and a single conflicting row would otherwise fail the whole
+ * batch. Returns the inserted samples plus the rows that were skipped
+ * (each tagged with why) so the caller can show both counts.
+ */
+export async function bulkImportSamples({ buyerId, hallId, rows }) {
+  const seen = new Set();
+  const withinFileDuplicates = [];
+  const uniqueRows = [];
+
+  for (const row of rows) {
+    if (seen.has(row.btCode)) {
+      withinFileDuplicates.push(row);
+    } else {
+      seen.add(row.btCode);
+      uniqueRows.push(row);
+    }
+  }
+
+  const { data: existing, error: existingErr } = await supabase
+    .from('samples')
+    .select('bt_code')
+    .in('bt_code', uniqueRows.map((r) => r.btCode));
+  if (existingErr) throw existingErr;
+
+  const existingSet = new Set(existing.map((e) => e.bt_code));
+  const toInsert = uniqueRows.filter((r) => !existingSet.has(r.btCode));
+  const alreadyInDb = uniqueRows.filter((r) => existingSet.has(r.btCode));
+
+  let inserted = [];
+  if (toInsert.length > 0) {
+    const { data, error: insertErr } = await supabase
+      .from('samples')
+      .insert(
+        toInsert.map((r) => ({
+          buyer_id: buyerId,
+          hall_id: hallId,
+          bt_code: r.btCode,
+          product_ref: r.productRef || null,
+          product_name: r.productName,
+          image_url: null,
+          status: 'in_hall',
+        }))
+      )
+      .select(SAMPLE_SELECT);
+    if (insertErr) throw insertErr;
+    inserted = data.map(mapSample);
+  }
+
+  return {
+    inserted,
+    skipped: [...alreadyInDb, ...withinFileDuplicates],
+  };
+}
+
+/**
  * Uploads to the public `sample-images` bucket and returns the public URL
  * to store on the sample row (see schema.sql storage policies).
  */

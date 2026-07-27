@@ -11,12 +11,14 @@ import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listBuyersWithDetails } from '@/modules/mcs/api/buyersApi';
 import { PAGE_SIZE } from '@/shared/utils/constants';
-import { IconPlus, IconBuilding } from '@/shared/components/icons';
+import { IconPlus, IconBuilding, IconUpload } from '@/shared/components/icons';
 import { AddBuyerModal } from '@/modules/mcs/admin/components/AddBuyerModal';
+import { UploadSamplesModal } from '@/modules/mcs/admin/components/UploadSamplesModal';
 
 export default function Buyers() {
-  const { data: buyers, loading, setData } = useAsyncData(listBuyersWithDetails, []);
+  const { data: buyers, loading, reload, setData } = useAsyncData(listBuyersWithDetails, []);
   const [modalOpen, setModalOpen] = useState(false);
+  const [uploadForBuyer, setUploadForBuyer] = useState(null);
 
   const { search, setSearch, page, setPage, totalPages, totalCount, pageRows } = useTableControls(
     buyers || [],
@@ -65,6 +67,7 @@ export default function Buyers() {
                   <Th>Buyer</Th>
                   <Th>Samples</Th>
                   <Th>Merchant Contacts</Th>
+                  <Th></Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -79,6 +82,12 @@ export default function Buyers() {
                         <span>{b.contacts.map((c) => c.profile?.full_name).filter(Boolean).join(', ')}</span>
                       )}
                     </Td>
+                    <Td className="text-right">
+                      <Button size="sm" variant="secondary" onClick={() => setUploadForBuyer(b)}>
+                        <IconUpload className="w-3.5 h-3.5" />
+                        Upload Samples
+                      </Button>
+                    </Td>
                   </Tr>
                 ))}
               </Tbody>
@@ -89,6 +98,13 @@ export default function Buyers() {
       </Card>
 
       <AddBuyerModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={handleCreated} />
+
+      <UploadSamplesModal
+        open={!!uploadForBuyer}
+        buyer={uploadForBuyer}
+        onClose={() => setUploadForBuyer(null)}
+        onImported={reload}
+      />
     </div>
   );
 }

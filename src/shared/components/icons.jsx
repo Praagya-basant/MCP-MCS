@@ -94,6 +94,15 @@ export function IconDownload(props) {
   );
 }
 
+export function IconUpload(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 15V4m0 0l-4 4m4-4l4 4" />
+      <path d="M4.5 17.5V19a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5v-1.5" />
+    </svg>
+  );
+}
+
 export function IconLogout(props) {
   return (
     <svg {...base} {...props}>
