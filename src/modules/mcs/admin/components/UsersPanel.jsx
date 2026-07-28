@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { PageHeader } from '@/shared/components/PageHeader';
 import { Card } from '@/shared/components/Card';
 import { Button } from '@/shared/components/Button';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
@@ -16,7 +15,8 @@ import { PAGE_SIZE, ROLE_LABELS } from '@/shared/utils/constants';
 import { IconPlus, IconUsers } from '@/shared/components/icons';
 import { CreateUserModal } from '@/modules/mcs/admin/components/CreateUserModal';
 
-export default function Users() {
+/** Users tab of Admin -> Team & Buyers (/admin/team). Same table/behavior as the old standalone Users page. */
+export function UsersPanel() {
   const { data: users, loading, error, setData } = useAsyncData(listUsers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [modalOpen, setModalOpen] = useState(false);
@@ -33,16 +33,12 @@ export default function Users() {
 
   return (
     <div>
-      <PageHeader
-        title="Users"
-        description="Everyone with a login across every hall and buyer."
-        actions={
-          <Button onClick={() => setModalOpen(true)}>
-            <IconPlus className="w-4 h-4" />
-            Create User
-          </Button>
-        }
-      />
+      <div className="flex justify-end mb-4">
+        <Button onClick={() => setModalOpen(true)}>
+          <IconPlus className="w-4 h-4" />
+          Create User
+        </Button>
+      </div>
 
       <Card>
         <div className="px-4 py-3 border-b border-border">

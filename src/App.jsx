@@ -12,9 +12,8 @@ import SampleRedirect from '@/pages/SampleRedirect';
 
 import AdminLayout from '@/modules/mcs/admin/AdminLayout';
 import AdminDashboard from '@/modules/mcs/admin/pages/Dashboard';
-import AdminBuyers from '@/modules/mcs/admin/pages/Buyers';
+import AdminTeam from '@/modules/mcs/admin/pages/Team';
 import AdminHalls from '@/modules/mcs/admin/pages/Halls';
-import AdminUsers from '@/modules/mcs/admin/pages/Users';
 import AdminSamples from '@/modules/mcs/admin/pages/Samples';
 import AdminMovements from '@/modules/mcs/admin/pages/Movements';
 import AdminFeedback from '@/modules/mcs/admin/pages/Feedback';
@@ -60,9 +59,8 @@ function AppRoutes() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="buyers" element={<AdminBuyers />} />
+          <Route path="team" element={<AdminTeam />} />
           <Route path="halls" element={<AdminHalls />} />
-          <Route path="users" element={<AdminUsers />} />
           <Route path="samples" element={<AdminSamples />} />
           <Route path="movements" element={<AdminMovements />} />
           <Route path="feedback" element={<AdminFeedback />} />

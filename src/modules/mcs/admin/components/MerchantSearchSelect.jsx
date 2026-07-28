@@ -71,7 +71,7 @@ export function MerchantSearchSelect({ merchants, selectedIds, onChange }) {
         />
 
         {focused && (
-          <div className="absolute z-10 mt-1 w-full max-h-52 overflow-y-auto scrollbar-thin bg-white border border-border rounded-control shadow-lg">
+          <div className="absolute z-10 mt-1 w-full max-h-[264px] overflow-y-auto scrollbar-thin bg-white border border-border rounded-control shadow-lg">
             {!merchants ? (
               <p className="px-3 py-2.5 text-caption text-ink-muted">Loading merchants&hellip;</p>
             ) : suggestions.length === 0 ? (

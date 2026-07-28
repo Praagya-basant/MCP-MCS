@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { PageHeader } from '@/shared/components/PageHeader';
 import { Card } from '@/shared/components/Card';
 import { Button } from '@/shared/components/Button';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
@@ -17,17 +16,19 @@ import { EditBuyerModal } from '@/modules/mcs/admin/components/EditBuyerModal';
 import { UploadSamplesModal } from '@/modules/mcs/admin/components/UploadSamplesModal';
 import { DeleteBuyerModal } from '@/modules/mcs/admin/components/DeleteBuyerModal';
 
-export default function Buyers() {
-  const { data: buyers, loading, reload, setData } = useAsyncData(listBuyersWithDetails, []);
+/** Buyers tab of Admin -> Team & Buyers (/admin/team). Same table/behavior as the old standalone Buyers page. */
+export function BuyersPanel() {
+  const { data: buyers, loading, error, reload, setData } = useAsyncData(listBuyersWithDetails, []);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBuyer, setEditingBuyer] = useState(null);
   const [uploadForBuyer, setUploadForBuyer] = useState(null);
   const [deletingBuyer, setDeletingBuyer] = useState(null);
 
-  const { search, setSearch, page, setPage, totalPages, totalCount, pageRows } = useTableControls(
-    buyers || [],
-    { searchFields: ['name'] }
-  );
+  const rows = buyers || [];
+
+  const { search, setSearch, page, setPage, totalPages, totalCount, pageRows } = useTableControls(rows, {
+    searchFields: ['name'],
+  });
 
   function handleCreated(buyer) {
     setData((prev) => [...(prev || []), { sampleCount: 0, issuedCount: 0, contacts: [], ...buyer }]);
@@ -43,16 +44,12 @@ export default function Buyers() {
 
   return (
     <div>
-      <PageHeader
-        title="Buyers"
-        description="Every buyer with samples signed into BASANT halls."
-        actions={
-          <Button onClick={() => setModalOpen(true)}>
-            <IconPlus className="w-4 h-4" />
-            Add Buyer
-          </Button>
-        }
-      />
+      <div className="flex justify-end mb-4">
+        <Button onClick={() => setModalOpen(true)}>
+          <IconPlus className="w-4 h-4" />
+          Add Buyer
+        </Button>
+      </div>
 
       <Card>
         <div className="px-4 py-3 border-b border-border">
@@ -61,7 +58,9 @@ export default function Buyers() {
 
         {loading ? (
           <TableSkeleton rows={6} cols={3} />
-        ) : buyers.length === 0 ? (
+        ) : error ? (
+          <EmptyState icon={<IconBuilding className="w-12 h-12 text-ink-muted" />} title="Couldn't load buyers" description={error.message} />
+        ) : rows.length === 0 ? (
           <EmptyState
             icon={<IconBuilding className="w-12 h-12 text-ink-muted" />}
             title="No buyers yet"

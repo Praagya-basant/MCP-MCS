@@ -37,8 +37,8 @@ const PANEL_META = {
   samples: { title: 'All Samples', href: '/admin/samples' },
   issued: { title: 'Issued Samples', href: '/admin/samples' },
   inHall: { title: 'In Hall Samples', href: '/admin/samples' },
-  buyers: { title: 'Buyers', href: '/admin/buyers' },
-  merchants: { title: 'Merchants', href: '/admin/users' },
+  buyers: { title: 'Buyers', href: '/admin/team', state: { tab: 'buyers' } },
+  merchants: { title: 'Merchants', href: '/admin/team', state: { tab: 'users' } },
 };
 
 export default function AdminDashboard() {
@@ -391,7 +391,7 @@ export default function AdminDashboard() {
 
             <div className="px-6 py-4 border-t border-border shrink-0">
               <button
-                onClick={() => navigate(meta.href)}
+                onClick={() => navigate(meta.href, meta.state ? { state: meta.state } : undefined)}
                 className="interactive text-body font-medium text-ink hover:text-ink-secondary"
               >
                 View Full Page &rarr;

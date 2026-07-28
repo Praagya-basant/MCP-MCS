@@ -1,7 +1,6 @@
 import { DashboardLayout } from '@/shared/layouts/DashboardLayout';
 import {
   IconGrid,
-  IconBuilding,
   IconLayers,
   IconUsers,
   IconBox,
@@ -15,9 +14,8 @@ const navSections = [
     title: 'MCS',
     items: [
       { to: '/admin/dashboard', label: 'Dashboard', icon: <IconGrid />, end: true },
-      { to: '/admin/buyers', label: 'Buyers', icon: <IconBuilding /> },
+      { to: '/admin/team', label: 'Team & Buyers', icon: <IconUsers /> },
       { to: '/admin/halls', label: 'Halls', icon: <IconLayers /> },
-      { to: '/admin/users', label: 'Users', icon: <IconUsers /> },
       { to: '/admin/samples', label: 'Samples', icon: <IconBox /> },
       { to: '/admin/movements', label: 'Movements', icon: <IconMove /> },
       // badgeKey is read by Sidebar to render a live unread-count pill —

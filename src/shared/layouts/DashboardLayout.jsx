@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from '@/shared/layouts/Sidebar';
 import { Topbar } from '@/shared/layouts/Topbar';
+import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 
 /**
  * Shared shell for every authenticated role. Each role's route tree wraps
@@ -22,7 +23,9 @@ export function DashboardLayout({ navSections, sidebarSubtitle, contextLabel }) 
           {/* Subtle per-page fade — remounts (and re-animates) on every
               route change since `key` is the pathname. */}
           <div key={location.pathname} className="animate-[fadeIn_0.15s_ease]">
-            <Outlet />
+            <ErrorBoundary resetKey={location.pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
       </div>

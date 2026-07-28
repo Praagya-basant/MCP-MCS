@@ -78,7 +78,12 @@ export function EditBuyerModal({ open, buyer, onClose, onUpdated }) {
         </>
       }
     >
-      <div className="flex flex-col gap-4">
+      {/* min-h reserves enough natural (in-flow) height that the search
+          dropdown — absolutely positioned below the input — never gets
+          clipped by this container's own overflow-y-auto, which only
+          scrolls to reveal in-flow content, not out-of-flow overlays
+          that extend past the container's un-reserved height. */}
+      <div className="flex flex-col gap-4 min-h-[400px]">
         <p className="text-body font-medium text-ink -mt-1">{buyer.name}</p>
 
         <FormField
