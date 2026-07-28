@@ -174,3 +174,12 @@ export function IconTrash(props) {
     </svg>
   );
 }
+
+export function IconSettings(props) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3.5v2M12 18.5v2M20.5 12h-2M5.5 12h-2M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4M17.7 17.7l-1.4-1.4M7.7 7.7L6.3 6.3" />
+    </svg>
+  );
+}

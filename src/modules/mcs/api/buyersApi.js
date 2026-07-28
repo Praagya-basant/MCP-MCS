@@ -54,12 +54,16 @@ export async function deleteBuyer(buyerId) {
 /**
  * Backs the merchant-contacts multi-select on both Add Buyer (addOnly)
  * and Edit Buyer (add + remove diff). A merchant profile only has one
- * `buyer_id`, so this is the single place that assignment gets made —
- * checking a merchant here both makes them a notification recipient
- * (`merchant_contacts`) AND sets their actual access scoping
+ * legacy `buyer_id`, so this is the single place that assignment gets
+ * made — checking a merchant here both makes them a notification
+ * recipient (`merchant_contacts`) AND sets their legacy access scoping
  * (`profiles.buyer_id`); unchecking does the reverse, clearing buyer_id
  * only if it still points at *this* buyer (so it can't clobber a
- * reassignment made elsewhere in the meantime).
+ * reassignment made elsewhere in the meantime). Also mirrors both
+ * directions into `merchant_buyers` — the new multi-buyer source of
+ * truth (see is_merchant_buyer() in schema.sql) — so a merchant checked
+ * here shows up correctly even if they already have other buyers
+ * assigned via Edit User's multi-select.
  */
 export async function syncMerchantContacts({ buyerId, addProfileIds = [], removeProfileIds = [] }) {
   if (addProfileIds.length > 0) {
@@ -70,6 +74,14 @@ export async function syncMerchantContacts({ buyerId, addProfileIds = [], remove
 
     const { error: assignErr } = await supabase.from('profiles').update({ buyer_id: buyerId }).in('id', addProfileIds);
     if (assignErr) throw assignErr;
+
+    const { error: mergeErr } = await supabase
+      .from('merchant_buyers')
+      .upsert(
+        addProfileIds.map((profileId) => ({ buyer_id: buyerId, profile_id: profileId })),
+        { onConflict: 'profile_id,buyer_id', ignoreDuplicates: true }
+      );
+    if (mergeErr) throw mergeErr;
   }
 
   if (removeProfileIds.length > 0) {
@@ -94,5 +106,38 @@ export async function syncMerchantContacts({ buyerId, addProfileIds = [], remove
       .eq('buyer_id', buyerId)
       .in('id', removeProfileIds);
     if (unassignErr) throw unassignErr;
+
+    const { error: unmergeErr } = await supabase
+      .from('merchant_buyers')
+      .delete()
+      .eq('buyer_id', buyerId)
+      .in('profile_id', removeProfileIds);
+    if (unmergeErr) throw unmergeErr;
+  }
+}
+
+/** All buyer ids currently assigned to a merchant via merchant_buyers (Edit User's multi-select). */
+export async function listMerchantBuyerIds(profileId) {
+  const { data, error } = await supabase.from('merchant_buyers').select('buyer_id').eq('profile_id', profileId);
+  if (error) throw error;
+  return data.map((r) => r.buyer_id);
+}
+
+/**
+ * Replaces a merchant's full merchant_buyers set in one go — simpler than
+ * diffing since Edit User's multi-select always submits the complete
+ * desired list. Deliberately does NOT touch the legacy `profiles.buyer_id`
+ * pointer (that stays whatever Admin -> Buyers set it to, if anything) —
+ * merchant_buyers is additive, not a migration of the old field.
+ */
+export async function setMerchantBuyers({ profileId, buyerIds }) {
+  const { error: deleteErr } = await supabase.from('merchant_buyers').delete().eq('profile_id', profileId);
+  if (deleteErr) throw deleteErr;
+
+  if (buyerIds.length > 0) {
+    const { error: insertErr } = await supabase
+      .from('merchant_buyers')
+      .insert(buyerIds.map((buyerId) => ({ profile_id: profileId, buyer_id: buyerId })));
+    if (insertErr) throw insertErr;
   }
 }

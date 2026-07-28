@@ -18,6 +18,7 @@ import AdminUsers from '@/modules/mcs/admin/pages/Users';
 import AdminSamples from '@/modules/mcs/admin/pages/Samples';
 import AdminMovements from '@/modules/mcs/admin/pages/Movements';
 import AdminFeedback from '@/modules/mcs/admin/pages/Feedback';
+import AdminSettings from '@/modules/mcs/admin/pages/Settings';
 
 import HallLayout from '@/modules/mcs/hall/HallLayout';
 import HallDashboard from '@/modules/mcs/hall/pages/Dashboard';
@@ -65,6 +66,7 @@ function AppRoutes() {
           <Route path="samples" element={<AdminSamples />} />
           <Route path="movements" element={<AdminMovements />} />
           <Route path="feedback" element={<AdminFeedback />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Route>
 

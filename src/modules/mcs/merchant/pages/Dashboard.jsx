@@ -1,12 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { StatCard } from '@/shared/components/StatCard';
 import { StatCardSkeleton } from '@/shared/components/Skeleton';
 import { Card, CardHeader, CardBody } from '@/shared/components/Card';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { PillTabs } from '@/shared/components/PillTabs';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
-import { useAuth } from '@/shared/context/AuthContext';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listRecalls } from '@/modules/mcs/api/recallsApi';
@@ -17,33 +17,67 @@ import { buildActivityFeed } from '@/modules/mcs/utils/activity';
 
 export default function MerchantDashboard() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
   const { data, loading } = useAsyncData(async () => {
     const [samples, movements, recalls] = await Promise.all([listSamples(), listMovements(), listRecalls()]);
     return { samples, movements, recalls };
   }, []);
+  const [buyerFilter, setBuyerFilter] = useState('all');
 
-  const stats = useMemo(() => {
-    if (!data) return null;
-    return {
-      total: data.samples.length,
-      checkedOut: data.samples.filter((s) => s.status === 'checked_out').length,
-      inHall: data.samples.filter((s) => s.status === 'in_hall').length,
-      activeRecalls: data.recalls.filter((r) => r.status !== 'resolved').length,
-    };
+  // Distinct buyers derived from whatever samples RLS actually returns —
+  // covers both the legacy single buyer_id and multi-buyer merchants
+  // (merchant_buyers) uniformly, with no extra query needed.
+  const buyers = useMemo(() => {
+    const seen = new Map();
+    (data?.samples || []).forEach((s) => {
+      if (s.buyer && !seen.has(s.buyer.id)) seen.set(s.buyer.id, s.buyer);
+    });
+    return Array.from(seen.values());
   }, [data]);
 
+  const scoped = useMemo(() => {
+    if (!data) return null;
+    if (buyerFilter === 'all') return data;
+    return {
+      samples: data.samples.filter((s) => s.buyer_id === buyerFilter),
+      movements: data.movements.filter((m) => m.sample?.buyer_id === buyerFilter),
+      recalls: data.recalls.filter((r) => r.sample?.buyer_id === buyerFilter),
+    };
+  }, [data, buyerFilter]);
+
+  const stats = useMemo(() => {
+    if (!scoped) return null;
+    return {
+      total: scoped.samples.length,
+      checkedOut: scoped.samples.filter((s) => s.status === 'checked_out').length,
+      inHall: scoped.samples.filter((s) => s.status === 'in_hall').length,
+      activeRecalls: scoped.recalls.filter((r) => r.status !== 'resolved').length,
+    };
+  }, [scoped]);
+
   const activity = useMemo(
-    () => (data ? buildActivityFeed({ movements: data.movements, recalls: data.recalls }).slice(0, 8) : []),
-    [data]
+    () => (scoped ? buildActivityFeed({ movements: scoped.movements, recalls: scoped.recalls }).slice(0, 8) : []),
+    [scoped]
   );
+
+  const buyerTabs = useMemo(
+    () => [{ value: 'all', label: 'All Buyers' }, ...buyers.map((b) => ({ value: b.id, label: b.name }))],
+    [buyers]
+  );
+
+  const title = buyers.length === 1 ? buyers[0].name : 'Dashboard';
 
   return (
     <div>
-      <PageHeader title={profile?.buyer?.name || 'Dashboard'} description="Your samples across every BASANT hall." />
+      <PageHeader title={title} description="Your samples across every BASANT hall." />
+
+      {buyers.length > 1 && (
+        <div className="mb-6">
+          <PillTabs options={buyerTabs} value={buyerFilter} onChange={setBuyerFilter} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {loading ? (
+        {loading || !stats ? (
           <>
             <StatCardSkeleton />
             <StatCardSkeleton />

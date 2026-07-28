@@ -23,15 +23,16 @@ function previewOf(message) {
 }
 
 export default function AdminFeedback() {
-  const { data: feedback, loading, setData } = useAsyncData(listFeedback, []);
+  const { data: feedback, loading, error, setData } = useAsyncData(listFeedback, []);
   const { refresh: refreshUnreadBadge } = useFeedback() || {};
   const [selected, setSelected] = useState(null);
   const [marking, setMarking] = useState(false);
 
-  const { search, setSearch, page, setPage, totalPages, totalCount, pageRows } = useTableControls(
-    feedback || [],
-    { searchFields: ['subject', 'message'] }
-  );
+  const rows = feedback || [];
+
+  const { search, setSearch, page, setPage, totalPages, totalCount, pageRows } = useTableControls(rows, {
+    searchFields: ['subject', 'message'],
+  });
 
   function patchLocal(updated) {
     setData((prev) => (prev || []).map((f) => (f.id === updated.id ? updated : f)));
@@ -60,7 +61,13 @@ export default function AdminFeedback() {
 
         {loading ? (
           <TableSkeleton rows={6} cols={6} />
-        ) : feedback.length === 0 ? (
+        ) : error ? (
+          <EmptyState
+            icon={<IconMessage className="w-12 h-12 text-ink-muted" />}
+            title="Couldn't load feedback"
+            description={error.message}
+          />
+        ) : rows.length === 0 ? (
           <EmptyState
             icon={<IconMessage className="w-12 h-12 text-ink-muted" />}
             title="No feedback yet"

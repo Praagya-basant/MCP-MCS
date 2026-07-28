@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ResponsiveContainer,
@@ -18,17 +18,28 @@ import { StatCardSkeleton, TableSkeleton, Skeleton } from '@/shared/components/S
 import { Card, CardHeader, CardBody } from '@/shared/components/Card';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
+import { Drawer } from '@/shared/components/Drawer';
+import { SearchInput } from '@/shared/components/SearchInput';
+import { StatusBadge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listBuyersWithDetails } from '@/modules/mcs/api/buyersApi';
 import { listUsers } from '@/modules/mcs/api/usersApi';
-import { IconBox, IconBuilding, IconUsers, IconMove } from '@/shared/components/icons';
+import { IconBox, IconBuilding, IconUsers, IconMove, IconLayers } from '@/shared/components/icons';
 import { SAMPLE_STATUS, ROLES } from '@/shared/utils/constants';
 import { formatDateTime } from '@/shared/utils/formatters';
 
 const IN_HALL_COLOR = '#16A34A';
 const ISSUED_COLOR = '#D97706';
+
+const PANEL_META = {
+  samples: { title: 'All Samples', href: '/admin/samples' },
+  issued: { title: 'Issued Samples', href: '/admin/samples' },
+  inHall: { title: 'In Hall Samples', href: '/admin/samples' },
+  buyers: { title: 'Buyers', href: '/admin/buyers' },
+  merchants: { title: 'Merchants', href: '/admin/users' },
+};
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -42,13 +53,22 @@ export default function AdminDashboard() {
     return { samples, movements, buyers, users };
   }, []);
 
+  const [activePanel, setActivePanel] = useState(null);
+  const [panelSearch, setPanelSearch] = useState('');
+
+  function openPanel(panel) {
+    setPanelSearch('');
+    setActivePanel(panel);
+  }
+
   const stats = useMemo(() => {
     if (!data) return null;
     return {
       totalSamples: data.samples.length,
-      totalBuyers: data.buyers.length,
-      totalManagers: data.users.filter((u) => u.role === ROLES.HALL_MANAGER).length,
+      inHall: data.samples.filter((s) => s.status === SAMPLE_STATUS.IN_HALL).length,
       currentlyIssued: data.samples.filter((s) => s.status === SAMPLE_STATUS.CHECKED_OUT).length,
+      totalBuyers: data.buyers.length,
+      totalMerchants: data.users.filter((u) => u.role === ROLES.MERCHANT).length,
     };
   }, [data]);
 
@@ -72,13 +92,44 @@ export default function AdminDashboard() {
 
   const topMovements = useMemo(() => (data ? data.movements.slice(0, 8) : []), [data]);
 
+  const panelSamples = useMemo(() => {
+    if (!data) return [];
+    let rows = data.samples;
+    if (activePanel === 'issued') rows = rows.filter((s) => s.status === SAMPLE_STATUS.CHECKED_OUT);
+    if (activePanel === 'inHall') rows = rows.filter((s) => s.status === SAMPLE_STATUS.IN_HALL);
+    const q = panelSearch.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter(
+        (s) =>
+          s.bt_code?.toLowerCase().includes(q) ||
+          s.product_name?.toLowerCase().includes(q) ||
+          s.buyer?.name?.toLowerCase().includes(q)
+      );
+    }
+    return rows;
+  }, [data, activePanel, panelSearch]);
+
+  const merchants = useMemo(() => {
+    if (!data) return [];
+    return data.users
+      .filter((u) => u.role === ROLES.MERCHANT)
+      .map((m) => ({
+        ...m,
+        assignedBuyers: data.buyers.filter((b) => (b.contacts || []).some((c) => c.profile?.id === m.id)).map((b) => b.name),
+      }));
+  }, [data]);
+
+  const isSamplePanel = activePanel === 'samples' || activePanel === 'issued' || activePanel === 'inHall';
+  const meta = activePanel ? PANEL_META[activePanel] : null;
+
   return (
     <div>
       <PageHeader title="Dashboard" description="Platform-wide overview across every hall and buyer." />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {loading || !stats ? (
           <>
+            <StatCardSkeleton />
             <StatCardSkeleton />
             <StatCardSkeleton />
             <StatCardSkeleton />
@@ -90,25 +141,31 @@ export default function AdminDashboard() {
               label="Total Samples"
               value={stats.totalSamples}
               icon={<IconBox className="w-4 h-4" />}
-              onClick={() => navigate('/admin/samples')}
+              onClick={() => openPanel('samples')}
+            />
+            <StatCard
+              label="In Hall"
+              value={stats.inHall}
+              icon={<IconLayers className="w-4 h-4" />}
+              onClick={() => openPanel('inHall')}
+            />
+            <StatCard
+              label="Issued"
+              value={stats.currentlyIssued}
+              icon={<IconMove className="w-4 h-4" />}
+              onClick={() => openPanel('issued')}
             />
             <StatCard
               label="Total Buyers"
               value={stats.totalBuyers}
               icon={<IconBuilding className="w-4 h-4" />}
-              onClick={() => navigate('/admin/buyers')}
+              onClick={() => openPanel('buyers')}
             />
             <StatCard
-              label="Total Managers"
-              value={stats.totalManagers}
+              label="Total Merchants"
+              value={stats.totalMerchants}
               icon={<IconUsers className="w-4 h-4" />}
-              onClick={() => navigate('/admin/users')}
-            />
-            <StatCard
-              label="Currently Issued"
-              value={stats.currentlyIssued}
-              icon={<IconMove className="w-4 h-4" />}
-              onClick={() => navigate('/admin/samples', { state: { statusFilter: SAMPLE_STATUS.CHECKED_OUT } })}
+              onClick={() => openPanel('merchants')}
             />
           </>
         )}
@@ -267,6 +324,82 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      <Drawer open={!!activePanel} onClose={() => setActivePanel(null)} title={meta?.title}>
+        {activePanel && (
+          <div className="flex flex-col h-full min-h-0">
+            <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
+              {isSamplePanel && (
+                <div className="flex flex-col gap-4">
+                  <SearchInput
+                    value={panelSearch}
+                    onChange={setPanelSearch}
+                    placeholder="Search BT code, product, buyer..."
+                  />
+                  {panelSamples.length === 0 ? (
+                    <EmptyState title="No samples" description="Nothing to show here." />
+                  ) : (
+                    <div className="flex flex-col divide-y divide-border border border-border rounded-control overflow-hidden">
+                      {panelSamples.map((s) => (
+                        <div key={s.id} className="px-3 py-2.5 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-body font-medium font-mono text-ink truncate">{s.bt_code}</p>
+                            <p className="text-caption text-ink-secondary truncate">
+                              {s.product_name} &middot; {s.buyer?.name}
+                            </p>
+                          </div>
+                          <StatusBadge status={s.status} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activePanel === 'buyers' &&
+                (data.buyers.length === 0 ? (
+                  <EmptyState title="No buyers yet" description="Add a buyer to see them here." />
+                ) : (
+                  <div className="flex flex-col divide-y divide-border border border-border rounded-control overflow-hidden">
+                    {data.buyers.map((b) => (
+                      <div key={b.id} className="px-3 py-2.5 flex items-center justify-between gap-3">
+                        <p className="text-body text-ink truncate">{b.name}</p>
+                        <span className="text-caption text-ink-secondary shrink-0">
+                          {b.sampleCount} sample{b.sampleCount === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+
+              {activePanel === 'merchants' &&
+                (merchants.length === 0 ? (
+                  <EmptyState title="No merchants yet" description="Create a merchant account to see them here." />
+                ) : (
+                  <div className="flex flex-col divide-y divide-border border border-border rounded-control overflow-hidden">
+                    {merchants.map((m) => (
+                      <div key={m.id} className="px-3 py-2.5">
+                        <p className="text-body font-medium text-ink truncate">{m.full_name}</p>
+                        <p className="text-caption text-ink-secondary truncate">
+                          {m.assignedBuyers.length > 0 ? m.assignedBuyers.join(', ') : 'No buyers assigned'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+            </div>
+
+            <div className="px-6 py-4 border-t border-border shrink-0">
+              <button
+                onClick={() => navigate(meta.href)}
+                className="interactive text-body font-medium text-ink hover:text-ink-secondary"
+              >
+                View Full Page &rarr;
+              </button>
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

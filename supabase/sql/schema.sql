@@ -107,6 +107,17 @@ create table if not exists feedback (
   created_at timestamptz default now()
 );
 
+-- Multi-buyer merchants (e.g. one merchant user covering several
+-- buyers). `profiles.buyer_id` stays as the legacy single-buyer pointer
+-- for backwards compatibility — this table is the new source of truth,
+-- additive to it, not a replacement migration.
+create table if not exists merchant_buyers (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid references profiles(id) not null,
+  buyer_id uuid references buyers(id) not null,
+  unique(profile_id, buyer_id)
+);
+
 insert into buyers (id, name)
 select '11111111-1111-1111-1111-111111111111', 'Maison du Monde (MDM)'
 where not exists (select 1 from buyers where id = '11111111-1111-1111-1111-111111111111');
@@ -128,6 +139,8 @@ create index if not exists idx_recall_requests_sample_id on recall_requests(samp
 create index if not exists idx_sample_comments_sample_id on sample_comments(sample_id);
 create index if not exists idx_feedback_sender_id on feedback(sender_id);
 create index if not exists idx_feedback_created_at on feedback(created_at);
+create index if not exists idx_merchant_buyers_profile_id on merchant_buyers(profile_id);
+create index if not exists idx_merchant_buyers_buyer_id on merchant_buyers(buyer_id);
 
 -- ----------------------------------------------------------------------------
 -- 3. HELPER FUNCTIONS
@@ -161,6 +174,20 @@ language sql security definer stable set search_path = public as $$
   select exists (select 1 from profiles where id = auth.uid() and role = 'super_admin');
 $$;
 
+-- Single access check covering BOTH the legacy profiles.buyer_id pointer
+-- and the new merchant_buyers table, so every RLS policy that used to
+-- compare `buyer_id = current_buyer_id()` can switch to this one call and
+-- transparently support merchants with several assigned buyers.
+create or replace function public.is_merchant_buyer(p_buyer_id uuid)
+returns boolean
+language sql security definer stable set search_path = public as $$
+  select
+    p_buyer_id = public.current_buyer_id()
+    or exists (
+      select 1 from merchant_buyers where profile_id = auth.uid() and buyer_id = p_buyer_id
+    );
+$$;
+
 -- ----------------------------------------------------------------------------
 -- 4. ROW LEVEL SECURITY
 -- ----------------------------------------------------------------------------
@@ -174,6 +201,7 @@ alter table merchant_contacts enable row level security;
 alter table recall_requests enable row level security;
 alter table sample_comments enable row level security;
 alter table feedback enable row level security;
+alter table merchant_buyers enable row level security;
 
 -- profiles: everyone can read their own row; admin reads/writes all.
 -- Regular inserts/updates for user management go through the
@@ -202,7 +230,7 @@ create policy "buyers_select" on buyers for select to authenticated
   using (
     public.is_super_admin()
     or public.current_role() = 'hall_manager'
-    or id = public.current_buyer_id()
+    or public.is_merchant_buyer(id)
   );
 
 drop policy if exists "buyers_insert_admin" on buyers;
@@ -212,6 +240,17 @@ create policy "buyers_insert_admin" on buyers for insert to authenticated
 drop policy if exists "buyers_update_admin" on buyers;
 create policy "buyers_update_admin" on buyers for update to authenticated
   using (public.is_super_admin());
+
+-- merchant_buyers: a merchant can see their own assignments; only admins
+-- write (via Admin -> Buyers' merchant-contacts sync, or Admin -> Users'
+-- Edit User multi-select).
+drop policy if exists "merchant_buyers_select" on merchant_buyers;
+create policy "merchant_buyers_select" on merchant_buyers for select to authenticated
+  using (public.is_super_admin() or profile_id = auth.uid());
+
+drop policy if exists "merchant_buyers_write_admin" on merchant_buyers;
+create policy "merchant_buyers_write_admin" on merchant_buyers for all to authenticated
+  using (public.is_super_admin()) with check (public.is_super_admin());
 
 -- halls: hall numbers aren't sensitive and are needed app-wide
 -- (destination dropdowns, headers) — readable by any authenticated user.
@@ -232,7 +271,7 @@ create policy "samples_select" on samples for select to authenticated
   using (
     public.is_super_admin()
     or (public.current_role() = 'hall_manager' and hall_id = public.current_hall_id())
-    or (public.current_role() = 'merchant' and buyer_id = public.current_buyer_id())
+    or (public.current_role() = 'merchant' and public.is_merchant_buyer(buyer_id))
   );
 
 drop policy if exists "samples_insert" on samples;
@@ -256,7 +295,7 @@ create policy "movements_select" on movements for select to authenticated
       select 1 from samples s where s.id = movements.sample_id
       and (
         (public.current_role() = 'hall_manager' and s.hall_id = public.current_hall_id())
-        or (public.current_role() = 'merchant' and s.buyer_id = public.current_buyer_id())
+        or (public.current_role() = 'merchant' and public.is_merchant_buyer(s.buyer_id))
       )
     )
   );
@@ -281,7 +320,7 @@ create policy "recall_requests_select" on recall_requests for select to authenti
       select 1 from samples s where s.id = recall_requests.sample_id
       and (
         (public.current_role() = 'hall_manager' and s.hall_id = public.current_hall_id())
-        or (public.current_role() = 'merchant' and s.buyer_id = public.current_buyer_id())
+        or (public.current_role() = 'merchant' and public.is_merchant_buyer(s.buyer_id))
       )
     )
   );
@@ -291,7 +330,7 @@ create policy "recall_requests_insert_merchant" on recall_requests for insert to
   with check (
     public.current_role() = 'merchant'
     and requested_by = auth.uid()
-    and exists (select 1 from samples s where s.id = sample_id and s.buyer_id = public.current_buyer_id())
+    and exists (select 1 from samples s where s.id = sample_id and public.is_merchant_buyer(s.buyer_id))
   );
 
 drop policy if exists "recall_requests_update" on recall_requests;
@@ -314,7 +353,7 @@ create policy "sample_comments_select" on sample_comments for select to authenti
       select 1 from samples s where s.id = sample_comments.sample_id
       and (
         (public.current_role() = 'hall_manager' and s.hall_id = public.current_hall_id())
-        or (public.current_role() = 'merchant' and s.buyer_id = public.current_buyer_id())
+        or (public.current_role() = 'merchant' and public.is_merchant_buyer(s.buyer_id))
       )
     )
   );
@@ -324,7 +363,7 @@ create policy "sample_comments_insert_merchant" on sample_comments for insert to
   with check (
     public.current_role() = 'merchant'
     and author_id = auth.uid()
-    and exists (select 1 from samples s where s.id = sample_id and s.buyer_id = public.current_buyer_id())
+    and exists (select 1 from samples s where s.id = sample_id and public.is_merchant_buyer(s.buyer_id))
   );
 
 -- feedback: one-way mailbox — any signed-in user can send (as themselves),

@@ -13,18 +13,21 @@ import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listUsers } from '@/modules/mcs/api/usersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, ROLE_LABELS } from '@/shared/utils/constants';
-import { IconPlus, IconUsers } from '@/shared/components/icons';
+import { IconPlus, IconUsers, IconEdit } from '@/shared/components/icons';
 import { CreateUserModal } from '@/modules/mcs/admin/components/CreateUserModal';
+import { EditUserModal } from '@/modules/mcs/admin/components/EditUserModal';
 
 export default function Users() {
-  const { data: users, loading, setData } = useAsyncData(listUsers, []);
+  const { data: users, loading, error, setData, reload } = useAsyncData(listUsers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
 
-  const { search, setSearch, page, setPage, totalPages, totalCount, pageRows } = useTableControls(
-    users || [],
-    { searchFields: ['full_name', 'email'] }
-  );
+  const rows = users || [];
+
+  const { search, setSearch, page, setPage, totalPages, totalCount, pageRows } = useTableControls(rows, {
+    searchFields: ['full_name', 'email'],
+  });
 
   function handleCreated(profile) {
     setData((prev) => [profile, ...(prev || [])]);
@@ -50,7 +53,9 @@ export default function Users() {
 
         {loading ? (
           <TableSkeleton rows={6} cols={4} />
-        ) : users.length === 0 ? (
+        ) : error ? (
+          <EmptyState icon={<IconUsers className="w-12 h-12 text-ink-muted" />} title="Couldn't load users" description={error.message} />
+        ) : rows.length === 0 ? (
           <EmptyState
             icon={<IconUsers className="w-12 h-12 text-ink-muted" />}
             title="No users yet"
@@ -69,6 +74,7 @@ export default function Users() {
                   <Th>Email</Th>
                   <Th>Role</Th>
                   <Th>Assignment</Th>
+                  <Th></Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -82,6 +88,12 @@ export default function Users() {
                     <Td className="text-ink-secondary">
                       {u.hall ? u.hall.name : u.buyer ? u.buyer.name : '—'}
                     </Td>
+                    <Td className="text-right">
+                      <Button size="sm" variant="ghost" onClick={() => setEditingUser(u)}>
+                        <IconEdit className="w-3.5 h-3.5" />
+                        Edit
+                      </Button>
+                    </Td>
                   </Tr>
                 ))}
               </Tbody>
@@ -90,6 +102,8 @@ export default function Users() {
           </>
         )}
       </Card>
+
+      <EditUserModal open={!!editingUser} user={editingUser} onClose={() => setEditingUser(null)} onUpdated={reload} />
 
       <CreateUserModal
         open={modalOpen}

@@ -214,27 +214,41 @@ async function getHallIdByName(name) {
   return data?.id ?? null;
 }
 
+function dedupe(emails) {
+  return Array.from(new Set(emails.filter(Boolean)));
+}
+
+// Destinations that never get a hall-manager email even if a `halls` row
+// with that exact name happens to exist (e.g. Mandore is a storage
+// location, not a showroom hall with an assigned manager) — mirrors the
+// frontend's NON_HALL_DESTINATIONS (Supplier/Other) plus Mandore.
+const NON_HOD_DESTINATIONS = ['mandore', 'supplier', 'other'];
+
 /**
- * Checkout ("Sample Issued") currently fires exactly one email, to the
- * buyer's merchant contacts. No email to the picker and none to the
- * *source* hall's manager (they're the one who just logged this, they
- * already know).
- *
- * A second email — to the manager of the *destination* hall — is wired
- * up below but disabled for now (commented out, not removed). To
- * re-enable it, uncomment the block; it looks the destination hall up by
- * *name* (via getHallIdByName, since halls now have a name column and
- * `destination` is that name — no longer a parseable "Hall N" string),
- * skipping Supplier/Other and halls with no manager on file.
+ * Checkout ("Sample Issued") sends ONE email covering both the buyer's
+ * merchant contacts and — unless the destination is Mandore/Supplier/
+ * Other — the destination hall's manager, looked up by name (since
+ * `destination` is the hall's `name`, not a parseable "Hall N" string).
+ * A single sendEmail() call with a combined `to` list keeps this one
+ * thread instead of two separate emails. Missing/unassigned managers are
+ * silently skipped, never a failure.
  */
 async function handleCheckout(payload) {
-  const { btCode, productName, hallName, buyerId, /* pickedByName, */ destination, reason, pickedAt, loggedByName } = payload;
+  const { btCode, productName, hallName, buyerId, destination, reason, pickedAt, loggedByName } = payload;
 
   const merchantEmails = await getMerchantContactEmails(buyerId);
   const when = formatDateTime(pickedAt);
 
+  let hodEmails = [];
+  if (!NON_HOD_DESTINATIONS.includes(String(destination || '').trim().toLowerCase())) {
+    const destHallId = await getHallIdByName(destination);
+    if (destHallId) {
+      hodEmails = await getHallManagerEmails(destHallId);
+    }
+  }
+
   await sendEmail({
-    to: merchantEmails,
+    to: dedupe([...merchantEmails, ...hodEmails]),
     subject: `Sample Issued — ${btCode} · ${productName}`,
     heading: 'Sample Issued',
     rows: [
@@ -248,35 +262,21 @@ async function handleCheckout(payload) {
     ],
     btCode,
   });
-
-  // --- Destination hall manager email — disabled for now, see docstring above ---
-  // const destHallId = await getHallIdByName(destination);
-  // if (!destHallId) return; // Supplier/Other, or a name that isn't a tracked hall
-  //
-  // const destManagerEmails = await getHallManagerEmails(destHallId);
-  //
-  // await sendEmail({
-  //   to: destManagerEmails,
-  //   subject: `Sample Issued — ${btCode} · ${productName}`,
-  //   heading: 'Sample Issued',
-  //   rows: [
-  //     { label: 'BT Code', value: btCode },
-  //     { label: 'Product Name', value: productName },
-  //     { label: 'From Hall', value: hallName || '' },
-  //     { label: 'Picker', value: pickedByName },
-  //     { label: 'Reason', value: reason },
-  //     { label: 'Date & Time', value: when },
-  //   ],
-  //   btCode,
-  // });
 }
 
+/**
+ * Return sends ONE email covering the buyer's merchant contacts and the
+ * sample's OWN (home) hall manager — the one who now has it back and
+ * needs to know. `hallId` is the sample's home hall, not a destination,
+ * so no Mandore/Supplier/Other exclusion applies here.
+ */
 async function handleReturn(payload) {
-  const { btCode, productName, hallName, buyerId, returnedAt } = payload;
+  const { btCode, productName, hallName, hallId, buyerId, returnedAt } = payload;
   const merchantEmails = await getMerchantContactEmails(buyerId);
+  const hallManagerEmails = hallId ? await getHallManagerEmails(hallId) : [];
 
   await sendEmail({
-    to: merchantEmails,
+    to: dedupe([...merchantEmails, ...hallManagerEmails]),
     subject: `Sample Returned — ${btCode} · ${productName}`,
     heading: 'Sample Returned',
     rows: [

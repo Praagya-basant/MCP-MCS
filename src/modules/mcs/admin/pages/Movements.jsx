@@ -9,24 +9,40 @@ import { Pagination } from '@/shared/components/Pagination';
 import { Select } from '@/shared/components/Input';
 import { DateRangeFilter } from '@/shared/components/DateRangeFilter';
 import { Badge } from '@/shared/components/Badge';
+import { Drawer } from '@/shared/components/Drawer';
+import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, REASON_OPTIONS } from '@/shared/utils/constants';
-import { IconMove, IconTrash } from '@/shared/components/icons';
+import { IconMove } from '@/shared/components/icons';
 import { formatDateTime } from '@/shared/utils/formatters';
-import { Button } from '@/shared/components/Button';
-import { ClearMovementHistoryDialog } from '@/modules/mcs/admin/components/ClearMovementHistoryDialog';
+
+function pickedByLabel(m) {
+  return m.picked_by_name || m.logged_by_profile?.full_name || '—';
+}
+
+function reasonLabel(m) {
+  return m.reason === 'Other' ? m.reason_other || 'Other' : m.reason;
+}
+
+function MovementStatusBadge({ status }) {
+  return status === 'returned' ? (
+    <Badge className="bg-status-in-hall-bg text-status-in-hall-text">Returned</Badge>
+  ) : (
+    <Badge className="bg-status-checked-out-bg text-status-checked-out-text">Issued</Badge>
+  );
+}
 
 export default function AdminMovements() {
-  const { data: movements, loading, reload } = useAsyncData(listMovements, []);
+  const { data: movements, loading, error } = useAsyncData(listMovements, []);
   const { data: buyers } = useAsyncData(listBuyers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [clearOpen, setClearOpen] = useState(false);
+  const [selected, setSelected] = useState(null);
 
   const flatRows = useMemo(
     () =>
@@ -38,6 +54,7 @@ export default function AdminMovements() {
         buyer_name: m.sample?.buyer?.name,
         hall_id: m.sample?.hall_id,
         hall_name: m.sample?.hall?.name,
+        picked_by_label: pickedByLabel(m),
       })),
     [movements]
   );
@@ -54,7 +71,7 @@ export default function AdminMovements() {
 
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
     useTableControls(dateFiltered, {
-      searchFields: ['bt_code', 'product_name', 'picked_by_name'],
+      searchFields: ['bt_code', 'product_name', 'picked_by_label'],
       initialSort: { key: 'picked_at', dir: 'desc' },
     });
 
@@ -104,8 +121,10 @@ export default function AdminMovements() {
         </div>
 
         {loading ? (
-          <TableSkeleton rows={8} cols={7} />
-        ) : movements.length === 0 ? (
+          <TableSkeleton rows={8} cols={8} />
+        ) : error ? (
+          <EmptyState icon={<IconMove className="w-12 h-12 text-ink-muted" />} title="Couldn't load movements" description={error.message} />
+        ) : (movements || []).length === 0 ? (
           <EmptyState icon={<IconMove className="w-12 h-12 text-ink-muted" />} title="No movements yet" description="Movements will be logged here." />
         ) : pageRows.length === 0 ? (
           <EmptyState title="No matches" description="Try adjusting your search or filters." />
@@ -119,19 +138,23 @@ export default function AdminMovements() {
                   <Th>Hall</Th>
                   <Th>Picked By</Th>
                   <Th>Reason</Th>
+                  <Th>Status</Th>
                   <Th className="text-right">Picked At</Th>
                   <Th className="text-right">Returned At</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {pageRows.map((m) => (
-                  <Tr key={m.id}>
+                  <Tr key={m.id} onClick={() => setSelected(m)}>
                     <Td className="font-medium">{m.bt_code}</Td>
                     <Td className="text-ink-secondary">{m.buyer_name}</Td>
                     <Td className="text-ink-secondary">{m.hall_name}</Td>
-                    <Td>{m.picked_by_name}</Td>
+                    <Td>{m.picked_by_label}</Td>
                     <Td>
-                      <Badge>{m.reason === 'Other' ? m.reason_other || 'Other' : m.reason}</Badge>
+                      <Badge>{reasonLabel(m)}</Badge>
+                    </Td>
+                    <Td>
+                      <MovementStatusBadge status={m.status} />
                     </Td>
                     <Td className="text-right text-ink-secondary text-[13px] whitespace-nowrap">{formatDateTime(m.picked_at)}</Td>
                     <Td className="text-right text-ink-secondary text-[13px] whitespace-nowrap">{m.status === 'returned' ? formatDateTime(m.returned_at) : '—'}</Td>
@@ -144,25 +167,66 @@ export default function AdminMovements() {
         )}
       </Card>
 
-      <div className="mt-8 bg-white border border-red-200 rounded-card shadow-card px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 text-red-500 shrink-0">
-            <IconTrash className="w-5 h-5" />
-          </span>
-          <div>
-            <h2 className="text-body-lg font-semibold text-ink">Clear Test Data</h2>
-            <p className="mt-0.5 text-body text-ink-secondary max-w-md">
-              Permanently deletes every movement record across every hall and buyer. Use this to
-              wipe test movements before going live — it cannot be undone.
-            </p>
-          </div>
-        </div>
-        <Button variant="danger" onClick={() => setClearOpen(true)} disabled={loading || movements?.length === 0}>
-          Clear Test Data
-        </Button>
-      </div>
+      <Drawer open={!!selected} onClose={() => setSelected(null)} title="Movement Details">
+        {selected && (
+          <div className="flex flex-col h-full min-h-0">
+            <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 flex flex-col gap-5">
+              <div className="flex items-center gap-3">
+                <SampleThumbnail sample={selected.sample} />
+                <div className="min-w-0">
+                  <p className="text-body font-medium font-mono text-ink truncate">{selected.bt_code}</p>
+                  <p className="text-caption text-ink-secondary truncate">{selected.product_name}</p>
+                </div>
+                <div className="ml-auto shrink-0">
+                  <MovementStatusBadge status={selected.status} />
+                </div>
+              </div>
 
-      <ClearMovementHistoryDialog open={clearOpen} onClose={() => setClearOpen(false)} onCleared={reload} />
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div>
+                  <p className="text-caption text-ink-muted">Buyer</p>
+                  <p className="text-body text-ink">{selected.buyer_name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-caption text-ink-muted">Hall</p>
+                  <p className="text-body text-ink">{selected.hall_name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-caption text-ink-muted">Picked By</p>
+                  <p className="text-body text-ink">{selected.picked_by_label}</p>
+                </div>
+                <div>
+                  <p className="text-caption text-ink-muted">Logged By</p>
+                  <p className="text-body text-ink">{selected.logged_by_profile?.full_name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-caption text-ink-muted">Destination</p>
+                  <p className="text-body text-ink">{selected.destination || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-caption text-ink-muted">Reason</p>
+                  <p className="text-body text-ink">{reasonLabel(selected)}</p>
+                </div>
+                <div>
+                  <p className="text-caption text-ink-muted">Picked At</p>
+                  <p className="text-body text-ink">{formatDateTime(selected.picked_at)}</p>
+                </div>
+                <div>
+                  <p className="text-caption text-ink-muted">Returned At</p>
+                  <p className="text-body text-ink">{selected.status === 'returned' ? formatDateTime(selected.returned_at) : '—'}</p>
+                </div>
+              </div>
+
+              {selected.notes && (
+                <div>
+                  <p className="text-caption text-ink-muted mb-1">Notes</p>
+                  <p className="text-body text-ink whitespace-pre-wrap">{selected.notes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
