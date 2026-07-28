@@ -16,7 +16,7 @@ export function StatCard({ label, value, icon, trend, onClick, className }) {
       )}
     >
       <div className="flex items-center justify-between">
-        <span className="text-caption font-medium uppercase tracking-wide text-ink-secondary">
+        <span className="text-caption font-medium uppercase tracking-wide text-ink-secondary select-none">
           {label}
         </span>
         {icon && <span className="text-ink-muted">{icon}</span>}

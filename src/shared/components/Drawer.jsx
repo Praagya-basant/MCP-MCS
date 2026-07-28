@@ -54,7 +54,7 @@ export function Drawer({ open, onClose, title, children }) {
       >
         {title && (
           <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
-            <h2 className="text-heading font-semibold text-ink truncate">{title}</h2>
+            <h2 className="text-heading font-semibold text-ink truncate select-none">{title}</h2>
             <button
               onClick={onClose}
               className="text-ink-muted hover:text-ink interactive shrink-0"

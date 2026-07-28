@@ -4,6 +4,8 @@ import { Logo } from '@/shared/components/Logo';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useFeedback } from '@/shared/context/FeedbackContext';
 
+const CONTACT_EMAIL = 'praagya@basant.info';
+
 /**
  * Renders one or more nav sections. Each module (mcs, and eventually mcp)
  * supplies its own section — this component just lays them out, so a
@@ -36,7 +38,7 @@ export function Sidebar({ sections, subtitle }) {
         </div>
       )}
 
-      <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 pb-4 flex flex-col gap-5">
+      <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 pb-4 flex flex-col gap-5 select-none">
         {sections.map((section) => (
           <div key={section.title || 'main'}>
             {section.title && (
@@ -80,6 +82,16 @@ export function Sidebar({ sections, subtitle }) {
           </div>
         ))}
       </nav>
+
+      {/* Quiet footer line — not styled as a feature. */}
+      <div className="shrink-0 border-t border-border px-3 py-3">
+        <a
+          href={`mailto:${CONTACT_EMAIL}`}
+          className="interactive select-none block px-3 py-1 text-[11px] text-[#9B9B9B] hover:text-[#6B6B6B]"
+        >
+          Contact admin for support
+        </a>
+      </div>
     </aside>
   );
 }

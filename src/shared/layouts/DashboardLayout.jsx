@@ -21,7 +21,7 @@ export function DashboardLayout({ navSections, sidebarSubtitle, contextLabel }) 
         <main className="flex-1 p-6 md:p-8">
           {/* Subtle per-page fade — remounts (and re-animates) on every
               route change since `key` is the pathname. */}
-          <div key={location.pathname} className="animate-[fadeIn_0.2s_ease]">
+          <div key={location.pathname} className="animate-[fadeIn_0.15s_ease]">
             <Outlet />
           </div>
         </main>

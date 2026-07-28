@@ -52,15 +52,30 @@ export default function MerchantDashboard() {
           </>
         ) : (
           <>
-            <StatCard label="Total Samples" value={stats.total} icon={<IconBox className="w-4 h-4" />} />
+            <StatCard
+              label="Total Samples"
+              value={stats.total}
+              icon={<IconBox className="w-4 h-4" />}
+              onClick={() => navigate('/merchant/samples')}
+            />
             <StatCard
               label="Issued"
               value={stats.checkedOut}
               icon={<IconMove className="w-4 h-4" />}
               onClick={() => navigate('/merchant/samples', { state: { statusFilter: SAMPLE_STATUS.CHECKED_OUT } })}
             />
-            <StatCard label="In Hall" value={stats.inHall} icon={<IconLayers className="w-4 h-4" />} />
-            <StatCard label="Active Recalls" value={stats.activeRecalls} icon={<IconAlert className="w-4 h-4" />} />
+            <StatCard
+              label="In Hall"
+              value={stats.inHall}
+              icon={<IconLayers className="w-4 h-4" />}
+              onClick={() => navigate('/merchant/samples', { state: { statusFilter: SAMPLE_STATUS.IN_HALL } })}
+            />
+            <StatCard
+              label="Active Recalls"
+              value={stats.activeRecalls}
+              icon={<IconAlert className="w-4 h-4" />}
+              onClick={() => navigate('/merchant/recalls')}
+            />
           </>
         )}
       </div>

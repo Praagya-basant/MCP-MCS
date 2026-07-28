@@ -67,7 +67,7 @@ export default function Login() {
       {/* Right — login form */}
       <div className="flex flex-1 items-center justify-center bg-white px-6 py-16 md:py-0">
         <div className="w-full max-w-[360px]">
-          <h1 className="text-heading font-semibold text-ink">Sign in</h1>
+          <h1 className="text-heading font-semibold text-ink select-none">Sign in</h1>
 
           <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5" noValidate>
             <div className="flex flex-col gap-1.5">

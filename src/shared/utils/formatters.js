@@ -66,6 +66,28 @@ export function shortenBuyerName(name) {
   return name;
 }
 
+/** "Today, 2:34 PM" / "Yesterday, 2:34 PM" / "25 Jul 2026, 2:34 PM" for the user dropdown's last-login line. */
+export function formatLastLogin(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  const sameDayAs = (a, b) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const period = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const time = `${hours}:${minutes} ${period}`;
+
+  if (sameDayAs(date, now)) return `Today, ${time}`;
+  if (sameDayAs(date, yesterday)) return `Yesterday, ${time}`;
+  return `${formatDate(value)}, ${time}`;
+}
+
 export function isToday(value) {
   if (!value) return false;
   const d = new Date(value);

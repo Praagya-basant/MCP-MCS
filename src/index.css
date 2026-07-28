@@ -17,6 +17,19 @@
     @apply bg-bg text-ink text-body antialiased;
   }
 
+  /* Hide the browser's native page scrollbar everywhere — scrolling
+     still works via wheel/keyboard/touch, this only removes the visible
+     track/thumb on the right edge of the window. */
+  html,
+  body {
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
+  }
+
   input,
   textarea,
   select,

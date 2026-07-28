@@ -1,6 +1,8 @@
 import { cn } from '@/shared/utils/cn';
 import { SAMPLE_STATUS, SAMPLE_STATUS_LABELS, RECALL_STATUS, RECALL_STATUS_LABELS } from '@/shared/utils/constants';
 
+const BADGE_BASE = 'inline-flex items-center rounded-pill px-2.5 py-[3px] text-caption font-medium whitespace-nowrap select-none';
+
 const STATUS_STYLES = {
   [SAMPLE_STATUS.IN_HALL]: 'bg-status-in-hall-bg text-status-in-hall-text',
   [SAMPLE_STATUS.CHECKED_OUT]: 'bg-status-checked-out-bg text-status-checked-out-text',
@@ -9,13 +11,7 @@ const STATUS_STYLES = {
 
 export function StatusBadge({ status, className }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-pill px-2.5 py-[3px] text-caption font-medium whitespace-nowrap',
-        STATUS_STYLES[status] || 'bg-surface-subtle text-ink-secondary',
-        className
-      )}
-    >
+    <span className={cn(BADGE_BASE, STATUS_STYLES[status] || 'bg-surface-subtle text-ink-secondary', className)}>
       {SAMPLE_STATUS_LABELS[status] || status}
     </span>
   );
@@ -29,13 +25,7 @@ const RECALL_STYLES = {
 
 export function RecallStatusBadge({ status, className }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-pill px-2.5 py-[3px] text-caption font-medium whitespace-nowrap',
-        RECALL_STYLES[status] || 'bg-surface-subtle text-ink-secondary',
-        className
-      )}
-    >
+    <span className={cn(BADGE_BASE, RECALL_STYLES[status] || 'bg-surface-subtle text-ink-secondary', className)}>
       {RECALL_STATUS_LABELS[status] || status}
     </span>
   );
@@ -49,27 +39,12 @@ const ROLE_STYLES = {
 
 export function RoleBadge({ role, label, className }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-pill px-2.5 py-[3px] text-caption font-medium whitespace-nowrap',
-        ROLE_STYLES[role] || 'bg-surface-subtle text-ink-secondary',
-        className
-      )}
-    >
+    <span className={cn(BADGE_BASE, ROLE_STYLES[role] || 'bg-surface-subtle text-ink-secondary', className)}>
       {label}
     </span>
   );
 }
 
 export function Badge({ children, className }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-pill px-2.5 py-[3px] text-caption font-medium whitespace-nowrap bg-surface-subtle text-ink-secondary',
-        className
-      )}
-    >
-      {children}
-    </span>
-  );
+  return <span className={cn(BADGE_BASE, 'bg-surface-subtle text-ink-secondary', className)}>{children}</span>;
 }
