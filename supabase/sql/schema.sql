@@ -241,16 +241,17 @@ drop policy if exists "buyers_update_admin" on buyers;
 create policy "buyers_update_admin" on buyers for update to authenticated
   using (public.is_super_admin());
 
--- merchant_buyers: a merchant can see their own assignments; only admins
--- write (via Admin -> Buyers' merchant-contacts sync, or Admin -> Users'
--- Edit User multi-select).
+-- merchant_buyers: admin-only in every direction. Assignment happens
+-- exclusively from Admin -> Buyers -> Edit Buyer (syncMerchantContacts),
+-- which is always called by an admin session, so a single full-access
+-- policy covers select/insert/update/delete — merchants never query this
+-- table directly themselves (is_merchant_buyer() is SECURITY DEFINER and
+-- bypasses RLS for the scoping checks on samples/movements/etc).
 drop policy if exists "merchant_buyers_select" on merchant_buyers;
-create policy "merchant_buyers_select" on merchant_buyers for select to authenticated
-  using (public.is_super_admin() or profile_id = auth.uid());
-
 drop policy if exists "merchant_buyers_write_admin" on merchant_buyers;
-create policy "merchant_buyers_write_admin" on merchant_buyers for all to authenticated
-  using (public.is_super_admin()) with check (public.is_super_admin());
+drop policy if exists "Admin full access" on merchant_buyers;
+create policy "Admin full access" on merchant_buyers
+  using (exists (select 1 from profiles where id = auth.uid() and role = 'super_admin'));
 
 -- halls: hall numbers aren't sensitive and are needed app-wide
 -- (destination dropdowns, headers) — readable by any authenticated user.

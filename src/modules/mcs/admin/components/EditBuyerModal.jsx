@@ -6,13 +6,13 @@ import { syncMerchantContacts } from '@/modules/mcs/api/buyersApi';
 import { listMerchantUsers } from '@/modules/mcs/api/usersApi';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useToast } from '@/shared/context/ToastContext';
-import { MerchantContactsSelect } from '@/modules/mcs/admin/components/MerchantContactsSelect';
+import { MerchantSearchSelect } from '@/modules/mcs/admin/components/MerchantSearchSelect';
 
 /**
- * The only place an existing buyer's merchant contacts can be changed
- * after creation — Add Buyer only helps for a buyer that doesn't exist
- * yet. Diffs the checkbox selection against the buyer's current contacts
- * so syncMerchantContacts only touches what actually changed.
+ * The only place buyer<->merchant assignment happens anywhere in the
+ * app — Add Buyer is name-only, and Edit User has no buyer field at all.
+ * Diffs the search-select's current selection against the buyer's
+ * existing contacts so syncMerchantContacts only touches what changed.
  */
 export function EditBuyerModal({ open, buyer, onClose, onUpdated }) {
   const toast = useToast();
@@ -26,10 +26,6 @@ export function EditBuyerModal({ open, buyer, onClose, onUpdated }) {
       setSelectedIds((buyer.contacts || []).map((c) => c.profile?.id).filter(Boolean));
     }
   }, [buyer]);
-
-  function toggleMerchant(id) {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  }
 
   function handleClose() {
     setError('');
@@ -87,9 +83,9 @@ export function EditBuyerModal({ open, buyer, onClose, onUpdated }) {
 
         <FormField
           label="Merchant Contacts"
-          hint={selectedIds.length > 0 ? `${selectedIds.length} selected` : 'No merchants linked yet'}
+          hint={selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Search by name or email to assign merchants'}
         >
-          <MerchantContactsSelect merchants={merchants} selectedIds={selectedIds} onToggle={toggleMerchant} />
+          <MerchantSearchSelect merchants={merchants} selectedIds={selectedIds} onChange={setSelectedIds} />
         </FormField>
 
         {error && <p className="text-caption text-red-600">{error}</p>}
