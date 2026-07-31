@@ -153,7 +153,7 @@ export default function HallSamples() {
                   <CardListItem
                     key={s.id}
                     onClick={() => setSelected(s)}
-                    leading={<SampleThumbnail sample={s} />}
+                    leading={<SampleThumbnail sample={s} size="md" />}
                     title={<span className="font-mono">{s.bt_code}</span>}
                     subtitle={s.product_name}
                     trailing={

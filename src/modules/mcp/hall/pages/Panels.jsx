@@ -148,7 +148,7 @@ export default function HallPanels() {
                   <CardListItem
                     key={p.id}
                     onClick={() => setSelected(p)}
-                    leading={<PanelThumbnail panel={p} />}
+                    leading={<PanelThumbnail panel={p} size="md" />}
                     title={<span className="font-mono">{p.panel_code}</span>}
                     subtitle={p.panel_name}
                     trailing={

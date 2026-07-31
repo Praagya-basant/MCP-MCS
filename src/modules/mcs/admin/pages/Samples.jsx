@@ -70,7 +70,7 @@ export default function AdminSamples() {
     setData((prev) => (prev || []).filter((s) => s.id !== deletedId));
   }
 
-  const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
+  const { search, setSearch, filters, setFilter, sort, toggleSort, page, setPage, totalPages, totalCount, pageRows } =
     useTableControls(rows, {
       searchFields: ['bt_code', 'product_name'],
       initialFilters: location.state?.statusFilter ? { status: location.state.statusFilter } : undefined,
@@ -159,12 +159,18 @@ export default function AdminSamples() {
               <Thead>
                 <Tr>
                   <Th className="w-[64px]"></Th>
-                  <Th>BT Code</Th>
-                  <Th>Product</Th>
+                  <Th sortable active={sort?.key === 'bt_code'} dir={sort?.dir} onClick={() => toggleSort('bt_code')}>
+                    BT Code
+                  </Th>
+                  <Th sortable active={sort?.key === 'product_name'} dir={sort?.dir} onClick={() => toggleSort('product_name')}>
+                    Product
+                  </Th>
                   <Th>Buyer</Th>
                   <Th>Hall</Th>
                   <Th>Status</Th>
-                  <Th>Added</Th>
+                  <Th sortable active={sort?.key === 'created_at'} dir={sort?.dir} onClick={() => toggleSort('created_at')}>
+                    Added
+                  </Th>
                   <Th></Th>
                 </Tr>
               </Thead>
@@ -231,7 +237,7 @@ export default function AdminSamples() {
                   <CardListItem
                     key={s.id}
                     onClick={() => setSelected(s)}
-                    leading={<SampleThumbnail sample={s} />}
+                    leading={<SampleThumbnail sample={s} size="md" />}
                     title={<span className="font-mono">{s.bt_code}</span>}
                     subtitle={s.product_name}
                     trailing={

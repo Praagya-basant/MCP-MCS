@@ -83,6 +83,9 @@ const VALIDITY_STYLES = {
 /**
  * Renders nothing if `expiryDate` is unset — validity tracking is optional
  * per-sample, so an empty badge slot is preferable to a misleading one.
+ * Expiring-soon badges pulse to draw the eye — faster inside 15 days than
+ * the full 30-day window, purely a presentational urgency cue layered on
+ * top of the existing two-tier VALIDITY_STATUS (no new DB-facing status).
  */
 export function ValidityBadge({ expiryDate, className }) {
   const status = getValidityStatus(expiryDate);
@@ -94,5 +97,8 @@ export function ValidityBadge({ expiryDate, className }) {
       ? `${VALIDITY_STATUS_LABELS[status]} · ${Math.abs(days)}d ago`
       : `${VALIDITY_STATUS_LABELS[status]} · ${days}d left`;
 
-  return <span className={cn(BADGE_BASE, VALIDITY_STYLES[status], className)}>{label}</span>;
+  const pulseClass =
+    status === VALIDITY_STATUS.EXPIRING_SOON ? (days <= 15 ? 'pulse-fast' : 'pulse-slow') : undefined;
+
+  return <span className={cn(BADGE_BASE, VALIDITY_STYLES[status], pulseClass, className)}>{label}</span>;
 }

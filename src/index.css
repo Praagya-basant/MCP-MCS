@@ -221,4 +221,35 @@
       transform: translateX(100%);
     }
   }
+
+  /* Validity badge urgency pulses — subtle for "expiring within 30 days",
+     faster for "within 15 days" — opacity-only (GPU-cheap), never a
+     layout property. */
+  @keyframes pulseSlow {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  @keyframes pulseFast {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  .pulse-slow {
+    animation: pulseSlow 2.4s ease-in-out infinite;
+  }
+
+  .pulse-fast {
+    animation: pulseFast 1.2s ease-in-out infinite;
+  }
 }
