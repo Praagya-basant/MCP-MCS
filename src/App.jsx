@@ -38,6 +38,7 @@ import MerchantExport from '@/modules/mcs/merchant/pages/Export';
 // read-only drawer only; issue/return/forward/retire land in a later
 // pass. Routed under mcp/* alongside each role's MCS routes per
 // CLAUDE.md's module-boundary note.
+import AdminMcpDashboard from '@/modules/mcp/admin/pages/Dashboard';
 import AdminPanels from '@/modules/mcp/admin/pages/Panels';
 import HallPanels from '@/modules/mcp/hall/pages/Panels';
 import HallAddPanel from '@/modules/mcp/hall/pages/AddPanel';
@@ -78,6 +79,7 @@ function AppRoutes() {
           <Route path="shift-requests" element={<AdminShiftRequests />} />
           <Route path="feedback" element={<AdminFeedback />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="mcp/dashboard" element={<AdminMcpDashboard />} />
           <Route path="mcp/panels" element={<AdminPanels />} />
         </Route>
       </Route>

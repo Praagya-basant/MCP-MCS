@@ -8,6 +8,7 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { IssuePanelModal } from '@/modules/mcp/components/IssuePanelModal';
 import { ForwardPanelModal } from '@/modules/mcp/components/ForwardPanelModal';
+import { RetirePanelModal } from '@/modules/mcp/admin/components/RetirePanelModal';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useToast } from '@/shared/context/ToastContext';
 import { listPanelMovementsForPanel, returnPanel } from '@/modules/mcp/api/panelMovementsApi';
@@ -27,8 +28,7 @@ const TABS = [
  * panel_comments table), no Manage Validity / Request Extension (the
  * backend RPCs already support item_type='panel' — see
  * admin_update_validity/review_validity_request in schema.sql — but
- * wiring the panel side of that UI is deferred, same scope cut as
- * retire and the MCP dashboard).
+ * wiring the panel side of that UI is deferred to a later pass).
  */
 export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
   const { profile, role } = useAuth();
@@ -41,6 +41,7 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
   const [forwardOpen, setForwardOpen] = useState(false);
   const [returnConfirmOpen, setReturnConfirmOpen] = useState(false);
   const [returning, setReturning] = useState(false);
+  const [retireOpen, setRetireOpen] = useState(false);
 
   const isAdmin = role === ROLES.SUPER_ADMIN;
 
@@ -103,7 +104,8 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
   const showReturn = canIssueReturn && localPanel.status === PANEL_STATUS.ISSUED;
   const showForward =
     canIssueReturn && localPanel.status === PANEL_STATUS.ISSUED && (isAdmin || profile?.hall_id === localPanel.hall_id);
-  const hasFooterAction = showIssue || showReturn || showForward;
+  const showRetire = isAdmin && localPanel.status === PANEL_STATUS.IN_HALL;
+  const hasFooterAction = showIssue || showReturn || showForward || showRetire;
 
   return (
     <>
@@ -193,6 +195,14 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
                 <dd className="text-ink">
                   {localPanel.date_added_to_hall ? formatDate(localPanel.date_added_to_hall) : formatDate(localPanel.created_at)}
                 </dd>
+                {localPanel.status === PANEL_STATUS.RETIRED && (
+                  <>
+                    <dt className="text-ink-secondary">Retired</dt>
+                    <dd className="text-ink">{localPanel.retired_at ? formatDateTime(localPanel.retired_at) : '—'}</dd>
+                    <dt className="text-ink-secondary">Retired Reason</dt>
+                    <dd className="text-ink">{localPanel.retired_reason || '—'}</dd>
+                  </>
+                )}
               </dl>
             )}
 
@@ -282,6 +292,11 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
                   Forward
                 </Button>
               )}
+              {showRetire && (
+                <Button variant="danger" className="flex-1" onClick={() => setRetireOpen(true)}>
+                  Retire
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -311,6 +326,19 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
         confirmLabel="Confirm Return"
         loading={returning}
       />
+
+      {isAdmin && (
+        <RetirePanelModal
+          open={retireOpen}
+          panel={localPanel}
+          onClose={() => setRetireOpen(false)}
+          onSuccess={(retired) => {
+            setRetireOpen(false);
+            setLocalPanel(retired);
+            onChanged?.();
+          }}
+        />
+      )}
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { supabase, SAMPLE_IMAGES_BUCKET } from '@/shared/lib/supabaseClient';
+import { shortenBuyerName } from '@/shared/utils/formatters';
 
 // Same public `sample-images` bucket MCS's movementsApi.js uses (its RLS
 // is bucket-scoped, not path-scoped), under panel-movements/{id}/ so a
@@ -20,11 +21,31 @@ async function uploadPanelMovementFile(movementId, file, filename) {
 const PANEL_MOVEMENT_WITH_HALLS_SELECT =
   '*, from_hall:halls!panel_movements_from_hall_id_fkey(id, name), destination_hall:halls!panel_movements_destination_hall_id_fkey(id, name)';
 
-/** All panel movements — used by the list pages to compute each panel's open-hop / current-destination without a per-panel round trip. */
+const PANEL_MOVEMENT_SELECT =
+  '*, panel:panels(id, panel_code, panel_name, image_url, buyer_id, hall_id, buyer:buyers(id, name), hall:halls(id, hall_number, name))';
+
+function mapPanelMovement(movement) {
+  if (!movement?.panel?.buyer) return movement;
+  return {
+    ...movement,
+    panel: { ...movement.panel, buyer: { ...movement.panel.buyer, name: shortenBuyerName(movement.panel.buyer.name) } },
+  };
+}
+
+/**
+ * All panel movements with the parent panel joined — used by the list
+ * pages to compute each panel's open-hop / current-destination (only
+ * panel_id/hop_number/status are read there, the rest of the join is
+ * unused overhead in that path) and by the MCP dashboard's Top Movements
+ * table (which does need the joined panel/buyer/hall).
+ */
 export async function listPanelMovements() {
-  const { data, error } = await supabase.from('panel_movements').select('*').order('picked_at', { ascending: false });
+  const { data, error } = await supabase
+    .from('panel_movements')
+    .select(PANEL_MOVEMENT_SELECT)
+    .order('picked_at', { ascending: false });
   if (error) throw error;
-  return data;
+  return data.map(mapPanelMovement);
 }
 
 export async function getOpenPanelMovement(panelId) {

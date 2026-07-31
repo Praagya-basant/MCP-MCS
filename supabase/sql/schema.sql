@@ -1617,6 +1617,51 @@ grant execute on function public.return_panel to authenticated;
 grant execute on function public.forward_panel to authenticated;
 
 -- ============================================================================
+-- 14. MCP RETIRE (Phase 6c) — admin-only, archived not deleted: retiring
+-- only flips panels.status and stamps who/when/why on the row itself
+-- (no separate audit table — unlike validity_changes, a panel can only
+-- be retired once, so there's no "history of retirements" to track).
+-- panel_movements rows are never touched, so a retired panel's full
+-- movement history stays intact in its drawer.
+-- ============================================================================
+
+alter table panels add column if not exists retired_reason text;
+alter table panels add column if not exists retired_at timestamptz;
+alter table panels add column if not exists retired_by uuid references profiles(id);
+
+create or replace function public.retire_panel(p_panel_id uuid, p_reason text)
+returns panels
+language plpgsql security definer set search_path = public as $$
+declare
+  v_panel panels;
+begin
+  if not public.is_super_admin() then
+    raise exception 'Only admins can retire panels';
+  end if;
+
+  select * into v_panel from panels where id = p_panel_id;
+  if v_panel.id is null then
+    raise exception 'Panel not found';
+  end if;
+  if v_panel.status = 'issued' then
+    raise exception 'Cannot retire a panel that is currently issued — return it first';
+  end if;
+  if v_panel.status = 'retired' then
+    raise exception 'Panel is already retired';
+  end if;
+
+  update panels
+  set status = 'retired', retired_reason = nullif(p_reason, ''), retired_at = now(), retired_by = auth.uid()
+  where id = p_panel_id
+  returning * into v_panel;
+
+  return v_panel;
+end;
+$$;
+
+grant execute on function public.retire_panel to authenticated;
+
+-- ============================================================================
 -- Done. Next steps (see CLAUDE.md / README for the full checklist):
 --   1. Deploy the `send-notification` and `create-user` edge functions.
 --   2. Create your first super_admin: add a user in Supabase Auth, then

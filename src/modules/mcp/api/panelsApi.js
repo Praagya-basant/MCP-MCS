@@ -62,6 +62,18 @@ export async function createPanel({
 }
 
 /**
+ * Admin-only, via the retire_panel RPC (checks is_super_admin() and that
+ * the panel isn't currently issued itself — see schema.sql section 14).
+ * Archived, not deleted: only status + the retired_* columns change,
+ * panel_movements history is untouched.
+ */
+export async function retirePanel({ panelId, reason }) {
+  const { data, error } = await supabase.rpc('retire_panel', { p_panel_id: panelId, p_reason: reason });
+  if (error) throw error;
+  return mapPanel(data);
+}
+
+/**
  * Same public `sample-images` bucket MCS uses (see samplesApi.js /
  * movementsApi.js), under a `panels/` prefix — its RLS is bucket-scoped
  * (admin OR hall_manager), not path-scoped, so no new storage policy is
