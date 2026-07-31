@@ -4,7 +4,7 @@ import { supabase } from '@/shared/lib/supabaseClient';
  * Fires the `send-notification` edge function. Never throws into the
  * caller's happy path — email delivery is best-effort and must not block
  * or fail a checkout/return/recall that already succeeded in the DB.
- * @param {'checkout'|'return'|'forward'|'recall'|'feedback'|'validity_alert'|'validity_requested'|'validity_extended'|'shift_requested'|'shift_decided'|'panel_checkout'|'panel_forward'|'panel_return'|'panel_retired'} type
+ * @param {'checkout'|'return'|'forward'|'recall'|'feedback'|'validity_alert'|'validity_requested'|'validity_extended'|'shift_requested'|'shift_decided'|'panel_checkout'|'panel_forward'|'panel_return'|'panel_retired'|'panel_validity_requested'|'panel_validity_extended'} type
  * @param {object} payload
  */
 export async function sendNotification(type, payload) {

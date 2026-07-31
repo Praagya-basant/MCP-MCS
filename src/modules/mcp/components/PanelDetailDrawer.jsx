@@ -9,10 +9,13 @@ import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { IssuePanelModal } from '@/modules/mcp/components/IssuePanelModal';
 import { ForwardPanelModal } from '@/modules/mcp/components/ForwardPanelModal';
 import { RetirePanelModal } from '@/modules/mcp/admin/components/RetirePanelModal';
+import { ManageValidityModal } from '@/shared/components/ManageValidityModal';
+import { RequestValidityExtensionModal } from '@/shared/components/RequestValidityExtensionModal';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useToast } from '@/shared/context/ToastContext';
 import { listPanelMovementsForPanel, returnPanel } from '@/modules/mcp/api/panelMovementsApi';
 import { getPanel } from '@/modules/mcp/api/panelsApi';
+import { listValidityChanges } from '@/shared/lib/validityApi';
 import { formatDateTime, formatDate, getPanelDisplayStatus } from '@/shared/utils/formatters';
 import { PANEL_STATUS, ROLES } from '@/shared/utils/constants';
 import { cn } from '@/shared/utils/cn';
@@ -24,11 +27,8 @@ const TABS = [
 
 /**
  * Mirrors SampleDetailDrawer's shape (tabs, footer actions, journey
- * timeline) minus what panels don't have yet: no Comments tab (no
- * panel_comments table), no Manage Validity / Request Extension (the
- * backend RPCs already support item_type='panel' — see
- * admin_update_validity/review_validity_request in schema.sql — but
- * wiring the panel side of that UI is deferred to a later pass).
+ * timeline, Manage Validity / Request Extension) minus what panels don't
+ * have at all: no Comments tab (no panel_comments table).
  */
 export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
   const { profile, role } = useAuth();
@@ -36,14 +36,18 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
   const [localPanel, setLocalPanel] = useState(panel);
   const [tab, setTab] = useState('details');
   const [movements, setMovements] = useState(null);
+  const [validityChanges, setValidityChanges] = useState(null);
   const [loading, setLoading] = useState(true);
   const [issueOpen, setIssueOpen] = useState(false);
   const [forwardOpen, setForwardOpen] = useState(false);
   const [returnConfirmOpen, setReturnConfirmOpen] = useState(false);
   const [returning, setReturning] = useState(false);
   const [retireOpen, setRetireOpen] = useState(false);
+  const [manageValidityOpen, setManageValidityOpen] = useState(false);
+  const [requestExtensionOpen, setRequestExtensionOpen] = useState(false);
 
   const isAdmin = role === ROLES.SUPER_ADMIN;
+  const isMerchant = role === ROLES.MERCHANT;
 
   useEffect(() => {
     if (panel) setLocalPanel(panel);
@@ -53,14 +57,23 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
     if (!open || !panel) return;
     setTab('details');
     setLoading(true);
-    listPanelMovementsForPanel(panel.id)
-      .then(setMovements)
+    Promise.all([listPanelMovementsForPanel(panel.id), isAdmin ? listValidityChanges(panel.id) : Promise.resolve(null)])
+      .then(([m, v]) => {
+        setMovements(m);
+        setValidityChanges(v);
+      })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, panel?.id]);
+  }, [open, panel?.id, isAdmin]);
 
   function reloadHistory() {
     return listPanelMovementsForPanel(localPanel.id).then(setMovements);
+  }
+
+  function handleValidityUpdated(newExpiryDate) {
+    setLocalPanel((prev) => ({ ...prev, expiry_date: newExpiryDate }));
+    onChanged?.();
+    listValidityChanges(localPanel.id).then(setValidityChanges);
   }
 
   function handleIssueSuccess() {
@@ -206,6 +219,47 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
               </dl>
             )}
 
+            {tab === 'details' && isAdmin && (
+              <div className="mt-4">
+                <Button variant="secondary" size="sm" onClick={() => setManageValidityOpen(true)}>
+                  Manage Validity
+                </Button>
+              </div>
+            )}
+            {tab === 'details' && isMerchant && (
+              <div className="mt-4">
+                <Button variant="secondary" size="sm" onClick={() => setRequestExtensionOpen(true)}>
+                  Request Validity Extension
+                </Button>
+              </div>
+            )}
+
+            {tab === 'details' && isAdmin && (
+              <div className="mt-6 pt-4 border-t border-border">
+                <p className="text-caption font-medium text-ink-secondary mb-3">Validity History</p>
+                {loading ? (
+                  <CardListSkeleton rows={2} />
+                ) : !validityChanges || validityChanges.length === 0 ? (
+                  <p className="text-caption text-ink-muted">No validity changes yet.</p>
+                ) : (
+                  <ul className="flex flex-col gap-2.5">
+                    {validityChanges.map((v) => (
+                      <li key={v.id} className="text-[13px]">
+                        <p className="text-ink">
+                          {v.old_expiry_date ? formatDate(v.old_expiry_date) : 'Not set'} →{' '}
+                          <span className="font-medium">{formatDate(v.new_expiry_date)}</span>
+                        </p>
+                        <p className="text-ink-muted">
+                          {v.changed_by_profile?.full_name} · {formatDateTime(v.created_at)}
+                          {v.reason ? ` · ${v.reason}` : ''}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             {tab === 'history' &&
               (loading ? (
                 <CardListSkeleton rows={3} />
@@ -336,6 +390,29 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
             setRetireOpen(false);
             setLocalPanel(retired);
             onChanged?.();
+          }}
+        />
+      )}
+
+      {isMerchant && (
+        <RequestValidityExtensionModal
+          open={requestExtensionOpen}
+          onClose={() => setRequestExtensionOpen(false)}
+          item={{ ...localPanel, code: localPanel.panel_code, name: localPanel.panel_name }}
+          itemType="panel"
+          onCreated={() => setRequestExtensionOpen(false)}
+        />
+      )}
+
+      {isAdmin && (
+        <ManageValidityModal
+          open={manageValidityOpen}
+          onClose={() => setManageValidityOpen(false)}
+          item={{ ...localPanel, code: localPanel.panel_code, name: localPanel.panel_name }}
+          itemType="panel"
+          onSuccess={(newExpiryDate) => {
+            setManageValidityOpen(false);
+            handleValidityUpdated(newExpiryDate);
           }}
         />
       )}

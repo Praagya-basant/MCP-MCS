@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
 import { Input, Textarea, FormField } from '@/shared/components/Input';
-import { updateValidity } from '@/modules/mcs/api/validityApi';
+import { updateValidity } from '@/shared/lib/validityApi';
 import { useToast } from '@/shared/context/ToastContext';
 import { formatDate } from '@/shared/utils/formatters';
 import { cn } from '@/shared/utils/cn';
@@ -21,9 +21,12 @@ function addMonthsToDate(dateStr, months) {
 /**
  * Admin-only "Manage Validity" — extending, setting a manual date, and
  * pre-expiring are all the same underlying operation (a new expiry_date),
- * this just frames the input two ways for convenience.
+ * this just frames the input two ways for convenience. Shared between
+ * MCS (samples) and MCP (panels): `item` just needs `.code`/`.name`/
+ * `.expiry_date` (see normalizeItem() in shared/lib/validityApi.js) and
+ * `itemType` is 'sample' or 'panel'.
  */
-export function ManageValidityModal({ open, onClose, sample, onSuccess }) {
+export function ManageValidityModal({ open, onClose, item, itemType, onSuccess }) {
   const toast = useToast();
   const [mode, setMode] = useState('months');
   const [months, setMonths] = useState('');
@@ -42,7 +45,7 @@ export function ManageValidityModal({ open, onClose, sample, onSuccess }) {
   }
 
   const computedDate =
-    mode === 'months' && months ? addMonthsToDate(sample?.expiry_date || new Date().toISOString().slice(0, 10), months) : newDate;
+    mode === 'months' && months ? addMonthsToDate(item?.expiry_date || new Date().toISOString().slice(0, 10), months) : newDate;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -59,8 +62,8 @@ export function ManageValidityModal({ open, onClose, sample, onSuccess }) {
 
     setSubmitting(true);
     try {
-      await updateValidity({ sample, newExpiryDate: computedDate, reason: reason.trim() });
-      toast.success(`Validity updated for ${sample.bt_code}`);
+      await updateValidity({ item, itemType, newExpiryDate: computedDate, reason: reason.trim() });
+      toast.success(`Validity updated for ${item.code}`);
       onSuccess?.(computedDate);
       handleClose();
     } catch (err) {
@@ -70,7 +73,7 @@ export function ManageValidityModal({ open, onClose, sample, onSuccess }) {
     }
   }
 
-  if (!sample) return null;
+  if (!item) return null;
 
   return (
     <Modal
@@ -90,9 +93,9 @@ export function ManageValidityModal({ open, onClose, sample, onSuccess }) {
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <div className="rounded-control bg-surface-subtle px-3 py-2.5">
-          <p className="text-body font-medium text-ink font-mono">{sample.bt_code}</p>
+          <p className="text-body font-medium text-ink font-mono">{item.code}</p>
           <p className="text-caption text-ink-secondary">
-            Current expiry: {sample.expiry_date ? formatDate(sample.expiry_date) : 'Not set'}
+            Current expiry: {item.expiry_date ? formatDate(item.expiry_date) : 'Not set'}
           </p>
         </div>
 
@@ -124,7 +127,7 @@ export function ManageValidityModal({ open, onClose, sample, onSuccess }) {
             <Input id="extend-months" type="number" min="0" value={months} onChange={(e) => setMonths(e.target.value)} autoFocus />
           </FormField>
         ) : (
-          <FormField label="New Expiry Date" htmlFor="new-expiry" required hint="Can be in the past to pre-expire the sample">
+          <FormField label="New Expiry Date" htmlFor="new-expiry" required hint="Can be in the past to pre-expire the item">
             <Input id="new-expiry" type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} autoFocus />
           </FormField>
         )}

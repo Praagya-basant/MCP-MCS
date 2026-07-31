@@ -11,7 +11,7 @@ import { Modal } from '@/shared/components/Modal';
 import { Textarea, FormField } from '@/shared/components/Input';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useToast } from '@/shared/context/ToastContext';
-import { listValidityRequests, reviewValidityRequest } from '@/modules/mcs/api/validityApi';
+import { listValidityRequests, reviewValidityRequest } from '@/shared/lib/validityApi';
 import { formatDate, formatDateTime } from '@/shared/utils/formatters';
 import { IconHistory } from '@/shared/components/icons';
 
@@ -59,7 +59,7 @@ export default function AdminValidityRequests() {
         approve: reviewing.approve,
         adminNote: adminNote.trim(),
       });
-      setData((prev) => (prev || []).map((r) => (r.id === result.id ? { ...result, sample: reviewing.request.sample } : r)));
+      setData((prev) => (prev || []).map((r) => (r.id === result.id ? { ...result, item: reviewing.request.item } : r)));
       toast.success(reviewing.approve ? 'Request approved' : 'Request rejected');
       setReviewing(null);
     } catch (err) {
@@ -84,7 +84,7 @@ export default function AdminValidityRequests() {
           <EmptyState
             icon={<IconHistory className="w-12 h-12 text-ink-muted" />}
             title="No validity requests yet"
-            description="Requests raised by merchants from a sample's drawer will appear here."
+            description="Requests raised by merchants from a sample or panel's drawer will appear here."
           />
         ) : filtered.length === 0 ? (
           <EmptyState title="No matches" description="Try a different tab." />
@@ -92,8 +92,9 @@ export default function AdminValidityRequests() {
           <Table>
             <Thead>
               <Tr>
-                <Th>BT Code</Th>
-                <Th>Product</Th>
+                <Th>Type</Th>
+                <Th>Code</Th>
+                <Th>Name</Th>
                 <Th>Requested By</Th>
                 <Th>Requested Extension</Th>
                 <Th>Reason</Th>
@@ -105,8 +106,11 @@ export default function AdminValidityRequests() {
             <Tbody>
               {filtered.map((r) => (
                 <Tr key={r.id}>
-                  <Td className="font-medium font-mono">{r.sample?.bt_code || '—'}</Td>
-                  <Td>{r.sample?.product_name || '—'}</Td>
+                  <Td>
+                    <Badge>{r.item_type === 'panel' ? 'Panel' : 'Sample'}</Badge>
+                  </Td>
+                  <Td className="font-medium font-mono">{r.item?.code || '—'}</Td>
+                  <Td>{r.item?.name || '—'}</Td>
                   <Td className="text-ink-secondary">{r.requested_by_profile?.full_name}</Td>
                   <Td className="text-ink-secondary">{extensionLabel(r)}</Td>
                   <Td className="text-ink-secondary max-w-[220px] truncate">{r.reason || '—'}</Td>
@@ -155,7 +159,7 @@ export default function AdminValidityRequests() {
         {reviewing && (
           <div className="flex flex-col gap-4">
             <div className="rounded-control bg-surface-subtle px-3 py-2.5">
-              <p className="text-body font-medium text-ink font-mono">{reviewing.request.sample?.bt_code}</p>
+              <p className="text-body font-medium text-ink font-mono">{reviewing.request.item?.code}</p>
               <p className="text-caption text-ink-secondary">
                 Requested extension: {extensionLabel(reviewing.request)}
               </p>

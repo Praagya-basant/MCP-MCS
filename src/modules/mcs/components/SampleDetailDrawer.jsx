@@ -9,16 +9,16 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { IssueSampleModal } from '@/modules/mcs/components/IssueSampleModal';
 import { ForwardSampleModal } from '@/modules/mcs/components/ForwardSampleModal';
-import { ManageValidityModal } from '@/modules/mcs/components/ManageValidityModal';
+import { ManageValidityModal } from '@/shared/components/ManageValidityModal';
 import { RaiseRecallModal } from '@/modules/mcs/merchant/components/RaiseRecallModal';
-import { RequestValidityExtensionModal } from '@/modules/mcs/merchant/components/RequestValidityExtensionModal';
+import { RequestValidityExtensionModal } from '@/shared/components/RequestValidityExtensionModal';
 import { RaiseShiftRequestModal } from '@/modules/mcs/components/RaiseShiftRequestModal';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useToast } from '@/shared/context/ToastContext';
 import { listMovementsForSample, getOpenMovementForSample, returnSample } from '@/modules/mcs/api/movementsApi';
 import { getSample } from '@/modules/mcs/api/samplesApi';
 import { listComments, addComment } from '@/modules/mcs/api/commentsApi';
-import { listValidityChanges } from '@/modules/mcs/api/validityApi';
+import { listValidityChanges } from '@/shared/lib/validityApi';
 import { formatDateTime, formatDate, initials, getSampleDisplayStatus } from '@/shared/utils/formatters';
 import { SAMPLE_STATUS, ROLES } from '@/shared/utils/constants';
 import { cn } from '@/shared/utils/cn';
@@ -480,7 +480,8 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
         <RequestValidityExtensionModal
           open={requestExtensionOpen}
           onClose={() => setRequestExtensionOpen(false)}
-          sample={localSample}
+          item={{ ...localSample, code: localSample.bt_code, name: localSample.product_name }}
+          itemType="sample"
           onCreated={() => setRequestExtensionOpen(false)}
         />
       )}
@@ -498,7 +499,8 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
         <ManageValidityModal
           open={manageValidityOpen}
           onClose={() => setManageValidityOpen(false)}
-          sample={localSample}
+          item={{ ...localSample, code: localSample.bt_code, name: localSample.product_name }}
+          itemType="sample"
           onSuccess={(newExpiryDate) => {
             setManageValidityOpen(false);
             handleValidityUpdated(newExpiryDate);

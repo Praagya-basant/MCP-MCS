@@ -615,9 +615,15 @@ async function handleValidityAlert(payload) {
   await sendWebPushToRecipients(recipients);
 }
 
-/** Merchant "Request Validity Extension" — admin-only per the notification matrix. */
+/**
+ * Merchant "Request Validity Extension" — admin-only per the notification
+ * matrix. shared/lib/validityApi.js dispatches this only for samples
+ * ('panel_validity_requested' handles the panel side) but sends the same
+ * generic itemId/itemCode/itemName field names either way, since both
+ * item types funnel through one createValidityRequest().
+ */
 async function handleValidityRequested(payload) {
-  const { sampleId, btCode, productName, requestedByName, requestedMonths, requestedExpiryDate, reason } = payload;
+  const { itemId, itemCode, itemName, requestedByName, requestedMonths, requestedExpiryDate, reason } = payload;
   const admins = await getSuperAdmins();
   const extensionLabel = requestedExpiryDate
     ? formatDateOnly(requestedExpiryDate)
@@ -627,24 +633,24 @@ async function handleValidityRequested(payload) {
 
   await sendEmail({
     to: emailsOf(admins),
-    subject: `Validity Extension Requested — ${btCode} · ${productName}`,
+    subject: `Validity Extension Requested — ${itemCode} · ${itemName}`,
     heading: 'Validity Extension Requested',
     rows: [
-      { label: 'BT Code', value: btCode },
-      { label: 'Product Name', value: productName },
+      { label: 'BT Code', value: itemCode },
+      { label: 'Product Name', value: itemName },
       { label: 'Requested By', value: requestedByName },
       { label: 'Requested Extension', value: extensionLabel },
       { label: 'Reason', value: reason || 'Not specified' },
     ],
-    btCode,
+    btCode: itemCode,
   });
 
   await insertNotifications(admins, {
     title: 'Validity Extension Requested',
-    message: `${requestedByName || 'A merchant'} requested a validity extension (${extensionLabel}) for ${btCode} — ${productName}`,
+    message: `${requestedByName || 'A merchant'} requested a validity extension (${extensionLabel}) for ${itemCode} — ${itemName}`,
     type: 'validity_requested',
     itemType: 'sample',
-    itemId: sampleId,
+    itemId,
   });
   await sendWebPushToRecipients(admins);
 }
@@ -652,32 +658,95 @@ async function handleValidityRequested(payload) {
 /**
  * Fires after either an admin's direct "Manage Validity" edit or an
  * approved validity_requests row — both just land on a new expiry_date.
+ * Sample-only, see handleValidityRequested's doc comment above.
  */
 async function handleValidityExtended(payload) {
-  const { sampleId, btCode, productName, buyerId, newExpiryDate, reason } = payload;
+  const { itemId, itemCode, itemName, buyerId, newExpiryDate, reason } = payload;
   const merchantContacts = buyerId ? await getMerchantContacts(buyerId) : [];
   const admins = await getSuperAdmins();
   const recipients = [...merchantContacts, ...admins];
 
   await sendEmail({
     to: dedupe(emailsOf(recipients)),
-    subject: `Validity Updated — ${btCode} · ${productName}`,
+    subject: `Validity Updated — ${itemCode} · ${itemName}`,
     heading: 'Validity Updated',
     rows: [
-      { label: 'BT Code', value: btCode },
-      { label: 'Product Name', value: productName },
+      { label: 'BT Code', value: itemCode },
+      { label: 'Product Name', value: itemName },
       { label: 'New Expiry Date', value: formatDateOnly(newExpiryDate) },
       { label: 'Reason', value: reason || 'Not specified' },
     ],
-    btCode,
+    btCode: itemCode,
   });
 
   await insertNotifications(recipients, {
     title: 'Validity Updated',
-    message: `${btCode} — ${productName} validity updated to ${formatDateOnly(newExpiryDate)}`,
+    message: `${itemCode} — ${itemName} validity updated to ${formatDateOnly(newExpiryDate)}`,
     type: 'validity_extended',
     itemType: 'sample',
-    itemId: sampleId,
+    itemId,
+  });
+  await sendWebPushToRecipients(recipients);
+}
+
+/** Panel equivalent of handleValidityRequested. */
+async function handlePanelValidityRequested(payload) {
+  const { itemId, itemCode, itemName, requestedByName, requestedMonths, requestedExpiryDate, reason } = payload;
+  const admins = await getSuperAdmins();
+  const extensionLabel = requestedExpiryDate
+    ? formatDateOnly(requestedExpiryDate)
+    : requestedMonths
+      ? `${requestedMonths} month(s)`
+      : 'Not specified';
+
+  await sendEmail({
+    to: emailsOf(admins),
+    subject: `Validity Extension Requested — ${itemCode} · ${itemName}`,
+    heading: 'Validity Extension Requested',
+    rows: [
+      { label: 'Panel Code', value: itemCode },
+      { label: 'Panel Name', value: itemName },
+      { label: 'Requested By', value: requestedByName },
+      { label: 'Requested Extension', value: extensionLabel },
+      { label: 'Reason', value: reason || 'Not specified' },
+    ],
+  });
+
+  await insertNotifications(admins, {
+    title: 'Validity Extension Requested',
+    message: `${requestedByName || 'A merchant'} requested a validity extension (${extensionLabel}) for ${itemCode} — ${itemName}`,
+    type: 'panel_validity_requested',
+    itemType: 'panel',
+    itemId,
+  });
+  await sendWebPushToRecipients(admins);
+}
+
+/** Panel equivalent of handleValidityExtended. */
+async function handlePanelValidityExtended(payload) {
+  const { itemId, itemCode, itemName, buyerId, newExpiryDate, reason } = payload;
+  const merchantContacts = buyerId ? await getMerchantContacts(buyerId) : [];
+  const admins = await getSuperAdmins();
+  const recipients = [...merchantContacts, ...admins];
+
+  await sendEmail({
+    to: dedupe(emailsOf(recipients)),
+    subject: `Validity Updated — ${itemCode} · ${itemName}`,
+    heading: 'Validity Updated',
+    rows: [
+      { label: 'Panel Code', value: itemCode },
+      { label: 'Panel Name', value: itemName },
+      { label: 'New Expiry Date', value: formatDateOnly(newExpiryDate) },
+      { label: 'Reason', value: reason || 'Not specified' },
+    ],
+  });
+
+  await insertNotifications(recipients, {
+    title: 'Validity Updated',
+    message: `${itemCode} — ${itemName} validity updated to ${formatDateOnly(newExpiryDate)}`,
+    type: 'panel_validity_extended',
+    itemType: 'panel',
+    itemId,
   });
   await sendWebPushToRecipients(recipients);
 }
@@ -972,6 +1041,12 @@ Deno.serve(async (req) => {
         break;
       case 'panel_retired':
         await handlePanelRetired(payload);
+        break;
+      case 'panel_validity_requested':
+        await handlePanelValidityRequested(payload);
+        break;
+      case 'panel_validity_extended':
+        await handlePanelValidityExtended(payload);
         break;
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {
