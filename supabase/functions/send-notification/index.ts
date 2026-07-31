@@ -243,6 +243,16 @@ async function getHallIdByName(name) {
   return data?.id ?? null;
 }
 
+async function getHallName(hallId) {
+  if (!hallId) return '';
+  const { data, error } = await supabase.from('halls').select('name').eq('id', hallId).maybeSingle();
+  if (error) {
+    console.error('Failed to look up hall name', error);
+    return '';
+  }
+  return data?.name || '';
+}
+
 function emailsOf(recipients) {
   return recipients.map((r) => r.email);
 }
@@ -673,6 +683,90 @@ async function handleValidityExtended(payload) {
 }
 
 /**
+ * Hall shift raised — notifies the *other* party (whichever of the
+ * current hall's manager / the sample's merchant didn't raise it) plus
+ * admin, who needs to act on it. The raiser is excluded so they don't get
+ * notified of their own action.
+ */
+async function handleShiftRequested(payload) {
+  const { sampleId, btCode, productName, buyerId, fromHallId, toHallId, note, requestedByName, requestedByRole, requestedById } =
+    payload;
+
+  const merchantContacts = buyerId ? await getMerchantContacts(buyerId) : [];
+  const hallManagers = fromHallId ? await getHallManagers(fromHallId) : [];
+  const admins = await getSuperAdmins();
+  const recipients = [...merchantContacts, ...hallManagers, ...admins].filter((r) => r.id !== requestedById);
+
+  const [fromHallName, toHallName] = await Promise.all([getHallName(fromHallId), getHallName(toHallId)]);
+
+  await sendEmail({
+    to: dedupe(emailsOf(recipients)),
+    subject: `Hall Shift Requested — ${btCode} · ${productName}`,
+    heading: 'Hall Shift Requested',
+    rows: [
+      { label: 'BT Code', value: btCode },
+      { label: 'Product Name', value: productName },
+      { label: 'From Hall', value: fromHallName },
+      { label: 'To Hall', value: toHallName },
+      { label: 'Requested By', value: `${requestedByName || ''}${requestedByRole ? ` (${requestedByRole})` : ''}` },
+      { label: 'Note', value: note || 'Not specified' },
+    ],
+    btCode,
+  });
+
+  await insertNotifications(recipients, {
+    title: 'Hall Shift Requested',
+    message: `${requestedByName || 'Someone'} requested moving ${btCode} — ${productName} from ${fromHallName} to ${toHallName}`,
+    type: 'shift_requested',
+    itemType: 'sample',
+    itemId: sampleId,
+  });
+  await sendWebPushToRecipients(recipients);
+}
+
+/**
+ * Hall shift approved/rejected — notifies both the origin and (on
+ * approval) destination hall managers plus the sample's merchant. Admin
+ * doesn't need notifying of their own decision.
+ */
+async function handleShiftDecided(payload) {
+  const { sampleId, btCode, productName, buyerId, fromHallId, toHallId, approved, adminNote } = payload;
+
+  const merchantContacts = buyerId ? await getMerchantContacts(buyerId) : [];
+  const fromHallManagers = fromHallId ? await getHallManagers(fromHallId) : [];
+  const toHallManagers = approved && toHallId ? await getHallManagers(toHallId) : [];
+  const recipients = [...merchantContacts, ...fromHallManagers, ...toHallManagers];
+
+  const [fromHallName, toHallName] = await Promise.all([getHallName(fromHallId), getHallName(toHallId)]);
+  const heading = approved ? 'Hall Shift Approved' : 'Hall Shift Rejected';
+
+  await sendEmail({
+    to: dedupe(emailsOf(recipients)),
+    subject: `${heading} — ${btCode} · ${productName}`,
+    heading,
+    rows: [
+      { label: 'BT Code', value: btCode },
+      { label: 'Product Name', value: productName },
+      { label: 'From Hall', value: fromHallName },
+      { label: 'To Hall', value: toHallName },
+      { label: 'Admin Note', value: adminNote || 'Not specified' },
+    ],
+    btCode,
+  });
+
+  await insertNotifications(recipients, {
+    title: heading,
+    message: approved
+      ? `${btCode} — ${productName} moved from ${fromHallName} to ${toHallName}`
+      : `Request to move ${btCode} — ${productName} to ${toHallName} was rejected`,
+    type: approved ? 'shift_approved' : 'shift_rejected',
+    itemType: 'sample',
+    itemId: sampleId,
+  });
+  await sendWebPushToRecipients(recipients);
+}
+
+/**
  * Manager/merchant "Send Feedback" -> always goes to the fixed
  * praagya@basant.info recipient, not a DB-looked-up admin list — this is
  * a direct line to the app owner, independent of whichever admin
@@ -726,6 +820,12 @@ Deno.serve(async (req) => {
         break;
       case 'validity_extended':
         await handleValidityExtended(payload);
+        break;
+      case 'shift_requested':
+        await handleShiftRequested(payload);
+        break;
+      case 'shift_decided':
+        await handleShiftDecided(payload);
         break;
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {

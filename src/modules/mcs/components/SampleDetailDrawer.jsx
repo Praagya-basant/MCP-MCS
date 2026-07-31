@@ -12,6 +12,7 @@ import { ForwardSampleModal } from '@/modules/mcs/components/ForwardSampleModal'
 import { ManageValidityModal } from '@/modules/mcs/components/ManageValidityModal';
 import { RaiseRecallModal } from '@/modules/mcs/merchant/components/RaiseRecallModal';
 import { RequestValidityExtensionModal } from '@/modules/mcs/merchant/components/RequestValidityExtensionModal';
+import { RaiseShiftRequestModal } from '@/modules/mcs/components/RaiseShiftRequestModal';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useToast } from '@/shared/context/ToastContext';
 import { listMovementsForSample, getOpenMovementForSample, returnSample } from '@/modules/mcs/api/movementsApi';
@@ -54,6 +55,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
   const [recallOpen, setRecallOpen] = useState(false);
   const [manageValidityOpen, setManageValidityOpen] = useState(false);
   const [requestExtensionOpen, setRequestExtensionOpen] = useState(false);
+  const [shiftRequestOpen, setShiftRequestOpen] = useState(false);
 
   const isAdmin = role === ROLES.SUPER_ADMIN;
   const isMerchant = role === ROLES.MERCHANT;
@@ -152,7 +154,15 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
     localSample.status === SAMPLE_STATUS.CHECKED_OUT &&
     (isAdmin || profile?.hall_id === localSample.hall_id);
   const showRecall = isMerchant && localSample.status === SAMPLE_STATUS.CHECKED_OUT;
-  const hasFooterAction = showIssue || showReturn || showForward || showRecall;
+  // Mirrors shift_requests_insert's own RLS check: the current hall's
+  // manager, or the sample's own merchant, and only while it's sitting
+  // in_hall (a checked-out sample moves via Forward instead). Admin
+  // already has direct hall reassignment via Edit Sample Hall, so no
+  // approval-request path is offered here for admin.
+  const showShiftRequest =
+    localSample.status === SAMPLE_STATUS.IN_HALL &&
+    ((role === ROLES.HALL_MANAGER && profile?.hall_id === localSample.hall_id) || isMerchant);
+  const hasFooterAction = showIssue || showReturn || showForward || showRecall || showShiftRequest;
 
   return (
     <>
@@ -289,6 +299,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
               ) : (
                 <ul className="flex flex-col">
                   {movements.map((m, i) => {
+                    const isShift = m.reason === 'Hall Shift';
                     const isReturned = m.status === 'returned';
                     const isLast = i === movements.length - 1;
                     return (
@@ -296,30 +307,32 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
                         <span
                           className={cn(
                             'absolute left-0 top-1 w-1.5 h-1.5 rounded-full',
-                            isReturned ? 'bg-status-in-hall-text' : 'bg-status-checked-out-text'
+                            isShift ? 'bg-status-in-transit-text' : isReturned ? 'bg-status-in-hall-text' : 'bg-status-checked-out-text'
                           )}
                         />
                         {!isLast && <span className="absolute left-[2.5px] top-3 bottom-0 w-px bg-border" />}
 
                         <div className="flex items-baseline justify-between gap-2">
                           <span className="text-body font-semibold text-ink">
-                            {isReturned ? 'Returned' : m.hop_number > 1 ? 'Forwarded' : 'Issued'}
+                            {isShift ? 'Hall Shift' : isReturned ? 'Returned' : m.hop_number > 1 ? 'Forwarded' : 'Issued'}
                           </span>
                           <span className="text-[12px] text-ink-muted shrink-0">{formatDateTime(m.picked_at)}</span>
                         </div>
                         <p className="mt-1 text-[13px] text-ink-secondary">
                           {m.from_hall?.name ? `From: ${m.from_hall.name} · ` : ''}To: {m.destination}
                         </p>
-                        <p className="mt-0.5 text-[13px] text-ink-secondary">
-                          Reason: {m.reason === 'Other' ? m.reason_other : m.reason}
-                        </p>
+                        {!isShift && (
+                          <p className="mt-0.5 text-[13px] text-ink-secondary">
+                            Reason: {m.reason === 'Other' ? m.reason_other : m.reason}
+                          </p>
+                        )}
                         {m.supplier_name && (
                           <p className="mt-0.5 text-[13px] text-ink-secondary">Supplier: {m.supplier_name}</p>
                         )}
                         {m.purchaser_name && (
                           <p className="mt-0.5 text-[13px] text-ink-secondary">Purchaser: {m.purchaser_name}</p>
                         )}
-                        {isReturned && (
+                        {isReturned && !isShift && (
                           <p className="mt-0.5 text-[12px] text-status-in-hall-text">
                             Returned: {formatDateTime(m.returned_at)}
                           </p>
@@ -419,6 +432,11 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
                   Raise Recall
                 </Button>
               )}
+              {showShiftRequest && (
+                <Button variant="secondary" className="flex-1" onClick={() => setShiftRequestOpen(true)}>
+                  Request Hall Shift
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -464,6 +482,15 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
           onClose={() => setRequestExtensionOpen(false)}
           sample={localSample}
           onCreated={() => setRequestExtensionOpen(false)}
+        />
+      )}
+
+      {showShiftRequest && (
+        <RaiseShiftRequestModal
+          open={shiftRequestOpen}
+          onClose={() => setShiftRequestOpen(false)}
+          sample={localSample}
+          onCreated={() => setShiftRequestOpen(false)}
         />
       )}
 

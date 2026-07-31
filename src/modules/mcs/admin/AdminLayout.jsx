@@ -20,6 +20,7 @@ const navSections = [
       { to: '/admin/samples', label: 'Samples', icon: <IconBox /> },
       { to: '/admin/movements', label: 'Movements', icon: <IconMove /> },
       { to: '/admin/validity-requests', label: 'Validity Requests', icon: <IconHistory /> },
+      { to: '/admin/shift-requests', label: 'Shift Requests', icon: <IconLayers /> },
       // badgeKey is read by Sidebar to render a live unread-count pill —
       // see FeedbackContext.
       { to: '/admin/feedback', label: 'Feedback', icon: <IconMessage />, badgeKey: 'feedbackUnread' },
@@ -29,8 +30,8 @@ const navSections = [
 ];
 
 // Bottom nav only fits 4 real routes + the always-present Profile tab —
-// the rest (Halls/Validity Requests/Feedback/Settings) live in the
-// Profile sheet's "More" list instead (see BottomNav).
+// the rest (Halls/Validity Requests/Shift Requests/Feedback/Settings)
+// live in the Profile sheet's "More" list instead (see BottomNav).
 const mobileNavItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: <IconGrid />, end: true },
   { to: '/admin/team', label: 'Team', icon: <IconUsers /> },
@@ -41,6 +42,7 @@ const mobileNavItems = [
 const mobileMoreItems = [
   { to: '/admin/halls', label: 'Halls', icon: <IconLayers /> },
   { to: '/admin/validity-requests', label: 'Validity Requests', icon: <IconHistory /> },
+  { to: '/admin/shift-requests', label: 'Shift Requests', icon: <IconLayers /> },
   { to: '/admin/feedback', label: 'Feedback', icon: <IconMessage />, badgeKey: 'feedbackUnread' },
   { to: '/admin/settings', label: 'Settings', icon: <IconSettings /> },
 ];

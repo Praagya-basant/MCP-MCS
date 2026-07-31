@@ -1280,6 +1280,127 @@ create policy "push_subscriptions_delete_own" on push_subscriptions for delete t
   using (profile_id = auth.uid());
 
 -- ============================================================================
+-- 11. HALL SHIFT REQUESTS (Phase 5) — reassigning a sample's home hall
+-- while it's sitting in_hall (distinct from forward_sample, which moves
+-- an already-checked-out sample onward). Raised by the current hall's
+-- manager or the sample's buyer's merchant, admin-approved, and on
+-- approval both updates samples.hall_id and logs one already-closed
+-- "Hall Shift" movement (status inserted straight as 'returned' — the
+-- sample was never actually checked out, so there's no 'out' leg to
+-- close first) so the journey timeline shows it happened.
+-- ============================================================================
+
+-- shift_requests already exists from the Phase 1 migration — add the
+-- requester's own optional note (distinct from admin_note, which is only
+-- set at approval/rejection time).
+alter table shift_requests add column if not exists note text;
+
+-- Broadens shift_requests_select from the Phase 1 placeholder
+-- ("requester sees their own; admin sees all") to also cover the *other*
+-- party — the current hall's manager and the sample's buyer's merchant
+-- both need to see a request even if they didn't raise it themselves,
+-- since both get notified either way (see the notification matrix).
+drop policy if exists "shift_requests_select" on shift_requests;
+create policy "shift_requests_select" on shift_requests for select to authenticated
+  using (
+    public.is_super_admin()
+    or requested_by = auth.uid()
+    or public.current_hall_id() in (from_hall_id, to_hall_id)
+    or (
+      item_type = 'sample'
+      and exists (select 1 from samples s where s.id = item_id and public.is_merchant_buyer(s.buyer_id))
+    )
+  );
+
+-- Replaces the Phase 1 placeholder ("requested_by = auth.uid()" only,
+-- with no check that the requester is actually entitled to move THIS
+-- sample) with the real authorization: from_hall_id must match the
+-- sample's actual current hall (can't be spoofed), the sample must
+-- currently be in_hall (a checked-out sample goes through
+-- forward_sample, not this), and the caller must be admin, the manager
+-- of that hall, or the merchant who owns the sample's buyer.
+drop policy if exists "shift_requests_insert" on shift_requests;
+create policy "shift_requests_insert" on shift_requests for insert to authenticated
+  with check (
+    requested_by = auth.uid()
+    and item_type = 'sample'
+    and exists (
+      select 1 from samples s
+      where s.id = item_id
+      and s.status = 'in_hall'
+      and s.hall_id = from_hall_id
+      and (
+        public.is_super_admin()
+        or (public.current_role() = 'hall_manager' and s.hall_id = public.current_hall_id())
+        or (public.current_role() = 'merchant' and public.is_merchant_buyer(s.buyer_id))
+      )
+    )
+  );
+
+-- Approve/reject — admin only. On approve: moves the sample to its new
+-- hall and logs a single completed "Hall Shift" movement (from_hall_id ->
+-- destination_hall_id, status 'returned' from the start, reason fixed to
+-- 'Hall Shift' so the frontend's journey timeline can color it separately
+-- from Issue/Return per the spec's issue=amber/return=green/shift=blue
+-- legend without a new movements column).
+create or replace function public.review_shift_request(
+  p_request_id uuid,
+  p_approve boolean,
+  p_admin_note text default null
+)
+returns shift_requests
+language plpgsql security definer set search_path = public as $$
+declare
+  v_request shift_requests;
+  v_sample samples;
+  v_to_hall_name text;
+begin
+  if not public.is_super_admin() then
+    raise exception 'Only admins can review shift requests';
+  end if;
+
+  select * into v_request from shift_requests where id = p_request_id and status = 'pending';
+  if not found then
+    raise exception 'Request not found or already reviewed';
+  end if;
+
+  if p_approve then
+    select * into v_sample from samples where id = v_request.item_id;
+    if v_sample.id is null then
+      raise exception 'Sample not found';
+    end if;
+    if v_sample.status <> 'in_hall' or v_sample.hall_id <> v_request.from_hall_id then
+      raise exception 'Sample has moved since this request was raised';
+    end if;
+
+    select name into v_to_hall_name from halls where id = v_request.to_hall_id;
+
+    update samples set hall_id = v_request.to_hall_id where id = v_sample.id;
+
+    insert into movements (
+      sample_id, picked_by_name, picked_by_email, destination, reason, notes,
+      logged_by, status, picked_at, returned_at, from_hall_id, destination_hall_id, hop_number
+    ) values (
+      v_sample.id, 'Hall Shift', '', coalesce(v_to_hall_name, ''), 'Hall Shift', nullif(v_request.note, ''),
+      auth.uid(), 'returned', now(), now(), v_request.from_hall_id, v_request.to_hall_id, 1
+    );
+  end if;
+
+  update shift_requests
+  set status = case when p_approve then 'approved' else 'rejected' end,
+      approved_by = auth.uid(),
+      approved_at = now(),
+      admin_note = p_admin_note
+  where id = p_request_id
+  returning * into v_request;
+
+  return v_request;
+end;
+$$;
+
+grant execute on function public.review_shift_request to authenticated;
+
+-- ============================================================================
 -- Done. Next steps (see CLAUDE.md / README for the full checklist):
 --   1. Deploy the `send-notification` and `create-user` edge functions.
 --   2. Create your first super_admin: add a user in Supabase Auth, then
