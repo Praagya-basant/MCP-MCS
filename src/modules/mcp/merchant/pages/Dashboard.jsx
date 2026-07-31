@@ -80,18 +80,21 @@ export default function MerchantMcpDashboard() {
               label="Total Panels"
               value={stats.total}
               icon={<IconLayers className="w-4 h-4" />}
+              tone="accent"
               onClick={() => navigate('/merchant/mcp/panels')}
             />
             <StatCard
               label="Issued"
               value={stats.issued}
               icon={<IconMove className="w-4 h-4" />}
+              tone="warning"
               onClick={() => navigate('/merchant/mcp/panels', { state: { statusFilter: PANEL_STATUS.ISSUED } })}
             />
             <StatCard
               label="In Hall"
               value={stats.inHall}
               icon={<IconLayers className="w-4 h-4" />}
+              tone="success"
               onClick={() => navigate('/merchant/mcp/panels', { state: { statusFilter: PANEL_STATUS.IN_HALL } })}
             />
           </>

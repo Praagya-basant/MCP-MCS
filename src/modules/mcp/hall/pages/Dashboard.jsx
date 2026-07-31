@@ -45,14 +45,15 @@ export default function HallMcpDashboard() {
           </>
         ) : (
           <>
-            <StatCard label="Total Panels" value={stats.total} icon={<IconLayers className="w-4 h-4" />} />
+            <StatCard label="Total Panels" value={stats.total} icon={<IconLayers className="w-4 h-4" />} tone="accent" />
             <StatCard
               label="Issued"
               value={stats.issued}
               icon={<IconMove className="w-4 h-4" />}
+              tone="warning"
               onClick={() => navigate('/hall/mcp/panels', { state: { statusFilter: PANEL_STATUS.ISSUED } })}
             />
-            <StatCard label="In Hall" value={stats.inHall} icon={<IconLayers className="w-4 h-4" />} />
+            <StatCard label="In Hall" value={stats.inHall} icon={<IconLayers className="w-4 h-4" />} tone="success" />
           </>
         )}
       </div>

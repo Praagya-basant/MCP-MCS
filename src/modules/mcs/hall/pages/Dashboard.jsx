@@ -11,7 +11,7 @@ import { useAuth } from '@/shared/context/AuthContext';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listRecalls } from '@/modules/mcs/api/recallsApi';
-import { isToday } from '@/shared/utils/formatters';
+import { isToday, getGreeting } from '@/shared/utils/formatters';
 import { IconBox, IconMove, IconLayers, IconBell } from '@/shared/components/icons';
 import { SAMPLE_STATUS } from '@/shared/utils/constants';
 import { ActivityFeed } from '@/modules/mcs/components/ActivityFeed';
@@ -43,6 +43,9 @@ export default function HallDashboard() {
 
   return (
     <div>
+      <p className="text-body text-ink-secondary mb-1 select-none">
+        {getGreeting()}{profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}
+      </p>
       <PageHeader
         title={`${profile?.hall?.name || 'Hall'} Dashboard`}
         description="Samples and movements for your hall."
@@ -57,14 +60,15 @@ export default function HallDashboard() {
           </>
         ) : (
           <>
-            <StatCard label="Total Samples" value={stats.total} icon={<IconBox className="w-4 h-4" />} />
+            <StatCard label="Total Samples" value={stats.total} icon={<IconBox className="w-4 h-4" />} tone="accent" />
             <StatCard
               label="Currently Issued"
               value={stats.out}
               icon={<IconMove className="w-4 h-4" />}
+              tone="warning"
               onClick={() => navigate('/hall/samples', { state: { statusFilter: SAMPLE_STATUS.CHECKED_OUT } })}
             />
-            <StatCard label="Returned Today" value={stats.returnedToday} icon={<IconLayers className="w-4 h-4" />} />
+            <StatCard label="Returned Today" value={stats.returnedToday} icon={<IconLayers className="w-4 h-4" />} tone="success" />
           </>
         )}
       </div>

@@ -13,9 +13,12 @@ import { IconLayers, IconBox, IconMove } from '@/shared/components/icons';
 import { PANEL_STATUS } from '@/shared/utils/constants';
 import { formatDateTime } from '@/shared/utils/formatters';
 
-const IN_HALL_COLOR = '#16A34A';
-const ISSUED_COLOR = '#D97706';
-const RETIRED_COLOR = '#9B9B9B';
+const IN_HALL_COLOR = 'rgb(var(--color-success))';
+const ISSUED_COLOR = 'rgb(var(--color-warning))';
+const RETIRED_COLOR = 'rgb(var(--color-ink-muted))';
+const CHART_GRID = 'rgb(var(--color-border))';
+const CHART_LABEL = 'rgb(var(--color-ink-secondary))';
+const ACCENT_COLOR = 'rgb(var(--color-accent))';
 
 /**
  * Mirrors AdminDashboard's structure (stat cards, buyer-wise bar chart,
@@ -76,10 +79,10 @@ export default function AdminMcpDashboard() {
           </>
         ) : (
           <>
-            <StatCard label="Total Panels" value={stats.total} icon={<IconLayers className="w-4 h-4" />} />
-            <StatCard label="In Hall" value={stats.inHall} icon={<IconBox className="w-4 h-4" />} />
-            <StatCard label="Issued" value={stats.issued} icon={<IconMove className="w-4 h-4" />} />
-            <StatCard label="Retired" value={stats.retired} icon={<IconLayers className="w-4 h-4" />} />
+            <StatCard label="Total Panels" value={stats.total} icon={<IconLayers className="w-4 h-4" />} tone="accent" />
+            <StatCard label="In Hall" value={stats.inHall} icon={<IconBox className="w-4 h-4" />} tone="success" />
+            <StatCard label="Issued" value={stats.issued} icon={<IconMove className="w-4 h-4" />} tone="warning" />
+            <StatCard label="Retired" value={stats.retired} icon={<IconLayers className="w-4 h-4" />} tone="neutral" />
           </>
         )}
       </div>
@@ -97,23 +100,23 @@ export default function AdminMcpDashboard() {
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={buyerChartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                  <CartesianGrid vertical={false} stroke="#E8E8E5" />
+                  <CartesianGrid vertical={false} stroke={CHART_GRID} />
                   <XAxis
                     dataKey="name"
-                    tick={{ fontSize: 12, fill: '#6B6B6B' }}
-                    axisLine={{ stroke: '#E8E8E5' }}
+                    tick={{ fontSize: 12, fill: CHART_LABEL }}
+                    axisLine={{ stroke: CHART_GRID }}
                     tickLine={false}
                     interval={0}
                     angle={buyerChartData.length > 6 ? -30 : 0}
                     textAnchor={buyerChartData.length > 6 ? 'end' : 'middle'}
                     height={buyerChartData.length > 6 ? 50 : 30}
                   />
-                  <YAxis tick={{ fontSize: 12, fill: '#6B6B6B' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <YAxis tick={{ fontSize: 12, fill: CHART_LABEL }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip
-                    cursor={{ fill: '#F3F3F1' }}
-                    contentStyle={{ border: '1px solid #E8E8E5', borderRadius: 8, fontSize: 12 }}
+                    cursor={{ fill: 'rgb(var(--color-surface-subtle))' }}
+                    contentStyle={{ background: 'rgb(var(--color-card))', border: `1px solid ${CHART_GRID}`, borderRadius: 8, fontSize: 12, color: 'rgb(var(--color-ink))' }}
                   />
-                  <Bar dataKey="count" name="Panels" fill="#1A1A1A" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                  <Bar dataKey="count" name="Panels" fill={ACCENT_COLOR} radius={[4, 4, 0, 0]} maxBarSize={36} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -146,7 +149,9 @@ export default function AdminMcpDashboard() {
                         <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ border: '1px solid #E8E8E5', borderRadius: 8, fontSize: 12 }} />
+                    <Tooltip
+                      contentStyle={{ background: 'rgb(var(--color-card))', border: `1px solid ${CHART_GRID}`, borderRadius: 8, fontSize: 12, color: 'rgb(var(--color-ink))' }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex items-center justify-center gap-6 mt-2">

@@ -22,6 +22,7 @@ import { Drawer } from '@/shared/components/Drawer';
 import { SearchInput } from '@/shared/components/SearchInput';
 import { StatusBadge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
+import { useAuth } from '@/shared/context/AuthContext';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listBuyersWithDetails } from '@/modules/mcs/api/buyersApi';
@@ -31,10 +32,13 @@ import { listShiftRequests } from '@/modules/mcs/api/shiftRequestsApi';
 import { listValidityRequests } from '@/shared/lib/validityApi';
 import { IconBox, IconBuilding, IconUsers, IconMove, IconLayers, IconHistory } from '@/shared/components/icons';
 import { SAMPLE_STATUS, ROLES } from '@/shared/utils/constants';
-import { formatDateTime, daysUntil } from '@/shared/utils/formatters';
+import { formatDateTime, daysUntil, getGreeting } from '@/shared/utils/formatters';
 
-const IN_HALL_COLOR = '#16A34A';
-const ISSUED_COLOR = '#D97706';
+const IN_HALL_COLOR = 'rgb(var(--color-success))';
+const ISSUED_COLOR = 'rgb(var(--color-warning))';
+const CHART_GRID = 'rgb(var(--color-border))';
+const CHART_LABEL = 'rgb(var(--color-ink-secondary))';
+const ACCENT_COLOR = 'rgb(var(--color-accent))';
 
 const PANEL_META = {
   samples: { title: 'All Samples', href: '/admin/samples' },
@@ -46,6 +50,8 @@ const PANEL_META = {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const firstName = profile?.full_name?.split(' ')[0];
   const { data, loading } = useAsyncData(async () => {
     const [samples, movements, buyers, users, panels, shiftRequests, validityRequests] = await Promise.all([
       listSamples(),
@@ -144,6 +150,9 @@ export default function AdminDashboard() {
 
   return (
     <div>
+      <p className="text-body text-ink-secondary mb-1 select-none">
+        {getGreeting()}{firstName ? `, ${firstName}` : ''}
+      </p>
       <PageHeader title="Dashboard" description="Platform-wide overview across every hall and buyer." />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-8">
@@ -161,30 +170,35 @@ export default function AdminDashboard() {
               label="Total Samples"
               value={stats.totalSamples}
               icon={<IconBox className="w-4 h-4" />}
+              tone="accent"
               onClick={() => openPanel('samples')}
             />
             <StatCard
               label="In Hall"
               value={stats.inHall}
               icon={<IconLayers className="w-4 h-4" />}
+              tone="success"
               onClick={() => openPanel('inHall')}
             />
             <StatCard
               label="Issued"
               value={stats.currentlyIssued}
               icon={<IconMove className="w-4 h-4" />}
+              tone="warning"
               onClick={() => openPanel('issued')}
             />
             <StatCard
               label="Total Buyers"
               value={stats.totalBuyers}
               icon={<IconBuilding className="w-4 h-4" />}
+              tone="info"
               onClick={() => openPanel('buyers')}
             />
             <StatCard
               label="Total Merchants"
               value={stats.totalMerchants}
               icon={<IconUsers className="w-4 h-4" />}
+              tone="neutral"
               onClick={() => openPanel('merchants')}
             />
           </>
@@ -205,24 +219,28 @@ export default function AdminDashboard() {
               label="Total Panels"
               value={stats.totalPanels}
               icon={<IconLayers className="w-4 h-4" />}
+              tone="accent"
               onClick={() => navigate('/admin/mcp/panels')}
             />
             <StatCard
               label="Expiring This Month"
               value={stats.expiringThisMonth}
               icon={<IconHistory className="w-4 h-4" />}
+              tone="warning"
               onClick={() => navigate('/admin/samples')}
             />
             <StatCard
               label="Pending Shift Requests"
               value={stats.pendingShiftRequests}
               icon={<IconMove className="w-4 h-4" />}
+              tone="info"
               onClick={() => navigate('/admin/shift-requests')}
             />
             <StatCard
               label="Pending Validity Requests"
               value={stats.pendingValidityRequests}
               icon={<IconHistory className="w-4 h-4" />}
+              tone="info"
               onClick={() => navigate('/admin/validity-requests')}
             />
           </>
@@ -242,23 +260,23 @@ export default function AdminDashboard() {
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={buyerChartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                  <CartesianGrid vertical={false} stroke="#E8E8E5" />
+                  <CartesianGrid vertical={false} stroke={CHART_GRID} />
                   <XAxis
                     dataKey="name"
-                    tick={{ fontSize: 12, fill: '#6B6B6B' }}
-                    axisLine={{ stroke: '#E8E8E5' }}
+                    tick={{ fontSize: 12, fill: CHART_LABEL }}
+                    axisLine={{ stroke: CHART_GRID }}
                     tickLine={false}
                     interval={0}
                     angle={buyerChartData.length > 6 ? -30 : 0}
                     textAnchor={buyerChartData.length > 6 ? 'end' : 'middle'}
                     height={buyerChartData.length > 6 ? 50 : 30}
                   />
-                  <YAxis tick={{ fontSize: 12, fill: '#6B6B6B' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <YAxis tick={{ fontSize: 12, fill: CHART_LABEL }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip
-                    cursor={{ fill: '#F3F3F1' }}
-                    contentStyle={{ border: '1px solid #E8E8E5', borderRadius: 8, fontSize: 12 }}
+                    cursor={{ fill: 'rgb(var(--color-surface-subtle))' }}
+                    contentStyle={{ background: 'rgb(var(--color-card))', border: `1px solid ${CHART_GRID}`, borderRadius: 8, fontSize: 12, color: 'rgb(var(--color-ink))' }}
                   />
-                  <Bar dataKey="count" name="Samples" fill="#1A1A1A" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                  <Bar dataKey="count" name="Samples" fill={ACCENT_COLOR} radius={[4, 4, 0, 0]} maxBarSize={36} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -291,7 +309,9 @@ export default function AdminDashboard() {
                         <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ border: '1px solid #E8E8E5', borderRadius: 8, fontSize: 12 }} />
+                    <Tooltip
+                      contentStyle={{ background: 'rgb(var(--color-card))', border: `1px solid ${CHART_GRID}`, borderRadius: 8, fontSize: 12, color: 'rgb(var(--color-ink))' }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex items-center justify-center gap-6 mt-2">

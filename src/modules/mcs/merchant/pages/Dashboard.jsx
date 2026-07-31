@@ -7,6 +7,7 @@ import { Card, CardHeader, CardBody } from '@/shared/components/Card';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { PillTabs } from '@/shared/components/PillTabs';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
+import { useAuth } from '@/shared/context/AuthContext';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listRecalls } from '@/modules/mcs/api/recallsApi';
@@ -14,9 +15,11 @@ import { IconBox, IconMove, IconLayers, IconAlert, IconBell } from '@/shared/com
 import { SAMPLE_STATUS } from '@/shared/utils/constants';
 import { ActivityFeed } from '@/modules/mcs/components/ActivityFeed';
 import { buildActivityFeed } from '@/modules/mcs/utils/activity';
+import { getGreeting } from '@/shared/utils/formatters';
 
 export default function MerchantDashboard() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const { data, loading } = useAsyncData(async () => {
     const [samples, movements, recalls] = await Promise.all([listSamples(), listMovements(), listRecalls()]);
     return { samples, movements, recalls };
@@ -68,6 +71,9 @@ export default function MerchantDashboard() {
 
   return (
     <div>
+      <p className="text-body text-ink-secondary mb-1 select-none">
+        {getGreeting()}{profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}
+      </p>
       <PageHeader title={title} description="Your samples across every BASANT hall." />
 
       {buyers.length > 1 && (
@@ -90,24 +96,28 @@ export default function MerchantDashboard() {
               label="Total Samples"
               value={stats.total}
               icon={<IconBox className="w-4 h-4" />}
+              tone="accent"
               onClick={() => navigate('/merchant/samples')}
             />
             <StatCard
               label="Issued"
               value={stats.checkedOut}
               icon={<IconMove className="w-4 h-4" />}
+              tone="warning"
               onClick={() => navigate('/merchant/samples', { state: { statusFilter: SAMPLE_STATUS.CHECKED_OUT } })}
             />
             <StatCard
               label="In Hall"
               value={stats.inHall}
               icon={<IconLayers className="w-4 h-4" />}
+              tone="success"
               onClick={() => navigate('/merchant/samples', { state: { statusFilter: SAMPLE_STATUS.IN_HALL } })}
             />
             <StatCard
               label="Active Recalls"
               value={stats.activeRecalls}
               icon={<IconAlert className="w-4 h-4" />}
+              tone="error"
               onClick={() => navigate('/merchant/recalls')}
             />
           </>

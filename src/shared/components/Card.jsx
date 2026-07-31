@@ -1,10 +1,11 @@
 import { cn } from '@/shared/utils/cn';
 
-export function Card({ className, children, ...props }) {
+export function Card({ className, children, bordered = true, ...props }) {
   return (
     <div
       className={cn(
-        'bg-card border border-border rounded-card shadow-card',
+        'bg-card rounded-card shadow-card',
+        bordered && 'border border-border',
         className
       )}
       {...props}
