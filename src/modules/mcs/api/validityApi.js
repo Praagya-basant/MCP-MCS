@@ -52,6 +52,7 @@ export async function createValidityRequest({ sample, requestedById, requestedBy
   if (error) throw error;
 
   sendNotification('validity_requested', {
+    sampleId: sample.id,
     btCode: sample.bt_code,
     productName: sample.product_name,
     requestedByName,
@@ -79,6 +80,7 @@ export async function reviewValidityRequest({ request, approve, adminNote }) {
 
   if (approve && request.sample) {
     sendNotification('validity_extended', {
+      sampleId: request.sample.id,
       btCode: request.sample.bt_code,
       productName: request.sample.product_name,
       buyerId: request.sample.buyer_id,
@@ -105,6 +107,7 @@ export async function updateValidity({ sample, newExpiryDate, reason }) {
   if (error) throw error;
 
   sendNotification('validity_extended', {
+    sampleId: sample.id,
     btCode: sample.bt_code,
     productName: sample.product_name,
     buyerId: sample.buyer_id,

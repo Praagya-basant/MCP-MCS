@@ -131,6 +131,7 @@ export async function issueSample({
   if (error) throw error;
 
   sendNotification('checkout', {
+    sampleId: sample.id,
     btCode: sample.bt_code,
     productName: sample.product_name,
     hallName: sample.hall?.name,
@@ -196,6 +197,7 @@ export async function forwardSample({
   if (error) throw error;
 
   sendNotification('forward', {
+    sampleId: sample.id,
     btCode: sample.bt_code,
     productName: sample.product_name,
     fromDestination: movement.destination,
@@ -222,6 +224,7 @@ export async function returnSample({ movement, sample }) {
   if (error) throw error;
 
   sendNotification('return', {
+    sampleId: sample.id,
     btCode: sample.bt_code,
     productName: sample.product_name,
     hallName: sample.hall?.name,

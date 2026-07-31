@@ -3,8 +3,9 @@ import { useLocation } from 'react-router-dom';
 import { cn } from '@/shared/utils/cn';
 import { useAuth } from '@/shared/context/AuthContext';
 import { initials } from '@/shared/utils/formatters';
-import { IconChevronDown, IconBell } from '@/shared/components/icons';
+import { IconChevronDown } from '@/shared/components/icons';
 import { AccountMenuContent } from '@/shared/components/AccountMenuContent';
+import { NotificationBell } from '@/shared/components/NotificationBell';
 import { Logo } from '@/shared/components/Logo';
 import { ROLES } from '@/shared/utils/constants';
 
@@ -60,27 +61,22 @@ export function Topbar({ contextLabel, navSections, sidebarSubtitle }) {
     <header className="h-16 shrink-0 border-b border-border bg-white sticky top-0 z-10">
       {/* Mobile: logo left, page title center, notification bell right.
           Account access moves to BottomNav's Profile tab on mobile — no
-          hamburger, bottom nav is the only navigation. Bell is a visual
-          placeholder until the notification-service phase wires it up. */}
+          hamburger, bottom nav is the only navigation. */}
       <div className="md:hidden h-full flex items-center justify-between px-4">
         <Logo variant="black" className="h-4 w-auto object-contain" />
         <span className="text-body font-medium text-ink truncate select-none">{pageTitle}</span>
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="interactive w-9 h-9 -mr-1.5 flex items-center justify-center rounded-control text-ink-secondary hover:bg-surface-subtle hover:text-ink"
-        >
-          <IconBell className="w-5 h-5" />
-        </button>
+        <NotificationBell className="-mr-1.5" />
       </div>
 
-      {/* Desktop: context label left, account dropdown right — unchanged. */}
+      {/* Desktop: context label left, notification bell + account dropdown right. */}
       <div className="hidden md:flex h-full items-center justify-between px-6 gap-4">
         <div className="min-w-0">
           {contextLabel && <span className="text-body font-medium text-ink truncate select-none">{contextLabel}</span>}
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          <NotificationBell />
+
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}

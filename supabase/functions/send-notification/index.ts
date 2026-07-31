@@ -190,23 +190,28 @@ async function sendEmail({ to, subject, heading, rows, btCode, bodyText }) {
   }
 }
 
-async function getMerchantContactEmails(buyerId) {
+// Each of these three returns [{ id, email }] rather than plain email
+// strings — `id` is what in-app notifications (inserted alongside the
+// email in every handler below) need for `notifications.recipient_id`,
+// so recipient resolution stays in one place instead of being computed
+// twice per event.
+async function getMerchantContacts(buyerId) {
   const { data, error } = await supabase
     .from('merchant_contacts')
-    .select('profile:profiles(email)')
+    .select('profile:profiles(id, email)')
     .eq('buyer_id', buyerId);
 
   if (error) {
     console.error('Failed to load merchant contacts', error);
     return [];
   }
-  return data.map((row) => row.profile?.email).filter(Boolean);
+  return data.map((row) => row.profile).filter((p) => p?.id);
 }
 
-async function getHallManagerEmails(hallId) {
+async function getHallManagers(hallId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('email')
+    .select('id, email')
     .eq('role', 'hall_manager')
     .eq('hall_id', hallId);
 
@@ -214,16 +219,16 @@ async function getHallManagerEmails(hallId) {
     console.error('Failed to load hall managers', error);
     return [];
   }
-  return data.map((row) => row.email).filter(Boolean);
+  return data;
 }
 
-async function getSuperAdminEmails() {
-  const { data, error } = await supabase.from('profiles').select('email').eq('role', 'super_admin');
+async function getSuperAdmins() {
+  const { data, error } = await supabase.from('profiles').select('id, email').eq('role', 'super_admin');
   if (error) {
     console.error('Failed to load super admins', error);
     return [];
   }
-  return data.map((row) => row.email).filter(Boolean);
+  return data;
 }
 
 async function getHallIdByName(name) {
@@ -235,8 +240,53 @@ async function getHallIdByName(name) {
   return data?.id ?? null;
 }
 
+function emailsOf(recipients) {
+  return recipients.map((r) => r.email);
+}
+
 function dedupe(emails) {
   return Array.from(new Set(emails.filter(Boolean)));
+}
+
+function dedupeRecipients(recipients) {
+  const byId = new Map();
+  for (const r of recipients) {
+    if (r?.id) byId.set(r.id, r);
+  }
+  return Array.from(byId.values());
+}
+
+/**
+ * Writes the in-app bell's `notifications` row for every recipient of an
+ * email sent below — same audience, same event, one extra insert. Never
+ * throws into the caller: a failed notification insert must not stop the
+ * email that already succeeded (or vice versa, since this always runs
+ * after sendEmail()).
+ */
+async function insertNotifications(recipients, { title, message, type, itemType, itemId }) {
+  const rows = dedupeRecipients(recipients).map((r) => ({
+    recipient_id: r.id,
+    title,
+    message,
+    type,
+    item_type: itemType || null,
+    item_id: itemId || null,
+  }));
+  if (rows.length === 0) return;
+
+  const { error } = await supabase.from('notifications').insert(rows);
+  if (error) console.error('Failed to insert notifications', error);
+}
+
+/**
+ * Architecture stub only — no WhatsApp Business API credentials exist
+ * yet. Returns immediately so it's safe to wire into a handler ahead of
+ * time without sending anything. Swap the body for a real API call once
+ * credentials are provisioned; callers won't need to change.
+ */
+// eslint-disable-next-line no-unused-vars
+async function sendWhatsApp(_to, _message) {
+  return;
 }
 
 // Destinations that never get a hall-manager email even if a `halls` row
@@ -255,21 +305,23 @@ const NON_HOD_DESTINATIONS = ['mandore', 'supplier', 'other'];
  * silently skipped, never a failure.
  */
 async function handleCheckout(payload) {
-  const { btCode, productName, hallName, buyerId, destination, reason, pickedAt, loggedByName } = payload;
+  const { sampleId, btCode, productName, hallName, buyerId, destination, reason, pickedAt, loggedByName } = payload;
 
-  const merchantEmails = await getMerchantContactEmails(buyerId);
+  const merchantContacts = await getMerchantContacts(buyerId);
   const when = formatDateTime(pickedAt);
 
-  let hodEmails = [];
+  let hodContacts = [];
   if (!NON_HOD_DESTINATIONS.includes(String(destination || '').trim().toLowerCase())) {
     const destHallId = await getHallIdByName(destination);
     if (destHallId) {
-      hodEmails = await getHallManagerEmails(destHallId);
+      hodContacts = await getHallManagers(destHallId);
     }
   }
 
+  const recipients = [...merchantContacts, ...hodContacts];
+
   await sendEmail({
-    to: dedupe([...merchantEmails, ...hodEmails]),
+    to: dedupe(emailsOf(recipients)),
     subject: `Sample Issued — ${btCode} · ${productName}`,
     heading: 'Sample Issued',
     rows: [
@@ -283,6 +335,14 @@ async function handleCheckout(payload) {
     ],
     btCode,
   });
+
+  await insertNotifications(recipients, {
+    title: 'Sample Issued',
+    message: `${btCode} — ${productName} issued to ${destination}`,
+    type: 'checkout',
+    itemType: 'sample',
+    itemId: sampleId,
+  });
 }
 
 /**
@@ -292,20 +352,22 @@ async function handleCheckout(payload) {
  * + the new destination hall's manager, when it resolves to one).
  */
 async function handleForward(payload) {
-  const { btCode, productName, fromDestination, buyerId, destination, reason, pickedAt } = payload;
+  const { sampleId, btCode, productName, fromDestination, buyerId, destination, reason, pickedAt } = payload;
 
-  const merchantEmails = await getMerchantContactEmails(buyerId);
+  const merchantContacts = await getMerchantContacts(buyerId);
 
-  let hodEmails = [];
+  let hodContacts = [];
   if (!NON_HOD_DESTINATIONS.includes(String(destination || '').trim().toLowerCase())) {
     const destHallId = await getHallIdByName(destination);
     if (destHallId) {
-      hodEmails = await getHallManagerEmails(destHallId);
+      hodContacts = await getHallManagers(destHallId);
     }
   }
 
+  const recipients = [...merchantContacts, ...hodContacts];
+
   await sendEmail({
-    to: dedupe([...merchantEmails, ...hodEmails]),
+    to: dedupe(emailsOf(recipients)),
     subject: `Sample Forwarded — ${btCode} · ${productName}`,
     heading: 'Sample Forwarded',
     rows: [
@@ -318,6 +380,14 @@ async function handleForward(payload) {
     ],
     btCode,
   });
+
+  await insertNotifications(recipients, {
+    title: 'Sample Forwarded',
+    message: `${btCode} — ${productName} forwarded to ${destination}`,
+    type: 'forward',
+    itemType: 'sample',
+    itemId: sampleId,
+  });
 }
 
 /**
@@ -327,12 +397,13 @@ async function handleForward(payload) {
  * so no Mandore/Supplier/Other exclusion applies here.
  */
 async function handleReturn(payload) {
-  const { btCode, productName, hallName, hallId, buyerId, returnedAt } = payload;
-  const merchantEmails = await getMerchantContactEmails(buyerId);
-  const hallManagerEmails = hallId ? await getHallManagerEmails(hallId) : [];
+  const { sampleId, btCode, productName, hallName, hallId, buyerId, returnedAt } = payload;
+  const merchantContacts = await getMerchantContacts(buyerId);
+  const hallManagers = hallId ? await getHallManagers(hallId) : [];
+  const recipients = [...merchantContacts, ...hallManagers];
 
   await sendEmail({
-    to: dedupe([...merchantEmails, ...hallManagerEmails]),
+    to: dedupe(emailsOf(recipients)),
     subject: `Sample Returned — ${btCode} · ${productName}`,
     heading: 'Sample Returned',
     rows: [
@@ -343,14 +414,26 @@ async function handleReturn(payload) {
     ],
     btCode,
   });
+
+  await insertNotifications(recipients, {
+    title: 'Sample Returned',
+    message: `${btCode} — ${productName} returned to ${hallName || 'its hall'}`,
+    type: 'return',
+    itemType: 'sample',
+    itemId: sampleId,
+  });
 }
 
+// Recall raised notifies Admin + the sample's hall manager per the
+// notification matrix (others get nothing).
 async function handleRecall(payload) {
-  const { btCode, productName, hallId, reason, merchantName } = payload;
-  const hallManagerEmails = await getHallManagerEmails(hallId);
+  const { sampleId, btCode, productName, hallId, reason, merchantName } = payload;
+  const hallManagers = await getHallManagers(hallId);
+  const admins = await getSuperAdmins();
+  const recipients = [...hallManagers, ...admins];
 
   await sendEmail({
-    to: hallManagerEmails,
+    to: dedupe(emailsOf(recipients)),
     subject: `Recall Request — ${btCode} · ${productName}`,
     heading: 'Recall Request',
     rows: [
@@ -361,6 +444,14 @@ async function handleRecall(payload) {
       { label: 'Date & Time', value: formatDateTime(new Date().toISOString()) },
     ],
     btCode,
+  });
+
+  await insertNotifications(recipients, {
+    title: 'Recall Request',
+    message: `${merchantName || 'A merchant'} raised a recall for ${btCode} — ${productName}`,
+    type: 'recall',
+    itemType: 'sample',
+    itemId: sampleId,
   });
 }
 
@@ -373,12 +464,12 @@ async function handleRecall(payload) {
  */
 async function handleValidityAlert(payload) {
   const { btCode, productName, daysLeft, expiryDate, buyerId, hallId } = payload;
-  const merchantEmails = buyerId ? await getMerchantContactEmails(buyerId) : [];
-  const hallManagerEmails = hallId ? await getHallManagerEmails(hallId) : [];
-  const adminEmails = await getSuperAdminEmails();
+  const merchantContacts = buyerId ? await getMerchantContacts(buyerId) : [];
+  const hallManagers = hallId ? await getHallManagers(hallId) : [];
+  const admins = await getSuperAdmins();
 
   await sendEmail({
-    to: dedupe([...merchantEmails, ...hallManagerEmails, ...adminEmails]),
+    to: dedupe(emailsOf([...merchantContacts, ...hallManagers, ...admins])),
     subject: `Validity Expiring in ${daysLeft} Days — ${btCode} · ${productName}`,
     heading: 'Sample Validity Expiring',
     rows: [
@@ -393,28 +484,34 @@ async function handleValidityAlert(payload) {
 
 /** Merchant "Request Validity Extension" — admin-only per the notification matrix. */
 async function handleValidityRequested(payload) {
-  const { btCode, productName, requestedByName, requestedMonths, requestedExpiryDate, reason } = payload;
-  const adminEmails = await getSuperAdminEmails();
+  const { sampleId, btCode, productName, requestedByName, requestedMonths, requestedExpiryDate, reason } = payload;
+  const admins = await getSuperAdmins();
+  const extensionLabel = requestedExpiryDate
+    ? formatDateOnly(requestedExpiryDate)
+    : requestedMonths
+      ? `${requestedMonths} month(s)`
+      : 'Not specified';
 
   await sendEmail({
-    to: adminEmails,
+    to: emailsOf(admins),
     subject: `Validity Extension Requested — ${btCode} · ${productName}`,
     heading: 'Validity Extension Requested',
     rows: [
       { label: 'BT Code', value: btCode },
       { label: 'Product Name', value: productName },
       { label: 'Requested By', value: requestedByName },
-      {
-        label: 'Requested Extension',
-        value: requestedExpiryDate
-          ? formatDateOnly(requestedExpiryDate)
-          : requestedMonths
-            ? `${requestedMonths} month(s)`
-            : 'Not specified',
-      },
+      { label: 'Requested Extension', value: extensionLabel },
       { label: 'Reason', value: reason || 'Not specified' },
     ],
     btCode,
+  });
+
+  await insertNotifications(admins, {
+    title: 'Validity Extension Requested',
+    message: `${requestedByName || 'A merchant'} requested a validity extension (${extensionLabel}) for ${btCode} — ${productName}`,
+    type: 'validity_requested',
+    itemType: 'sample',
+    itemId: sampleId,
   });
 }
 
@@ -423,12 +520,13 @@ async function handleValidityRequested(payload) {
  * approved validity_requests row — both just land on a new expiry_date.
  */
 async function handleValidityExtended(payload) {
-  const { btCode, productName, buyerId, newExpiryDate, reason } = payload;
-  const merchantEmails = buyerId ? await getMerchantContactEmails(buyerId) : [];
-  const adminEmails = await getSuperAdminEmails();
+  const { sampleId, btCode, productName, buyerId, newExpiryDate, reason } = payload;
+  const merchantContacts = buyerId ? await getMerchantContacts(buyerId) : [];
+  const admins = await getSuperAdmins();
+  const recipients = [...merchantContacts, ...admins];
 
   await sendEmail({
-    to: dedupe([...merchantEmails, ...adminEmails]),
+    to: dedupe(emailsOf(recipients)),
     subject: `Validity Updated — ${btCode} · ${productName}`,
     heading: 'Validity Updated',
     rows: [
@@ -438,6 +536,14 @@ async function handleValidityExtended(payload) {
       { label: 'Reason', value: reason || 'Not specified' },
     ],
     btCode,
+  });
+
+  await insertNotifications(recipients, {
+    title: 'Validity Updated',
+    message: `${btCode} — ${productName} validity updated to ${formatDateOnly(newExpiryDate)}`,
+    type: 'validity_extended',
+    itemType: 'sample',
+    itemId: sampleId,
   });
 }
 

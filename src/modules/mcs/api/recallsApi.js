@@ -22,6 +22,7 @@ export async function createRecall({ sample, reason, requestedById, merchantName
   if (error) throw error;
 
   sendNotification('recall', {
+    sampleId: sample.id,
     btCode: sample.bt_code,
     productName: sample.product_name,
     hallId: sample.hall_id,
