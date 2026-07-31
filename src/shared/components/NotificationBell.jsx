@@ -8,21 +8,10 @@ import {
   countUnreadNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  getNotificationRoute,
 } from '@/shared/lib/notificationsApi';
 import { formatRelativeTime } from '@/shared/utils/formatters';
 import { ROLES } from '@/shared/utils/constants';
-
-const SAMPLES_ROUTE = {
-  [ROLES.SUPER_ADMIN]: '/admin/samples',
-  [ROLES.HALL_MANAGER]: '/hall/samples',
-  [ROLES.MERCHANT]: '/merchant/samples',
-};
-
-const PANELS_ROUTE = {
-  [ROLES.SUPER_ADMIN]: '/admin/mcp/panels',
-  [ROLES.HALL_MANAGER]: '/hall/mcp/panels',
-  [ROLES.MERCHANT]: '/merchant/mcp/panels',
-};
 
 // No realtime subscription (this codebase doesn't use Supabase Realtime
 // anywhere yet — every other list uses explicit refetch-after-action, see
@@ -103,11 +92,8 @@ export function NotificationBell({ className }) {
       markNotificationRead(n.id).catch(() => {});
     }
     setOpen(false);
-    if (n.item_type === 'sample' && n.item_id) {
-      navigate(SAMPLES_ROUTE[role] || '/', { state: { openSampleId: n.item_id } });
-    } else if (n.item_type === 'panel' && n.item_id) {
-      navigate(PANELS_ROUTE[role] || '/', { state: { openPanelId: n.item_id } });
-    }
+    const route = getNotificationRoute(role, n.item_type, n.item_id);
+    if (route) navigate(route.to, { state: route.state });
   }
 
   return (
@@ -176,6 +162,18 @@ export function NotificationBell({ className }) {
               </ul>
             )}
           </div>
+          {role === ROLES.SUPER_ADMIN && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                navigate('/admin/notifications');
+              }}
+              className="interactive shrink-0 px-4 py-2.5 border-t border-border text-center text-caption font-medium text-ink-secondary hover:text-ink hover:bg-surface-subtle"
+            >
+              View all notifications
+            </button>
+          )}
         </div>
       )}
     </div>

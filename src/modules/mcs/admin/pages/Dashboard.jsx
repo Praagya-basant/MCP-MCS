@@ -26,9 +26,12 @@ import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listBuyersWithDetails } from '@/modules/mcs/api/buyersApi';
 import { listUsers } from '@/modules/mcs/api/usersApi';
-import { IconBox, IconBuilding, IconUsers, IconMove, IconLayers } from '@/shared/components/icons';
+import { listPanels } from '@/modules/mcp/api/panelsApi';
+import { listShiftRequests } from '@/modules/mcs/api/shiftRequestsApi';
+import { listValidityRequests } from '@/shared/lib/validityApi';
+import { IconBox, IconBuilding, IconUsers, IconMove, IconLayers, IconHistory } from '@/shared/components/icons';
 import { SAMPLE_STATUS, ROLES } from '@/shared/utils/constants';
-import { formatDateTime } from '@/shared/utils/formatters';
+import { formatDateTime, daysUntil } from '@/shared/utils/formatters';
 
 const IN_HALL_COLOR = '#16A34A';
 const ISSUED_COLOR = '#D97706';
@@ -44,13 +47,16 @@ const PANEL_META = {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { data, loading } = useAsyncData(async () => {
-    const [samples, movements, buyers, users] = await Promise.all([
+    const [samples, movements, buyers, users, panels, shiftRequests, validityRequests] = await Promise.all([
       listSamples(),
       listMovements(),
       listBuyersWithDetails(),
       listUsers(),
+      listPanels(),
+      listShiftRequests(),
+      listValidityRequests(),
     ]);
-    return { samples, movements, buyers, users };
+    return { samples, movements, buyers, users, panels, shiftRequests, validityRequests };
   }, []);
 
   const [activePanel, setActivePanel] = useState(null);
@@ -63,12 +69,26 @@ export default function AdminDashboard() {
 
   const stats = useMemo(() => {
     if (!data) return null;
+    // "Expiring This Month": any not-yet-expired sample or panel whose
+    // expiry_date falls within the next 30 days — reuses the same
+    // window ValidityBadge/getValidityStatus already treat as "Expiring
+    // Soon", so this card and every amber badge on the platform agree on
+    // what "expiring" means.
+    const expiringItems = [...data.samples, ...data.panels].filter((item) => {
+      if (!item.expiry_date) return false;
+      const days = daysUntil(item.expiry_date);
+      return days >= 0 && days <= 30;
+    });
     return {
       totalSamples: data.samples.length,
       inHall: data.samples.filter((s) => s.status === SAMPLE_STATUS.IN_HALL).length,
       currentlyIssued: data.samples.filter((s) => s.status === SAMPLE_STATUS.CHECKED_OUT).length,
       totalBuyers: data.buyers.length,
       totalMerchants: data.users.filter((u) => u.role === ROLES.MERCHANT).length,
+      totalPanels: data.panels.length,
+      expiringThisMonth: expiringItems.length,
+      pendingShiftRequests: data.shiftRequests.filter((r) => r.status === 'pending').length,
+      pendingValidityRequests: data.validityRequests.filter((r) => r.status === 'pending').length,
     };
   }, [data]);
 
@@ -166,6 +186,44 @@ export default function AdminDashboard() {
               value={stats.totalMerchants}
               icon={<IconUsers className="w-4 h-4" />}
               onClick={() => openPanel('merchants')}
+            />
+          </>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
+        {loading || !stats ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : (
+          <>
+            <StatCard
+              label="Total Panels"
+              value={stats.totalPanels}
+              icon={<IconLayers className="w-4 h-4" />}
+              onClick={() => navigate('/admin/mcp/panels')}
+            />
+            <StatCard
+              label="Expiring This Month"
+              value={stats.expiringThisMonth}
+              icon={<IconHistory className="w-4 h-4" />}
+              onClick={() => navigate('/admin/samples')}
+            />
+            <StatCard
+              label="Pending Shift Requests"
+              value={stats.pendingShiftRequests}
+              icon={<IconMove className="w-4 h-4" />}
+              onClick={() => navigate('/admin/shift-requests')}
+            />
+            <StatCard
+              label="Pending Validity Requests"
+              value={stats.pendingValidityRequests}
+              icon={<IconHistory className="w-4 h-4" />}
+              onClick={() => navigate('/admin/validity-requests')}
             />
           </>
         )}
