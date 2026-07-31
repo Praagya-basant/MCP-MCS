@@ -9,6 +9,7 @@ import {
   IconHistory,
   IconSettings,
   IconBell,
+  IconDownload,
 } from '@/shared/components/icons';
 
 const navSections = [
@@ -23,6 +24,7 @@ const navSections = [
       { to: '/admin/validity-requests', label: 'Validity Requests', icon: <IconHistory /> },
       { to: '/admin/shift-requests', label: 'Shift Requests', icon: <IconLayers /> },
       { to: '/admin/notifications', label: 'Notifications', icon: <IconBell /> },
+      { to: '/admin/export', label: 'Export', icon: <IconDownload /> },
       // badgeKey is read by Sidebar to render a live unread-count pill —
       // see FeedbackContext.
       { to: '/admin/feedback', label: 'Feedback', icon: <IconMessage />, badgeKey: 'feedbackUnread' },
@@ -54,6 +56,7 @@ const mobileMoreItems = [
   { to: '/admin/validity-requests', label: 'Validity Requests', icon: <IconHistory /> },
   { to: '/admin/shift-requests', label: 'Shift Requests', icon: <IconLayers /> },
   { to: '/admin/notifications', label: 'Notifications', icon: <IconBell /> },
+  { to: '/admin/export', label: 'Export', icon: <IconDownload /> },
   { to: '/admin/feedback', label: 'Feedback', icon: <IconMessage />, badgeKey: 'feedbackUnread' },
   { to: '/admin/settings', label: 'Settings', icon: <IconSettings /> },
   { to: '/admin/mcp/dashboard', label: 'MCP Dashboard', icon: <IconGrid /> },

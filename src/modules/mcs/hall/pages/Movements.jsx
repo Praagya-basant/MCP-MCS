@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Card } from '@/shared/components/Card';
+import { Button } from '@/shared/components/Button';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
 import { TableSkeleton } from '@/shared/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
@@ -11,15 +12,34 @@ import { DateRangeFilter } from '@/shared/components/DateRangeFilter';
 import { Badge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
+import { useAuth } from '@/shared/context/AuthContext';
+import { useToast } from '@/shared/context/ToastContext';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
+import { exportToExcel } from '@/shared/lib/excelExport';
 import { PAGE_SIZE, REASON_OPTIONS } from '@/shared/utils/constants';
-import { IconMove } from '@/shared/components/icons';
+import { IconMove, IconDownload } from '@/shared/components/icons';
 import { formatDateTime } from '@/shared/utils/formatters';
 
+function movementsToRows(rows) {
+  return rows.map((m) => ({
+    'BT Code': m.bt_code,
+    'Product Name': m.product_name,
+    Buyer: m.buyer_name,
+    'Picked By': m.picked_by_name,
+    Reason: m.reason === 'Other' ? m.reason_other || 'Other' : m.reason,
+    Status: m.status === 'returned' ? 'Returned' : 'Issued',
+    'Picked At': formatDateTime(m.picked_at),
+    'Returned At': m.status === 'returned' ? formatDateTime(m.returned_at) : '',
+  }));
+}
+
 export default function HallMovements() {
+  const { profile } = useAuth();
+  const toast = useToast();
   const { data: movements, loading } = useAsyncData(listMovements, []);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const flatRows = useMemo(
     () =>
@@ -42,15 +62,40 @@ export default function HallMovements() {
     [flatRows, dateFrom, dateTo]
   );
 
-  const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
+  const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows, filteredRows } =
     useTableControls(dateFiltered, {
       searchFields: ['bt_code', 'product_name', 'picked_by_name'],
       initialSort: { key: 'picked_at', dir: 'desc' },
     });
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await exportToExcel(
+        [{ sheetName: 'Movements', rows: movementsToRows(filteredRows) }],
+        `basant-ssm-${profile?.hall?.name?.replace(/[^a-z0-9]+/gi, '_') || 'hall'}-movements.xlsx`,
+        { title: 'BASANT SSM — Hall Movements', subtitle: profile?.hall?.name || '' }
+      );
+      toast.success('Export downloaded');
+    } catch {
+      toast.error('Export failed. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
-      <PageHeader title="Movements" description="Movement log for your hall." />
+      <PageHeader
+        title="Movements"
+        description="Movement log for your hall."
+        actions={
+          <Button variant="secondary" onClick={handleExport} loading={exporting} disabled={loading || !movements?.length}>
+            <IconDownload className="w-4 h-4" />
+            Export
+          </Button>
+        }
+      />
 
       <Card>
         <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">

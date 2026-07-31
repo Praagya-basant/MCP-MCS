@@ -83,5 +83,6 @@ export function useTableControls(rows, { searchFields = [], initialSort = null, 
     totalPages,
     totalCount: filtered.length,
     pageRows,
+    filteredRows: filtered,
   };
 }

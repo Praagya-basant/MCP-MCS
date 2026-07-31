@@ -19,6 +19,7 @@ import AdminMovements from '@/modules/mcs/admin/pages/Movements';
 import AdminValidityRequests from '@/modules/mcs/admin/pages/ValidityRequests';
 import AdminShiftRequests from '@/modules/mcs/admin/pages/ShiftRequests';
 import AdminNotifications from '@/modules/mcs/admin/pages/Notifications';
+import AdminExport from '@/modules/mcs/admin/pages/Export';
 import AdminFeedback from '@/modules/mcs/admin/pages/Feedback';
 import AdminSettings from '@/modules/mcs/admin/pages/Settings';
 
@@ -81,6 +82,7 @@ function AppRoutes() {
           <Route path="validity-requests" element={<AdminValidityRequests />} />
           <Route path="shift-requests" element={<AdminShiftRequests />} />
           <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="export" element={<AdminExport />} />
           <Route path="feedback" element={<AdminFeedback />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="mcp/dashboard" element={<AdminMcpDashboard />} />

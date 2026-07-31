@@ -53,7 +53,7 @@ export default function Export() {
 
   const loading = samplesLoading || movementsLoading;
 
-  function handleExport() {
+  async function handleExport() {
     setExporting(true);
     try {
       const buyerName = profile?.buyer?.name?.replace(/[^a-z0-9]+/gi, '_') || 'buyer';
@@ -66,7 +66,10 @@ export default function Export() {
         sheets.push({ sheetName: 'Movement History', rows: movementsToRows(movements || []) });
       }
 
-      exportToExcel(sheets, `basant-ssm-${buyerName}-${selected}.xlsx`);
+      await exportToExcel(sheets, `basant-ssm-${buyerName}-${selected}.xlsx`, {
+        title: 'BASANT SSM — Sample Export',
+        subtitle: profile?.buyer?.name || '',
+      });
       toast.success('Export downloaded');
     } catch {
       toast.error('Export failed. Please try again.');
