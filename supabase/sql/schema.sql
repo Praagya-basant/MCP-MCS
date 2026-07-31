@@ -1238,6 +1238,48 @@ $$;
 grant execute on function public.forward_sample to authenticated;
 
 -- ============================================================================
+-- 10. WEB PUSH (Phase 4b) — one row per browser/device a user has
+-- enabled push on (a user can have several: phone + desktop). The
+-- send-notification edge function reads these with the service-role key
+-- (bypasses RLS below) after writing each event's in-app notifications
+-- row, so RLS here only needs to cover the frontend's own
+-- subscribe/unsubscribe calls.
+-- ============================================================================
+
+create table if not exists push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid references profiles(id) not null,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_push_subscriptions_profile_id on push_subscriptions(profile_id);
+
+alter table push_subscriptions enable row level security;
+
+drop policy if exists "push_subscriptions_select_own" on push_subscriptions;
+create policy "push_subscriptions_select_own" on push_subscriptions for select to authenticated
+  using (profile_id = auth.uid());
+
+-- insert + update (not just insert) so `.upsert()` on `endpoint` works —
+-- browsers can return the same subscription/endpoint on a repeat
+-- `PushManager.subscribe()` call (e.g. after a service worker update),
+-- and Postgres upsert evaluates both policies for that path.
+drop policy if exists "push_subscriptions_insert_own" on push_subscriptions;
+create policy "push_subscriptions_insert_own" on push_subscriptions for insert to authenticated
+  with check (profile_id = auth.uid());
+
+drop policy if exists "push_subscriptions_update_own" on push_subscriptions;
+create policy "push_subscriptions_update_own" on push_subscriptions for update to authenticated
+  using (profile_id = auth.uid());
+
+drop policy if exists "push_subscriptions_delete_own" on push_subscriptions;
+create policy "push_subscriptions_delete_own" on push_subscriptions for delete to authenticated
+  using (profile_id = auth.uid());
+
+-- ============================================================================
 -- Done. Next steps (see CLAUDE.md / README for the full checklist):
 --   1. Deploy the `send-notification` and `create-user` edge functions.
 --   2. Create your first super_admin: add a user in Supabase Auth, then

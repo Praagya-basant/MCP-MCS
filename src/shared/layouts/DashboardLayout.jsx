@@ -3,6 +3,7 @@ import { Sidebar } from '@/shared/layouts/Sidebar';
 import { Topbar } from '@/shared/layouts/Topbar';
 import { BottomNav } from '@/shared/layouts/BottomNav';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
+import { usePushSubscription } from '@/shared/hooks/usePushSubscription';
 
 /**
  * Shared shell for every authenticated role. Each role's route tree wraps
@@ -25,6 +26,7 @@ export function DashboardLayout({
   mobileMoreItems,
 }) {
   const location = useLocation();
+  usePushSubscription();
 
   return (
     <div className="flex min-h-screen bg-bg">

@@ -19,6 +19,9 @@ const corsHeaders = {
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY');
+const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
+const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:praagya@basant.info';
 const FROM_ADDRESS = 'BASANT <noreply@basant.info>';
 const FEEDBACK_RECIPIENT = 'praagya@basant.info';
 
@@ -278,6 +281,116 @@ async function insertNotifications(recipients, { title, message, type, itemType,
   if (error) console.error('Failed to insert notifications', error);
 }
 
+function base64urlToBytes(base64url) {
+  const padding = '='.repeat((4 - (base64url.length % 4)) % 4);
+  const base64 = (base64url + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  return bytes;
+}
+
+function bytesToBase64url(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// The VAPID keypair (see schema.sql section 10 / CLAUDE.md) was generated
+// by the `web-push` CLI, which outputs the raw EC point components
+// base64url-encoded — not a format Web Crypto's importKey('raw', ...)
+// accepts for an ECDSA *private* key, so this reassembles them into a JWK
+// (kty EC / crv P-256 / d,x,y) instead. Imported once per cold start, not
+// once per push — Deno keeps the isolate warm across invocations.
+let vapidKeyPromise = null;
+function importVapidPrivateKey() {
+  if (!vapidKeyPromise) {
+    const publicKeyBytes = base64urlToBytes(VAPID_PUBLIC_KEY); // 0x04 || x(32) || y(32)
+    const privateKeyBytes = base64urlToBytes(VAPID_PRIVATE_KEY);
+    const jwk = {
+      kty: 'EC',
+      crv: 'P-256',
+      d: bytesToBase64url(privateKeyBytes),
+      x: bytesToBase64url(publicKeyBytes.slice(1, 33)),
+      y: bytesToBase64url(publicKeyBytes.slice(33, 65)),
+      ext: true,
+    };
+    vapidKeyPromise = crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  }
+  return vapidKeyPromise;
+}
+
+/**
+ * RFC 8292 VAPID auth JWT. Web Crypto's ECDSA sign() already returns the
+ * raw r||s signature JWS/ES256 wants (not DER), so no extra reformatting
+ * is needed after signing.
+ */
+async function signVapidJwt(audience) {
+  const key = await importVapidPrivateKey();
+  const encoder = new TextEncoder();
+  const headerB64 = bytesToBase64url(encoder.encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
+  const payloadB64 = bytesToBase64url(
+    encoder.encode(JSON.stringify({ aud: audience, exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60, sub: VAPID_SUBJECT }))
+  );
+  const unsigned = `${headerB64}.${payloadB64}`;
+  const signature = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, encoder.encode(unsigned));
+  return `${unsigned}.${bytesToBase64url(new Uint8Array(signature))}`;
+}
+
+/**
+ * Sends an EMPTY-body push (VAPID auth only, no RFC 8291 payload
+ * encryption) — src/sw.js's `push` listener shows a fixed "you have new
+ * activity" notification and lets the app itself supply real content once
+ * opened (the bell's own unread fetch). This trades per-notification
+ * detail in the OS toast for a much smaller, easier-to-get-right surface
+ * than implementing ECDH+HKDF+AES-GCM payload encryption from scratch.
+ * A 404/410 means the browser dropped the subscription (uninstalled,
+ * permission revoked, etc.) — clean it up rather than retrying forever.
+ */
+async function sendWebPush(subscription) {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+
+  const endpointUrl = new URL(subscription.endpoint);
+  const audience = `${endpointUrl.protocol}//${endpointUrl.host}`;
+
+  try {
+    const jwt = await signVapidJwt(audience);
+    const res = await fetch(subscription.endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `vapid t=${jwt}, k=${VAPID_PUBLIC_KEY}`,
+        TTL: '86400',
+        'Content-Length': '0',
+      },
+    });
+
+    if (res.status === 404 || res.status === 410) {
+      await supabase.from('push_subscriptions').delete().eq('endpoint', subscription.endpoint);
+    } else if (!res.ok) {
+      console.error('Web push send failed', res.status, subscription.endpoint);
+    }
+  } catch (err) {
+    console.error('Web push send threw', err);
+  }
+}
+
+/** Fans a push out to every device (push_subscriptions row) any of `recipients` has registered. */
+async function sendWebPushToRecipients(recipients) {
+  const ids = dedupeRecipients(recipients).map((r) => r.id);
+  if (ids.length === 0) return;
+
+  const { data: subs, error } = await supabase
+    .from('push_subscriptions')
+    .select('endpoint, p256dh, auth')
+    .in('profile_id', ids);
+  if (error) {
+    console.error('Failed to load push subscriptions', error);
+    return;
+  }
+
+  await Promise.all(subs.map((s) => sendWebPush(s)));
+}
+
 /**
  * Architecture stub only — no WhatsApp Business API credentials exist
  * yet. Returns immediately so it's safe to wire into a handler ahead of
@@ -343,6 +456,7 @@ async function handleCheckout(payload) {
     itemType: 'sample',
     itemId: sampleId,
   });
+  await sendWebPushToRecipients(recipients);
 }
 
 /**
@@ -388,6 +502,7 @@ async function handleForward(payload) {
     itemType: 'sample',
     itemId: sampleId,
   });
+  await sendWebPushToRecipients(recipients);
 }
 
 /**
@@ -422,6 +537,7 @@ async function handleReturn(payload) {
     itemType: 'sample',
     itemId: sampleId,
   });
+  await sendWebPushToRecipients(recipients);
 }
 
 // Recall raised notifies Admin + the sample's hall manager per the
@@ -453,6 +569,7 @@ async function handleRecall(payload) {
     itemType: 'sample',
     itemId: sampleId,
   });
+  await sendWebPushToRecipients(recipients);
 }
 
 /**
@@ -467,9 +584,10 @@ async function handleValidityAlert(payload) {
   const merchantContacts = buyerId ? await getMerchantContacts(buyerId) : [];
   const hallManagers = hallId ? await getHallManagers(hallId) : [];
   const admins = await getSuperAdmins();
+  const recipients = [...merchantContacts, ...hallManagers, ...admins];
 
   await sendEmail({
-    to: dedupe(emailsOf([...merchantContacts, ...hallManagers, ...admins])),
+    to: dedupe(emailsOf(recipients)),
     subject: `Validity Expiring in ${daysLeft} Days — ${btCode} · ${productName}`,
     heading: 'Sample Validity Expiring',
     rows: [
@@ -480,6 +598,11 @@ async function handleValidityAlert(payload) {
     ],
     btCode,
   });
+
+  // No insertNotifications() call here — the pg_cron job that invoked
+  // this (send_validity_alerts() in schema.sql) already wrote the in-app
+  // notifications rows for this exact recipient set directly in SQL.
+  await sendWebPushToRecipients(recipients);
 }
 
 /** Merchant "Request Validity Extension" — admin-only per the notification matrix. */
@@ -513,6 +636,7 @@ async function handleValidityRequested(payload) {
     itemType: 'sample',
     itemId: sampleId,
   });
+  await sendWebPushToRecipients(admins);
 }
 
 /**
@@ -545,6 +669,7 @@ async function handleValidityExtended(payload) {
     itemType: 'sample',
     itemId: sampleId,
   });
+  await sendWebPushToRecipients(recipients);
 }
 
 /**
