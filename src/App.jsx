@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/shared/context/AuthContext';
 import { ToastProvider } from '@/shared/context/ToastContext';
 import { FeedbackProvider } from '@/shared/context/FeedbackContext';
+import { ThemeProvider } from '@/shared/context/ThemeContext';
 import { ToastContainer } from '@/shared/components/Toast';
 import { ProtectedRoute } from '@/shared/routes/ProtectedRoute';
 import { ROLE_HOME, ROLES } from '@/shared/utils/constants';
@@ -127,15 +128,17 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <FeedbackProvider>
-        <ToastProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-          <ToastContainer />
-        </ToastProvider>
-      </FeedbackProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <FeedbackProvider>
+          <ToastProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+            <ToastContainer />
+          </ToastProvider>
+        </FeedbackProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

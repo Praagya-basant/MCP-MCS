@@ -52,7 +52,7 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 'md:m
       />
       <div
         className={cn(
-          'modal-panel relative w-full bg-white shadow-xl flex flex-col',
+          'modal-panel relative w-full bg-card shadow-xl flex flex-col',
           'max-h-[92vh] rounded-t-2xl md:rounded-t-modal md:rounded-b-modal md:max-h-[90vh]',
           visible
             ? 'translate-y-0 opacity-100 md:scale-100'

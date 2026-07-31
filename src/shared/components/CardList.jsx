@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { cn } from '@/shared/utils/cn';
 
 /**
@@ -21,10 +22,12 @@ export function CardList({ children }) {
  */
 export function CardListItem({ onClick, leading, title, subtitle, trailing, meta, actions, className }) {
   return (
-    <div
+    <motion.div
       onClick={onClick}
+      whileTap={onClick ? { scale: 0.98 } : undefined}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       className={cn(
-        'interactive bg-white border border-border rounded-card px-4 py-3 flex flex-col gap-2.5 min-h-[44px]',
+        'interactive bg-card border border-border rounded-card px-4 py-3 flex flex-col gap-2.5 min-h-[44px] shadow-card',
         onClick && 'cursor-pointer active:bg-surface-subtle',
         className
       )}
@@ -50,6 +53,6 @@ export function CardListItem({ onClick, leading, title, subtitle, trailing, meta
           {actions}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

@@ -32,9 +32,9 @@ const ICONS = {
 };
 
 const VARIANT_STYLES = {
-  success: 'bg-white text-ink border-border [&_svg]:text-status-in-hall-text',
-  error: 'bg-white text-ink border-border [&_svg]:text-red-600',
-  info: 'bg-white text-ink border-border [&_svg]:text-ink-secondary',
+  success: 'bg-card text-ink border-border [&_svg]:text-success',
+  error: 'bg-card text-ink border-border [&_svg]:text-error',
+  info: 'bg-card text-ink border-border [&_svg]:text-ink-secondary',
 };
 
 export function ToastContainer() {

@@ -70,7 +70,7 @@ export function Sidebar({ sections, subtitle }) {
                       <span className="w-4 h-4 shrink-0">{item.icon}</span>
                       <span className="truncate">{item.label}</span>
                       {item.badgeKey && badgeValues[item.badgeKey] > 0 && (
-                        <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-ink text-white text-[10px] font-medium flex items-center justify-center">
+                        <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-accent-ink text-[10px] font-medium flex items-center justify-center">
                           {badgeValues[item.badgeKey]}
                         </span>
                       )}
@@ -87,7 +87,7 @@ export function Sidebar({ sections, subtitle }) {
       <div className="shrink-0 border-t border-border px-3 py-3">
         <a
           href={`mailto:${CONTACT_EMAIL}`}
-          className="interactive select-none block px-3 py-1 text-[11px] text-[#9B9B9B] hover:text-[#6B6B6B]"
+          className="interactive select-none block px-3 py-1 text-[11px] text-ink-muted hover:text-ink-secondary"
         >
           Contact admin for support
         </a>

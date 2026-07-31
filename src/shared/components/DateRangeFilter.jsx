@@ -10,7 +10,7 @@ import { cn } from '@/shared/utils/cn';
 export function DateRangeFilter({ from, to, onFromChange, onToChange, className }) {
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <label className="interactive h-9 flex items-center gap-1.5 rounded-control border border-border bg-white pl-2.5 pr-2 focus-within:ring-[1.5px] focus-within:ring-ink focus-within:border-ink">
+      <label className="interactive h-9 flex items-center gap-1.5 rounded-control border border-border bg-card pl-2.5 pr-2 focus-within:ring-[1.5px] focus-within:ring-ink focus-within:border-ink">
         <span className="text-caption text-ink-muted shrink-0">From</span>
         <input
           type="date"
@@ -19,7 +19,7 @@ export function DateRangeFilter({ from, to, onFromChange, onToChange, className 
           className="h-full w-[118px] border-0 bg-transparent p-0 text-body text-ink focus:outline-none focus:ring-0"
         />
       </label>
-      <label className="interactive h-9 flex items-center gap-1.5 rounded-control border border-border bg-white pl-2.5 pr-2 focus-within:ring-[1.5px] focus-within:ring-ink focus-within:border-ink">
+      <label className="interactive h-9 flex items-center gap-1.5 rounded-control border border-border bg-card pl-2.5 pr-2 focus-within:ring-[1.5px] focus-within:ring-ink focus-within:border-ink">
         <span className="text-caption text-ink-muted shrink-0">To</span>
         <input
           type="date"

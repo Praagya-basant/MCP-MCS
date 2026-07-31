@@ -51,7 +51,7 @@ export function Drawer({ open, onClose, title, children }) {
       />
       <div
         className={cn(
-          'drawer-panel relative w-full md:max-w-[480px] h-full bg-white shadow-xl flex flex-col',
+          'drawer-panel relative w-full md:max-w-[480px] h-full bg-card shadow-xl flex flex-col',
           visible ? 'translate-x-0' : 'translate-x-full'
         )}
       >

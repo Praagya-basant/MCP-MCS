@@ -4,7 +4,10 @@ import { useAuth } from '@/shared/context/AuthContext';
 import { initials, formatLastLogin } from '@/shared/utils/formatters';
 import { IconMessage, IconLogout } from '@/shared/components/icons';
 import { SendFeedbackModal } from '@/shared/components/SendFeedbackModal';
-import { ROLES } from '@/shared/utils/constants';
+import { ThemeToggle } from '@/shared/components/ThemeToggle';
+import { useTheme } from '@/shared/context/ThemeContext';
+import { ROLES, ROLE_LABELS } from '@/shared/utils/constants';
+import { Sun, Moon } from 'lucide-react';
 
 // Reuses the existing semantic status colors (blue/green already defined
 // for in-transit/in-hall) rather than introducing new ad-hoc palette
@@ -26,6 +29,7 @@ const AVATAR_COLORS = {
  */
 export function AccountMenuContent({ onClose }) {
   const { profile, role, user, signOut } = useAuth();
+  const { theme } = useTheme();
   const [supportOpen, setSupportOpen] = useState(false);
 
   const avatarColor = AVATAR_COLORS[role] || 'bg-ink';
@@ -43,10 +47,10 @@ export function AccountMenuContent({ onClose }) {
 
   return (
     <>
-      <div className="px-3 py-2.5 flex items-center gap-2.5">
+      <div className="px-3 py-3 flex items-center gap-3">
         <div
           className={cn(
-            'w-8 h-8 rounded-full text-white flex items-center justify-center text-caption font-medium shrink-0 select-none',
+            'w-10 h-10 rounded-full text-white flex items-center justify-center text-body font-semibold shrink-0 select-none',
             avatarColor
           )}
         >
@@ -57,7 +61,22 @@ export function AccountMenuContent({ onClose }) {
           <p className="text-caption text-ink-secondary truncate">{profile?.email}</p>
         </div>
       </div>
-      {lastLogin && <p className="px-3 pb-2.5 text-[11px] text-ink-muted truncate">Last login: {lastLogin}</p>}
+      <div className="px-3 pb-2.5 flex items-center gap-2">
+        <span className="inline-flex items-center rounded-pill bg-surface-subtle px-2 py-0.5 text-[11px] font-medium text-ink-secondary">
+          {ROLE_LABELS[role] || role}
+        </span>
+        {lastLogin && <span className="text-[11px] text-ink-muted truncate">Last login {lastLogin}</span>}
+      </div>
+
+      <div className="border-t border-border my-1" />
+
+      <div className="w-full flex items-center justify-between gap-2 px-3 py-2.5 md:py-2 text-body text-ink-secondary">
+        <span className="flex items-center gap-2">
+          {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+        </span>
+        <ThemeToggle variant="switch" />
+      </div>
 
       {role !== ROLES.SUPER_ADMIN && (
         <>

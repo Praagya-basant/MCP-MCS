@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
@@ -7,29 +8,42 @@ export default {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
-        bg: '#FFFFFF',
-        surface: '#F8F8F7',
-        'surface-subtle': '#F3F3F1',
+        bg: 'rgb(var(--color-bg) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        'surface-subtle': 'rgb(var(--color-surface-subtle) / <alpha-value>)',
+        card: 'rgb(var(--color-card) / <alpha-value>)',
         border: {
-          DEFAULT: '#E8E8E5',
-          strong: '#D4D4CF',
+          DEFAULT: 'rgb(var(--color-border) / <alpha-value>)',
+          strong: 'rgb(var(--color-border-strong) / <alpha-value>)',
         },
         ink: {
-          DEFAULT: '#1A1A1A',
-          secondary: '#6B6B6B',
-          muted: '#9B9B9B',
+          DEFAULT: 'rgb(var(--color-ink) / <alpha-value>)',
+          secondary: 'rgb(var(--color-ink-secondary) / <alpha-value>)',
+          muted: 'rgb(var(--color-ink-muted) / <alpha-value>)',
         },
-        sidebar: '#FAFAF9',
+        sidebar: 'rgb(var(--color-sidebar) / <alpha-value>)',
+        accent: {
+          DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',
+          hover: 'rgb(var(--color-accent-hover) / <alpha-value>)',
+          ink: 'rgb(var(--color-accent-ink) / <alpha-value>)',
+        },
+        // Semantic status colors — same hue in light/dark (only the tint
+        // backgrounds' perceived weight shifts, automatically, since
+        // they're alpha-blended over each theme's own card color).
         status: {
-          'in-hall-bg': '#F0FDF4',
-          'in-hall-text': '#16A34A',
-          'checked-out-bg': '#FFFBEB',
-          'checked-out-text': '#D97706',
-          'in-transit-bg': '#EFF6FF',
-          'in-transit-text': '#2563EB',
-          'expired-bg': '#FEF2F2',
-          'expired-text': '#DC2626',
+          'in-hall-bg': 'rgb(var(--color-success) / 0.14)',
+          'in-hall-text': 'rgb(var(--color-success) / <alpha-value>)',
+          'checked-out-bg': 'rgb(var(--color-warning) / 0.14)',
+          'checked-out-text': 'rgb(var(--color-warning) / <alpha-value>)',
+          'in-transit-bg': 'rgb(var(--color-info) / 0.14)',
+          'in-transit-text': 'rgb(var(--color-info) / <alpha-value>)',
+          'expired-bg': 'rgb(var(--color-error) / 0.14)',
+          'expired-text': 'rgb(var(--color-error) / <alpha-value>)',
         },
+        success: 'rgb(var(--color-success) / <alpha-value>)',
+        warning: 'rgb(var(--color-warning) / <alpha-value>)',
+        error: 'rgb(var(--color-error) / <alpha-value>)',
+        info: 'rgb(var(--color-info) / <alpha-value>)',
       },
       fontSize: {
         caption: ['12px', { lineHeight: '16px' }],
@@ -50,7 +64,10 @@ export default {
         pill: '100px',
       },
       boxShadow: {
-        card: '0 1px 2px rgba(0,0,0,0.04)',
+        card: '0 2px 8px rgba(0,0,0,0.08)',
+        lift: '0 8px 20px rgba(0,0,0,0.12)',
+        float: '0 8px 32px rgba(0,0,0,0.12)',
+        dropdown: '0 12px 32px rgba(0,0,0,0.14)',
       },
       transitionDuration: {
         DEFAULT: '150ms',

@@ -6,6 +6,7 @@ import { initials } from '@/shared/utils/formatters';
 import { IconChevronDown } from '@/shared/components/icons';
 import { AccountMenuContent } from '@/shared/components/AccountMenuContent';
 import { NotificationBell } from '@/shared/components/NotificationBell';
+import { ThemeToggle } from '@/shared/components/ThemeToggle';
 import { Logo } from '@/shared/components/Logo';
 import { ROLES } from '@/shared/utils/constants';
 
@@ -58,7 +59,7 @@ export function Topbar({ contextLabel, navSections, sidebarSubtitle }) {
   const pageTitle = currentPageTitle(navSections, location.pathname, sidebarSubtitle);
 
   return (
-    <header className="h-16 shrink-0 border-b border-border bg-white sticky top-0 z-10">
+    <header className="h-16 shrink-0 border-b border-border bg-bg sticky top-0 z-10">
       {/* Mobile: logo left, page title center, notification bell right.
           Account access moves to BottomNav's Profile tab on mobile — no
           hamburger, bottom nav is the only navigation. */}
@@ -74,7 +75,8 @@ export function Topbar({ contextLabel, navSections, sidebarSubtitle }) {
           {contextLabel && <span className="text-body font-medium text-ink truncate select-none">{contextLabel}</span>}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <ThemeToggle />
           <NotificationBell />
 
           <div className="relative" ref={menuRef}>
@@ -99,7 +101,7 @@ export function Topbar({ contextLabel, navSections, sidebarSubtitle }) {
             {menuMounted && (
               <div
                 className={cn(
-                  'absolute right-0 mt-1.5 w-60 bg-white border border-border rounded-lg shadow-lg py-1.5 origin-top-right transition-all duration-150 ease-out',
+                  'absolute right-0 mt-1.5 w-60 bg-card border border-border rounded-lg shadow-dropdown py-1.5 origin-top-right transition-all duration-150 ease-out',
                   menuVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
                 )}
               >

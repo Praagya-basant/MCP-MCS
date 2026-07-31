@@ -3,17 +3,17 @@ import { cn } from '@/shared/utils/cn';
 
 const VARIANTS = {
   primary:
-    'bg-ink text-white hover:bg-[#2b2b2b] disabled:bg-ink/40 disabled:text-white/70',
+    'bg-accent text-accent-ink hover:bg-accent-hover disabled:opacity-40',
   secondary:
-    'bg-white text-ink border border-ink hover:bg-surface-subtle disabled:opacity-40',
+    'bg-card text-ink border border-ink hover:bg-surface-subtle disabled:opacity-40',
   ghost:
     'bg-transparent text-ink hover:bg-surface-subtle disabled:opacity-40',
   danger:
-    'bg-white text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-40',
+    'bg-card text-error border border-error/25 hover:bg-error/10 disabled:opacity-40',
   success:
-    'bg-status-in-hall-text text-white hover:bg-[#128a3e] disabled:opacity-40',
+    'bg-success text-white hover:bg-success/90 disabled:opacity-40',
   warning:
-    'bg-status-checked-out-text text-white hover:bg-[#b45f04] disabled:opacity-40',
+    'bg-warning text-white hover:bg-warning/90 disabled:opacity-40',
 };
 
 // 44px minimum tap target on mobile regardless of size variant (Apple HIG /

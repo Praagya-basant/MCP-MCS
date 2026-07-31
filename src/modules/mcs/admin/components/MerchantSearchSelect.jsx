@@ -67,11 +67,11 @@ export function MerchantSearchSelect({ merchants, selectedIds, onChange }) {
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 150)}
           placeholder="Search merchants by name or email..."
-          className="interactive w-full h-9 rounded-control border border-border bg-white px-3 text-body text-ink placeholder:text-ink-muted focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink"
+          className="interactive w-full h-9 rounded-control border border-border bg-card px-3 text-body text-ink placeholder:text-ink-muted focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink"
         />
 
         {focused && (
-          <div className="absolute z-10 mt-1 w-full max-h-[264px] overflow-y-auto scrollbar-thin bg-white border border-border rounded-control shadow-lg">
+          <div className="absolute z-10 mt-1 w-full max-h-[264px] overflow-y-auto scrollbar-thin bg-card border border-border rounded-control shadow-lg">
             {!merchants ? (
               <p className="px-3 py-2.5 text-caption text-ink-muted">Loading merchants&hellip;</p>
             ) : suggestions.length === 0 ? (

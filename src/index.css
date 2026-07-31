@@ -3,6 +3,59 @@
 @tailwind utilities;
 
 @layer base {
+  /* Design-token source of truth — every Tailwind color in
+     tailwind.config.js resolves through one of these RGB-triplet vars, so
+     ThemeContext toggling the `dark` class on <html> is the ONLY thing
+     needed to re-theme the entire app; no component ever branches on
+     theme itself. Light values match the original static palette exactly
+     (this file used to hardcode these hexes directly in tailwind.config),
+     dark values per the BASANT dark palette (near-black surfaces, warm
+     gold accent standing in for near-black "ink" so primary actions stay
+     visible on a dark background). */
+  :root {
+    --color-bg: 255 255 255;
+    --color-surface: 248 248 247;
+    --color-surface-subtle: 243 243 241;
+    --color-card: 255 255 255;
+    --color-border: 232 232 229;
+    --color-border-strong: 212 212 207;
+    --color-ink: 26 26 26;
+    --color-ink-secondary: 107 107 107;
+    --color-ink-muted: 155 155 155;
+    --color-sidebar: 250 250 249;
+    --color-accent: 26 26 26;
+    --color-accent-hover: 51 51 51;
+    --color-accent-ink: 255 255 255;
+    --color-success: 52 199 89;
+    --color-warning: 255 149 0;
+    --color-error: 255 69 58;
+    --color-info: 0 122 255;
+    --shimmer-peak: rgba(255, 255, 255, 0.6);
+    color-scheme: light;
+  }
+
+  .dark {
+    --color-bg: 13 13 13;
+    --color-surface: 30 30 30;
+    --color-surface-subtle: 36 36 36;
+    --color-card: 24 24 24;
+    --color-border: 42 42 42;
+    --color-border-strong: 64 64 64;
+    --color-ink: 255 255 255;
+    --color-ink-secondary: 217 217 217;
+    --color-ink-muted: 130 130 130;
+    --color-sidebar: 18 18 18;
+    --color-accent: 196 164 132;
+    --color-accent-hover: 176 141 87;
+    --color-accent-ink: 26 26 26;
+    --color-success: 52 199 89;
+    --color-warning: 255 149 0;
+    --color-error: 255 69 58;
+    --color-info: 0 122 255;
+    --shimmer-peak: rgba(255, 255, 255, 0.08);
+    color-scheme: dark;
+  }
+
   * {
     @apply border-border;
   }
@@ -20,6 +73,7 @@
        though nothing is actually slow. */
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
 
   /* Hide the browser's native page scrollbar everywhere — scrolling
@@ -43,7 +97,8 @@
   }
 
   ::placeholder {
-    color: #9b9b9b;
+    @apply text-ink-muted;
+    opacity: 1;
   }
 }
 
@@ -62,7 +117,7 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: #d4d4cf;
+    background-color: rgb(var(--color-border-strong));
     border-radius: 100px;
   }
 
@@ -71,7 +126,7 @@
   }
 
   .drawer-panel {
-    transition: transform 0.25s ease;
+    transition: transform 0.32s cubic-bezier(0.34, 1.2, 0.36, 1);
   }
 
   .modal-overlay {
@@ -79,7 +134,7 @@
   }
 
   .modal-panel {
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition: opacity 0.22s ease, transform 0.32s cubic-bezier(0.34, 1.2, 0.36, 1);
   }
 }
 
@@ -124,12 +179,7 @@
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
-    background-image: linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0) 0,
-      rgba(255, 255, 255, 0.6) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
+    background-image: linear-gradient(90deg, transparent 0, var(--shimmer-peak) 50%, transparent 100%);
     animation: shimmer 1.4s infinite;
   }
 

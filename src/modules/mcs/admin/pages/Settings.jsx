@@ -20,9 +20,9 @@ export default function AdminSettings() {
     <div>
       <PageHeader title="Settings" description="Admin-only configuration and maintenance." />
 
-      <div className="bg-white border border-red-200 rounded-card shadow-card px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-card border border-error/25 rounded-card shadow-card px-6 py-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 text-red-500 shrink-0">
+          <span className="mt-0.5 text-error shrink-0">
             <IconTrash className="w-5 h-5" />
           </span>
           <div>

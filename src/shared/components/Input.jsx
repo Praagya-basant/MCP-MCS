@@ -6,9 +6,9 @@ export const Input = forwardRef(function Input({ className, error, ...props }, r
     <input
       ref={ref}
       className={cn(
-        'interactive w-full h-11 md:h-9 rounded-control border bg-white px-3 text-body text-ink placeholder:text-ink-muted',
+        'interactive w-full h-11 md:h-9 rounded-control border bg-card px-3 text-body text-ink placeholder:text-ink-muted',
         'focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink',
-        error ? 'border-red-400' : 'border-border',
+        error ? 'border-error' : 'border-border',
         props.disabled && 'bg-surface-subtle text-ink-muted cursor-not-allowed',
         className
       )}
@@ -22,9 +22,9 @@ export const Textarea = forwardRef(function Textarea({ className, error, ...prop
     <textarea
       ref={ref}
       className={cn(
-        'interactive w-full min-h-[80px] rounded-control border bg-white px-3 py-2 text-body text-ink placeholder:text-ink-muted resize-none',
+        'interactive w-full min-h-[80px] rounded-control border bg-card px-3 py-2 text-body text-ink placeholder:text-ink-muted resize-none',
         'focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink',
-        error ? 'border-red-400' : 'border-border',
+        error ? 'border-error' : 'border-border',
         className
       )}
       {...props}
@@ -38,9 +38,9 @@ export const Select = forwardRef(function Select({ className, error, children, .
       <select
         ref={ref}
         className={cn(
-          'interactive w-full h-11 md:h-9 appearance-none rounded-control border bg-white pl-3 pr-8 text-body text-ink',
+          'interactive w-full h-11 md:h-9 appearance-none rounded-control border bg-card pl-3 pr-8 text-body text-ink',
           'focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink',
-          error ? 'border-red-400' : 'border-border',
+          error ? 'border-error' : 'border-border',
           props.disabled && 'bg-surface-subtle text-ink-muted cursor-not-allowed',
           className
         )}
@@ -69,11 +69,11 @@ export function FormField({ label, htmlFor, error, hint, required, children }) {
       {label && (
         <label htmlFor={htmlFor} className="text-body font-medium text-ink">
           {label}
-          {required && <span className="text-red-500 ml-0.5">*</span>}
+          {required && <span className="text-error ml-0.5">*</span>}
         </label>
       )}
       {children}
-      {error && <span className="text-caption text-red-600">{error}</span>}
+      {error && <span className="text-caption text-error">{error}</span>}
       {!error && hint && <span className="text-caption text-ink-muted">{hint}</span>}
     </div>
   );

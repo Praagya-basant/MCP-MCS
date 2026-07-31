@@ -24,7 +24,7 @@ export function Toggle({ checked, onChange, label, hint, disabled, className }) 
           checked ? 'bg-ink border-ink justify-end' : 'bg-surface-subtle border-border-strong justify-start'
         )}
       >
-        <span className="w-[18px] h-[18px] rounded-full bg-white shadow-card" />
+        <span className="w-[18px] h-[18px] rounded-full bg-card shadow-card" />
       </span>
     </button>
   );

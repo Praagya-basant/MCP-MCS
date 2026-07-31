@@ -111,8 +111,8 @@ export function ManageValidityModal({ open, onClose, item, itemType, onSuccess }
                   className={cn(
                     'interactive h-8 px-3 rounded-control text-caption font-medium border',
                     active
-                      ? 'bg-ink text-white border-ink'
-                      : 'bg-white text-ink-secondary border-border hover:bg-surface-subtle hover:text-ink'
+                      ? 'bg-accent text-accent-ink border-accent'
+                      : 'bg-card text-ink-secondary border-border hover:bg-surface-subtle hover:text-ink'
                   )}
                 >
                   {m.label}
