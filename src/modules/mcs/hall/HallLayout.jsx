@@ -16,7 +16,10 @@ const navSections = [
   },
   {
     title: 'MCP',
-    items: [{ to: '/hall/mcp/panels', label: 'Panels', icon: <IconLayers /> }],
+    items: [
+      { to: '/hall/mcp/panels', label: 'Panels', icon: <IconLayers /> },
+      { to: '/hall/mcp/movements', label: 'Movements', icon: <IconMove /> },
+    ],
   },
 ];
 

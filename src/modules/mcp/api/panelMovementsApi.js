@@ -23,7 +23,7 @@ const PANEL_MOVEMENT_WITH_HALLS_SELECT =
   '*, from_hall:halls!panel_movements_from_hall_id_fkey(id, name), destination_hall:halls!panel_movements_destination_hall_id_fkey(id, name)';
 
 const PANEL_MOVEMENT_SELECT =
-  '*, panel:panels(id, panel_code, panel_name, image_url, buyer_id, hall_id, buyer:buyers(id, name), hall:halls(id, hall_number, name))';
+  '*, panel:panels(id, panel_code, panel_name, image_url, buyer_id, hall_id, buyer:buyers(id, name), hall:halls(id, hall_number, name)), logged_by_profile:profiles(id, full_name)';
 
 function mapPanelMovement(movement) {
   if (!movement?.panel?.buyer) return movement;

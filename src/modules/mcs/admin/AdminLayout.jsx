@@ -32,6 +32,7 @@ const navSections = [
     items: [
       { to: '/admin/mcp/dashboard', label: 'Dashboard', icon: <IconGrid /> },
       { to: '/admin/mcp/panels', label: 'Panels', icon: <IconLayers /> },
+      { to: '/admin/mcp/movements', label: 'Movements', icon: <IconMove /> },
     ],
   },
 ];
@@ -54,6 +55,7 @@ const mobileMoreItems = [
   { to: '/admin/settings', label: 'Settings', icon: <IconSettings /> },
   { to: '/admin/mcp/dashboard', label: 'MCP Dashboard', icon: <IconGrid /> },
   { to: '/admin/mcp/panels', label: 'Panels', icon: <IconLayers /> },
+  { to: '/admin/mcp/movements', label: 'Panel Movements', icon: <IconMove /> },
 ];
 
 export default function AdminLayout() {

@@ -34,14 +34,14 @@ import MerchantHistory from '@/modules/mcs/merchant/pages/History';
 import MerchantRecalls from '@/modules/mcs/merchant/pages/Recalls';
 import MerchantExport from '@/modules/mcs/merchant/pages/Export';
 
-// Module 2 (MCP) — panels. Foundation pass: Add Panel + list + a
-// read-only drawer only; issue/return/forward/retire land in a later
-// pass. Routed under mcp/* alongside each role's MCS routes per
-// CLAUDE.md's module-boundary note.
+// Module 2 (MCP) — panels. Routed under mcp/* alongside each role's MCS
+// routes per CLAUDE.md's module-boundary note.
 import AdminMcpDashboard from '@/modules/mcp/admin/pages/Dashboard';
 import AdminPanels from '@/modules/mcp/admin/pages/Panels';
+import AdminPanelMovements from '@/modules/mcp/admin/pages/Movements';
 import HallPanels from '@/modules/mcp/hall/pages/Panels';
 import HallAddPanel from '@/modules/mcp/hall/pages/AddPanel';
+import HallPanelMovements from '@/modules/mcp/hall/pages/Movements';
 import MerchantPanels from '@/modules/mcp/merchant/pages/Panels';
 
 function RootRedirect() {
@@ -81,6 +81,7 @@ function AppRoutes() {
           <Route path="settings" element={<AdminSettings />} />
           <Route path="mcp/dashboard" element={<AdminMcpDashboard />} />
           <Route path="mcp/panels" element={<AdminPanels />} />
+          <Route path="mcp/movements" element={<AdminPanelMovements />} />
         </Route>
       </Route>
 
@@ -94,6 +95,7 @@ function AppRoutes() {
           <Route path="movements" element={<HallMovements />} />
           <Route path="mcp/panels" element={<HallPanels />} />
           <Route path="mcp/add-panel" element={<HallAddPanel />} />
+          <Route path="mcp/movements" element={<HallPanelMovements />} />
         </Route>
       </Route>
 
