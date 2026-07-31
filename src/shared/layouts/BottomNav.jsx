@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/shared/utils/cn';
 import { Modal } from '@/shared/components/Modal';
 import { AccountMenuContent } from '@/shared/components/AccountMenuContent';
@@ -7,16 +8,16 @@ import { useFeedback } from '@/shared/context/FeedbackContext';
 import { IconUser } from '@/shared/components/icons';
 
 /**
- * Mobile-only (`md:hidden`) primary navigation — replaces the sidebar
- * entirely below the md breakpoint, per "no hamburger menus, bottom nav
- * is the navigation." `items` is capped at 4 real routes by each role's
- * Layout; the 5th slot is always "Profile", which opens a bottom sheet
- * (reusing Modal's mobile bottom-sheet behavior) with the same account
- * content Topbar's desktop dropdown shows. Destinations that don't fit in
- * the primary 4 (`moreItems`, e.g. Admin's Halls/Feedback/Settings) are
- * listed inside that same Profile sheet rather than a separate menu —
- * still not a hamburger, just a second thing the one bottom-sheet trigger
- * can show.
+ * Mobile-only (`md:hidden`) primary navigation — a floating glass pill,
+ * not an edge-to-edge bar, replacing the sidebar entirely below the md
+ * breakpoint per "no hamburger menus, bottom nav is the navigation."
+ * `items` is capped at 4 real routes by each role's Layout; the 5th slot
+ * is always "Profile", which opens a bottom sheet (reusing Modal's mobile
+ * bottom-sheet behavior) with the same account content Topbar's desktop
+ * dropdown shows. Destinations that don't fit in the primary 4
+ * (`moreItems`, e.g. Admin's Halls/Feedback/Settings) are listed inside
+ * that same Profile sheet rather than a separate menu — still not a
+ * hamburger, just a second thing the one bottom-sheet trigger can show.
  */
 export function BottomNav({ items, moreItems = [] }) {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -25,34 +26,69 @@ export function BottomNav({ items, moreItems = [] }) {
 
   return (
     <>
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 h-16 bg-white border-t border-border flex items-stretch pb-[env(safe-area-inset-bottom)]">
+      <nav
+        className="md:hidden fixed left-1/2 -translate-x-1/2 z-40 flex items-stretch gap-0.5 px-2 py-1.5 rounded-pill border border-white/20 bg-[rgba(255,255,255,0.85)] dark:bg-[rgba(18,18,18,0.85)] backdrop-blur-[20px] shadow-float"
+        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+      >
         {items.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              cn(
-                'interactive flex-1 min-h-[44px] flex flex-col items-center justify-center gap-0.5',
-                isActive ? 'text-ink' : 'text-ink-muted'
-              )
-            }
-          >
-            <span className="w-5 h-5">{item.icon}</span>
-            <span className="text-[10px] font-medium truncate px-1">{item.label}</span>
+          <NavLink key={item.to} to={item.to} end={item.end} className="interactive relative flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 min-h-[44px] min-w-[52px]">
+            {({ isActive }) => (
+              <>
+                <span className="relative flex items-center justify-center w-9 h-9">
+                  {isActive && (
+                    <motion.span
+                      layoutId="bottomNavActive"
+                      className="absolute inset-0 rounded-full bg-accent/12"
+                      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                    />
+                  )}
+                  <motion.span
+                    animate={{ scale: isActive ? 1.1 : 1 }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+                    className={cn('relative flex items-center justify-center w-[22px] h-[22px] [&>svg]:w-full [&>svg]:h-full', isActive ? 'text-accent' : 'text-ink-muted')}
+                  >
+                    {item.icon}
+                  </motion.span>
+                </span>
+                <AnimatePresence initial={false}>
+                  {isActive && (
+                    <motion.span
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 12 }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="text-[10px] font-medium leading-3 text-accent overflow-hidden whitespace-nowrap"
+                    >
+                      {item.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
           </NavLink>
         ))}
 
         <button
           type="button"
           onClick={() => setProfileOpen(true)}
-          className={cn(
-            'interactive flex-1 min-h-[44px] flex flex-col items-center justify-center gap-0.5',
-            profileOpen ? 'text-ink' : 'text-ink-muted'
-          )}
+          className="interactive relative flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 min-h-[44px] min-w-[52px]"
         >
-          <IconUser className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Profile</span>
+          <span className="relative flex items-center justify-center w-9 h-9">
+            <IconUser className={cn('w-[22px] h-[22px]', profileOpen ? 'text-accent' : 'text-ink-muted')} />
+          </span>
+          <AnimatePresence initial={false}>
+            {profileOpen && (
+              <motion.span
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 12 }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.15 }}
+                className="text-[10px] font-medium leading-3 text-accent overflow-hidden whitespace-nowrap"
+              >
+                Profile
+              </motion.span>
+            )}
+          </AnimatePresence>
         </button>
       </nav>
 
@@ -75,7 +111,7 @@ export function BottomNav({ items, moreItems = [] }) {
                 <span className="w-4 h-4 shrink-0">{item.icon}</span>
                 <span className="truncate">{item.label}</span>
                 {item.badgeKey && badgeValues[item.badgeKey] > 0 && (
-                  <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-ink text-white text-[10px] font-medium flex items-center justify-center">
+                  <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-accent-ink text-[10px] font-medium flex items-center justify-center">
                     {badgeValues[item.badgeKey]}
                   </span>
                 )}

@@ -33,10 +33,11 @@ export function DashboardLayout({
       <Sidebar sections={navSections} subtitle={sidebarSubtitle} />
       <div className="flex-1 min-w-0 flex flex-col">
         <Topbar contextLabel={contextLabel} navSections={navSections} sidebarSubtitle={sidebarSubtitle} />
-        <main className="flex-1 p-4 pb-20 md:p-8 md:pb-8">
-          {/* Subtle per-page fade — remounts (and re-animates) on every
-              route change since `key` is the pathname. */}
-          <div key={location.pathname} className="animate-[fadeIn_0.15s_ease]">
+        <main className="flex-1 p-4 pb-28 md:p-8 md:pb-8">
+          {/* Subtle per-page fade + upward drift — remounts (and
+              re-animates) on every route change since `key` is the
+              pathname. */}
+          <div key={location.pathname} className="animate-[pageIn_0.2s_cubic-bezier(0.16,1,0.3,1)]">
             <ErrorBoundary resetKey={location.pathname}>
               <Outlet />
             </ErrorBoundary>
