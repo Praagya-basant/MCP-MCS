@@ -18,6 +18,12 @@ const SAMPLES_ROUTE = {
   [ROLES.MERCHANT]: '/merchant/samples',
 };
 
+const PANELS_ROUTE = {
+  [ROLES.SUPER_ADMIN]: '/admin/mcp/panels',
+  [ROLES.HALL_MANAGER]: '/hall/mcp/panels',
+  [ROLES.MERCHANT]: '/merchant/mcp/panels',
+};
+
 // No realtime subscription (this codebase doesn't use Supabase Realtime
 // anywhere yet — every other list uses explicit refetch-after-action, see
 // useAsyncData). A light poll keeps the unread badge from feeling static
@@ -99,6 +105,8 @@ export function NotificationBell({ className }) {
     setOpen(false);
     if (n.item_type === 'sample' && n.item_id) {
       navigate(SAMPLES_ROUTE[role] || '/', { state: { openSampleId: n.item_id } });
+    } else if (n.item_type === 'panel' && n.item_id) {
+      navigate(PANELS_ROUTE[role] || '/', { state: { openPanelId: n.item_id } });
     }
   }
 

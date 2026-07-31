@@ -1,4 +1,5 @@
 import { supabase, SAMPLE_IMAGES_BUCKET } from '@/shared/lib/supabaseClient';
+import { sendNotification } from '@/shared/lib/notify';
 import { shortenBuyerName } from '@/shared/utils/formatters';
 
 const PANEL_SELECT = '*, buyer:buyers(id, name), hall:halls(id, hall_number, name)';
@@ -65,11 +66,23 @@ export async function createPanel({
  * Admin-only, via the retire_panel RPC (checks is_super_admin() and that
  * the panel isn't currently issued itself — see schema.sql section 14).
  * Archived, not deleted: only status + the retired_* columns change,
- * panel_movements history is untouched.
+ * panel_movements history is untouched. `panel` (not just its id) is
+ * required so the notification has panel_code/name/hall/buyer without a
+ * second round trip.
  */
-export async function retirePanel({ panelId, reason }) {
-  const { data, error } = await supabase.rpc('retire_panel', { p_panel_id: panelId, p_reason: reason });
+export async function retirePanel({ panel, reason }) {
+  const { data, error } = await supabase.rpc('retire_panel', { p_panel_id: panel.id, p_reason: reason });
   if (error) throw error;
+
+  sendNotification('panel_retired', {
+    panelId: panel.id,
+    panelCode: panel.panel_code,
+    panelName: panel.panel_name,
+    buyerId: panel.buyer_id,
+    hallId: panel.hall_id,
+    reason,
+  });
+
   return mapPanel(data);
 }
 

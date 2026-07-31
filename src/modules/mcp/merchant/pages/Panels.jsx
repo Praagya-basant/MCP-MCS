@@ -16,11 +16,13 @@ import { IconLayers } from '@/shared/components/icons';
 import { getPanelDisplayStatus } from '@/shared/utils/formatters';
 import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { PanelDetailDrawer } from '@/modules/mcp/components/PanelDetailDrawer';
+import { useOpenPanelFromLocation } from '@/modules/mcp/hooks/useOpenPanelFromLocation';
 
 export default function MerchantPanels() {
   const { data: panels, loading, reload } = useAsyncData(listPanels, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listPanelMovements, []);
   const [selected, setSelected] = useState(null);
+  useOpenPanelFromLocation(panels, setSelected);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
 

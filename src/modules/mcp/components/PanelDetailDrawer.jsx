@@ -81,7 +81,7 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
     try {
       const movement = (movements || []).find((m) => m.status === 'out');
       if (!movement) throw new Error('No active issue found for this panel.');
-      await returnPanel({ movement });
+      await returnPanel({ panel: localPanel, movement });
       setLocalPanel((prev) => ({ ...prev, status: PANEL_STATUS.IN_HALL }));
       toast.success(`${localPanel.panel_code} marked as returned`);
       setReturnConfirmOpen(false);

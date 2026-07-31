@@ -1,4 +1,5 @@
 import { supabase, SAMPLE_IMAGES_BUCKET } from '@/shared/lib/supabaseClient';
+import { sendNotification } from '@/shared/lib/notify';
 import { shortenBuyerName } from '@/shared/utils/formatters';
 
 // Same public `sample-images` bucket MCS's movementsApi.js uses (its RLS
@@ -73,10 +74,10 @@ export async function listPanelMovementsForPanel(panelId) {
 
 /**
  * Mirrors samplesApi/movementsApi's issueSample() exactly — see that
- * file's doc comment for why the movement id is pre-generated. No
- * sendNotification() call here (unlike issueSample): panel movement
- * emails/in-app/push are deferred to a later pass, same scope cut as
- * retire and the MCP dashboard.
+ * file's doc comment for why the movement id is pre-generated. Uses its
+ * own 'panel_checkout' notification type (not 'checkout') since the
+ * email copy needs Panel/panel_code wording and there's no /panel/:code
+ * deep-link route to build a "View" button around.
  */
 export async function issuePanel({
   panel,
@@ -119,11 +120,25 @@ export async function issuePanel({
   });
 
   if (error) throw error;
+
+  sendNotification('panel_checkout', {
+    panelId: panel.id,
+    panelCode: panel.panel_code,
+    panelName: panel.panel_name,
+    hallName: panel.hall?.name,
+    buyerId: panel.buyer_id,
+    pickedByName,
+    destination,
+    reason: reason === 'Other' ? reasonOther : reason,
+    pickedAt: movement.picked_at,
+  });
+
   return movement;
 }
 
 /** Mirrors movementsApi's forwardSample(). `movement` must be the panel's current open ('out') leg. */
 export async function forwardPanel({
+  panel,
   movement,
   pickedByName,
   destination,
@@ -164,11 +179,35 @@ export async function forwardPanel({
   });
 
   if (error) throw error;
+
+  sendNotification('panel_forward', {
+    panelId: panel.id,
+    panelCode: panel.panel_code,
+    panelName: panel.panel_name,
+    fromDestination: movement.destination,
+    buyerId: panel.buyer_id,
+    pickedByName,
+    destination,
+    reason: reason === 'Other' ? reasonOther : reason,
+    pickedAt: newMovement.picked_at,
+  });
+
   return newMovement;
 }
 
-export async function returnPanel({ movement }) {
+export async function returnPanel({ panel, movement }) {
   const { data: returned, error } = await supabase.rpc('return_panel', { p_movement_id: movement.id });
   if (error) throw error;
+
+  sendNotification('panel_return', {
+    panelId: panel.id,
+    panelCode: panel.panel_code,
+    panelName: panel.panel_name,
+    hallName: panel.hall?.name,
+    hallId: panel.hall_id,
+    buyerId: panel.buyer_id,
+    returnedAt: returned.returned_at,
+  });
+
   return returned;
 }

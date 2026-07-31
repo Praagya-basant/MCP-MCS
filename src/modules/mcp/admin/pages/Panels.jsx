@@ -21,6 +21,7 @@ import { IconLayers } from '@/shared/components/icons';
 import { formatDate, getPanelDisplayStatus } from '@/shared/utils/formatters';
 import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { PanelDetailDrawer } from '@/modules/mcp/components/PanelDetailDrawer';
+import { useOpenPanelFromLocation } from '@/modules/mcp/hooks/useOpenPanelFromLocation';
 
 export default function AdminPanels() {
   const { data: panels, loading, reload } = useAsyncData(listPanels, []);
@@ -28,6 +29,7 @@ export default function AdminPanels() {
   const { data: buyers } = useAsyncData(listBuyers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [selected, setSelected] = useState(null);
+  useOpenPanelFromLocation(panels, setSelected);
 
   const openHopMap = useMemo(() => {
     const map = {};

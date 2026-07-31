@@ -767,6 +767,140 @@ async function handleShiftDecided(payload) {
 }
 
 /**
+ * MCP (panels) equivalents of handleCheckout/handleForward/handleReturn/
+ * a retire event — same recipient shapes, own notification types
+ * ('panel_checkout' etc, not 'checkout') since the copy needs Panel/
+ * panel_code wording, and none of these pass `btCode` to sendEmail —
+ * there's no /panel/:code deep-link route to build a "View" button
+ * around, so these emails are informational only, no button.
+ */
+async function handlePanelCheckout(payload) {
+  const { panelId, panelCode, panelName, hallName, buyerId, destination, reason, pickedAt } = payload;
+
+  const merchantContacts = await getMerchantContacts(buyerId);
+  let hodContacts = [];
+  if (!NON_HOD_DESTINATIONS.includes(String(destination || '').trim().toLowerCase())) {
+    const destHallId = await getHallIdByName(destination);
+    if (destHallId) hodContacts = await getHallManagers(destHallId);
+  }
+  const recipients = [...merchantContacts, ...hodContacts];
+
+  await sendEmail({
+    to: dedupe(emailsOf(recipients)),
+    subject: `Panel Issued — ${panelCode} · ${panelName}`,
+    heading: 'Panel Issued',
+    rows: [
+      { label: 'Panel Code', value: panelCode },
+      { label: 'Panel Name', value: panelName },
+      { label: 'Hall', value: hallName || '' },
+      { label: 'Destination', value: destination },
+      { label: 'Reason', value: reason },
+      { label: 'Date & Time', value: formatDateTime(pickedAt) },
+    ],
+  });
+
+  await insertNotifications(recipients, {
+    title: 'Panel Issued',
+    message: `${panelCode} — ${panelName} issued to ${destination}`,
+    type: 'panel_checkout',
+    itemType: 'panel',
+    itemId: panelId,
+  });
+  await sendWebPushToRecipients(recipients);
+}
+
+async function handlePanelForward(payload) {
+  const { panelId, panelCode, panelName, fromDestination, buyerId, destination, reason, pickedAt } = payload;
+
+  const merchantContacts = await getMerchantContacts(buyerId);
+  let hodContacts = [];
+  if (!NON_HOD_DESTINATIONS.includes(String(destination || '').trim().toLowerCase())) {
+    const destHallId = await getHallIdByName(destination);
+    if (destHallId) hodContacts = await getHallManagers(destHallId);
+  }
+  const recipients = [...merchantContacts, ...hodContacts];
+
+  await sendEmail({
+    to: dedupe(emailsOf(recipients)),
+    subject: `Panel Forwarded — ${panelCode} · ${panelName}`,
+    heading: 'Panel Forwarded',
+    rows: [
+      { label: 'Panel Code', value: panelCode },
+      { label: 'Panel Name', value: panelName },
+      { label: 'From', value: fromDestination },
+      { label: 'New Destination', value: destination },
+      { label: 'Reason', value: reason },
+      { label: 'Date & Time', value: formatDateTime(pickedAt) },
+    ],
+  });
+
+  await insertNotifications(recipients, {
+    title: 'Panel Forwarded',
+    message: `${panelCode} — ${panelName} forwarded to ${destination}`,
+    type: 'panel_forward',
+    itemType: 'panel',
+    itemId: panelId,
+  });
+  await sendWebPushToRecipients(recipients);
+}
+
+async function handlePanelReturn(payload) {
+  const { panelId, panelCode, panelName, hallName, hallId, buyerId, returnedAt } = payload;
+  const merchantContacts = await getMerchantContacts(buyerId);
+  const hallManagers = hallId ? await getHallManagers(hallId) : [];
+  const recipients = [...merchantContacts, ...hallManagers];
+
+  await sendEmail({
+    to: dedupe(emailsOf(recipients)),
+    subject: `Panel Returned — ${panelCode} · ${panelName}`,
+    heading: 'Panel Returned',
+    rows: [
+      { label: 'Panel Code', value: panelCode },
+      { label: 'Panel Name', value: panelName },
+      { label: 'Hall', value: hallName || '' },
+      { label: 'Date & Time', value: formatDateTime(returnedAt) },
+    ],
+  });
+
+  await insertNotifications(recipients, {
+    title: 'Panel Returned',
+    message: `${panelCode} — ${panelName} returned to ${hallName || 'its hall'}`,
+    type: 'panel_return',
+    itemType: 'panel',
+    itemId: panelId,
+  });
+  await sendWebPushToRecipients(recipients);
+}
+
+/** Retire notifies the buyer's merchant contacts + the panel's hall manager — it's no longer available to either. */
+async function handlePanelRetired(payload) {
+  const { panelId, panelCode, panelName, buyerId, hallId, reason } = payload;
+  const merchantContacts = buyerId ? await getMerchantContacts(buyerId) : [];
+  const hallManagers = hallId ? await getHallManagers(hallId) : [];
+  const recipients = [...merchantContacts, ...hallManagers];
+
+  await sendEmail({
+    to: dedupe(emailsOf(recipients)),
+    subject: `Panel Retired — ${panelCode} · ${panelName}`,
+    heading: 'Panel Retired',
+    rows: [
+      { label: 'Panel Code', value: panelCode },
+      { label: 'Panel Name', value: panelName },
+      { label: 'Reason', value: reason || 'Not specified' },
+    ],
+  });
+
+  await insertNotifications(recipients, {
+    title: 'Panel Retired',
+    message: `${panelCode} — ${panelName} was retired${reason ? `: ${reason}` : ''}`,
+    type: 'panel_retired',
+    itemType: 'panel',
+    itemId: panelId,
+  });
+  await sendWebPushToRecipients(recipients);
+}
+
+/**
  * Manager/merchant "Send Feedback" -> always goes to the fixed
  * praagya@basant.info recipient, not a DB-looked-up admin list — this is
  * a direct line to the app owner, independent of whichever admin
@@ -826,6 +960,18 @@ Deno.serve(async (req) => {
         break;
       case 'shift_decided':
         await handleShiftDecided(payload);
+        break;
+      case 'panel_checkout':
+        await handlePanelCheckout(payload);
+        break;
+      case 'panel_forward':
+        await handlePanelForward(payload);
+        break;
+      case 'panel_return':
+        await handlePanelReturn(payload);
+        break;
+      case 'panel_retired':
+        await handlePanelRetired(payload);
         break;
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {

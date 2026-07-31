@@ -29,7 +29,7 @@ export function RetirePanelModal({ open, onClose, panel, onSuccess }) {
 
     setSubmitting(true);
     try {
-      const retired = await retirePanel({ panelId: panel.id, reason: reason.trim() });
+      const retired = await retirePanel({ panel, reason: reason.trim() });
       toast.success(`${panel.panel_code} retired`);
       onSuccess?.(retired);
       handleClose();

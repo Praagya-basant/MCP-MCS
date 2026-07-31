@@ -67,6 +67,7 @@ export function ForwardPanelModal({ open, onClose, panel, movement, onSuccess })
     setSubmitting(true);
     try {
       await forwardPanel({
+        panel,
         movement,
         pickedByName: form.pickedByName.trim(),
         destination: form.destination,
