@@ -1439,6 +1439,184 @@ create policy "panels_select" on panels for select to authenticated
   );
 
 -- ============================================================================
+-- 13. MCP MOVEMENT CHAIN (Phase 6b) — checkout/return/forward for panels,
+-- line-for-line the same shape as checkout_sample/return_sample/
+-- forward_sample (section 5 / section 9) with panels/panel_movements/
+-- panel_id/'issued' substituted for samples/movements/sample_id/
+-- 'checked_out'. Deliberately not a shared/parameterized function
+-- between the two — same reasoning as MCS/MCP staying separate modules
+-- in the frontend: panels evolving its own status set (adding 'retired'
+-- later) shouldn't risk samples' RPC, and vice versa.
+-- ============================================================================
+
+create or replace function public.checkout_panel(
+  p_panel_id uuid,
+  p_picked_by_name text,
+  p_picked_by_email text,
+  p_destination text,
+  p_reason text,
+  p_reason_other text,
+  p_notes text,
+  p_photo_url text default null,
+  p_signature_url text default null,
+  p_purchaser_name text default null,
+  p_supplier_name text default null,
+  p_movement_id uuid default null
+)
+returns panel_movements
+language plpgsql security definer set search_path = public as $$
+declare
+  v_hall_id uuid;
+  v_current_status text;
+  v_dest_hall_id uuid;
+  v_movement panel_movements;
+begin
+  select hall_id, status into v_hall_id, v_current_status from panels where id = p_panel_id;
+
+  if v_hall_id is null then
+    raise exception 'Panel not found';
+  end if;
+
+  if not public.is_super_admin() and v_hall_id <> public.current_hall_id() then
+    raise exception 'Not authorized to check out this panel';
+  end if;
+
+  if v_current_status = 'issued' then
+    raise exception 'Panel is already issued';
+  end if;
+
+  if v_current_status = 'retired' then
+    raise exception 'Panel is retired';
+  end if;
+
+  select id into v_dest_hall_id from halls where name = p_destination;
+
+  update panels set status = 'issued' where id = p_panel_id;
+
+  insert into panel_movements (
+    id, panel_id, picked_by_name, picked_by_email, destination, reason,
+    reason_other, notes, logged_by, status, from_hall_id, destination_hall_id,
+    photo_url, signature_url, purchaser_name, supplier_name
+  ) values (
+    coalesce(p_movement_id, gen_random_uuid()), p_panel_id, p_picked_by_name, p_picked_by_email,
+    p_destination, p_reason, nullif(p_reason_other, ''), nullif(p_notes, ''), auth.uid(), 'out',
+    v_hall_id, v_dest_hall_id, p_photo_url, p_signature_url,
+    nullif(p_purchaser_name, ''), nullif(p_supplier_name, '')
+  ) returning * into v_movement;
+
+  return v_movement;
+end;
+$$;
+
+create or replace function public.return_panel(p_movement_id uuid)
+returns panel_movements
+language plpgsql security definer set search_path = public as $$
+declare
+  v_hall_id uuid;
+  v_movement panel_movements;
+begin
+  select p.hall_id into v_hall_id
+  from panel_movements m join panels p on p.id = m.panel_id
+  where m.id = p_movement_id;
+
+  if v_hall_id is null then
+    raise exception 'Movement not found';
+  end if;
+
+  if not public.is_super_admin() and v_hall_id <> public.current_hall_id() then
+    raise exception 'Not authorized to return this panel';
+  end if;
+
+  update panel_movements
+  set status = 'returned', returned_at = now()
+  where id = p_movement_id and status = 'out'
+  returning * into v_movement;
+
+  if v_movement.id is null then
+    raise exception 'Movement already returned or not found';
+  end if;
+
+  update panels set status = 'in_hall' where id = v_movement.panel_id;
+
+  return v_movement;
+end;
+$$;
+
+create or replace function public.forward_panel(
+  p_movement_id uuid,
+  p_picked_by_name text,
+  p_picked_by_email text,
+  p_destination text,
+  p_reason text,
+  p_reason_other text,
+  p_notes text,
+  p_photo_url text default null,
+  p_signature_url text default null,
+  p_purchaser_name text default null,
+  p_supplier_name text default null,
+  p_new_movement_id uuid default null
+)
+returns panel_movements
+language plpgsql security definer set search_path = public as $$
+declare
+  v_panel panels;
+  v_old_movement panel_movements;
+  v_old_hall_id uuid;
+  v_dest_hall_id uuid;
+  v_new_movement panel_movements;
+begin
+  select p.* into v_panel
+  from panel_movements m join panels p on p.id = m.panel_id
+  where m.id = p_movement_id;
+
+  if v_panel.id is null then
+    raise exception 'Movement not found';
+  end if;
+
+  if v_panel.status <> 'issued' then
+    raise exception 'Panel is not currently issued';
+  end if;
+
+  if not public.is_super_admin() and v_panel.hall_id <> public.current_hall_id() then
+    raise exception 'Not authorized to forward this panel';
+  end if;
+
+  update panel_movements
+  set status = 'returned', returned_at = now()
+  where id = p_movement_id and status = 'out'
+  returning * into v_old_movement;
+
+  if v_old_movement.id is null then
+    raise exception 'Movement already closed or not found';
+  end if;
+
+  v_old_hall_id := v_panel.hall_id;
+  select id into v_dest_hall_id from halls where name = p_destination;
+
+  if v_dest_hall_id is not null then
+    update panels set hall_id = v_dest_hall_id where id = v_panel.id;
+  end if;
+
+  insert into panel_movements (
+    id, panel_id, picked_by_name, picked_by_email, destination, reason,
+    reason_other, notes, logged_by, status, from_hall_id, destination_hall_id,
+    photo_url, signature_url, purchaser_name, supplier_name, hop_number
+  ) values (
+    coalesce(p_new_movement_id, gen_random_uuid()), v_panel.id, p_picked_by_name, p_picked_by_email,
+    p_destination, p_reason, nullif(p_reason_other, ''), nullif(p_notes, ''), auth.uid(), 'out',
+    v_old_hall_id, v_dest_hall_id, p_photo_url, p_signature_url,
+    nullif(p_purchaser_name, ''), nullif(p_supplier_name, ''), v_old_movement.hop_number + 1
+  ) returning * into v_new_movement;
+
+  return v_new_movement;
+end;
+$$;
+
+grant execute on function public.checkout_panel to authenticated;
+grant execute on function public.return_panel to authenticated;
+grant execute on function public.forward_panel to authenticated;
+
+-- ============================================================================
 -- Done. Next steps (see CLAUDE.md / README for the full checklist):
 --   1. Deploy the `send-notification` and `create-user` edge functions.
 --   2. Create your first super_admin: add a user in Supabase Auth, then

@@ -31,6 +31,7 @@ const PANEL_STATUS_STYLES = {
   [PANEL_STATUS.IN_HALL]: 'bg-status-in-hall-bg text-status-in-hall-text',
   [PANEL_STATUS.ISSUED]: 'bg-status-checked-out-bg text-status-checked-out-text',
   [PANEL_STATUS.RETIRED]: 'bg-surface-subtle text-ink-muted',
+  in_transit: 'bg-status-in-transit-bg text-status-in-transit-text',
 };
 
 export function PanelStatusBadge({ status, className }) {

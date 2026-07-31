@@ -10,18 +10,37 @@ import { PillTabs } from '@/shared/components/PillTabs';
 import { PanelStatusBadge, ValidityBadge, Badge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { listPanels } from '@/modules/mcp/api/panelsApi';
+import { listPanelMovements } from '@/modules/mcp/api/panelMovementsApi';
 import { PANEL_STATUS } from '@/shared/utils/constants';
 import { IconLayers } from '@/shared/components/icons';
+import { getPanelDisplayStatus } from '@/shared/utils/formatters';
 import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { PanelDetailDrawer } from '@/modules/mcp/components/PanelDetailDrawer';
 
 export default function MerchantPanels() {
-  const { data: panels, loading } = useAsyncData(listPanels, []);
+  const { data: panels, loading, reload } = useAsyncData(listPanels, []);
+  const { data: movements, reload: reloadMovements } = useAsyncData(listPanelMovements, []);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
 
-  const rows = useMemo(() => panels || [], [panels]);
+  const openHopMap = useMemo(() => {
+    const map = {};
+    (movements || []).forEach((m) => {
+      if (m.status === 'out') map[m.panel_id] = m.hop_number;
+    });
+    return map;
+  }, [movements]);
+
+  const rows = useMemo(
+    () => (panels || []).map((p) => ({ ...p, displayStatus: getPanelDisplayStatus(p.status, openHopMap[p.id]) })),
+    [panels, openHopMap]
+  );
+
+  function handleChanged() {
+    reload();
+    reloadMovements();
+  }
 
   const statusTabs = useMemo(
     () => [
@@ -96,7 +115,7 @@ export default function MerchantPanels() {
                       </Td>
                       <Td>
                         <div className="flex flex-wrap items-center gap-1">
-                          <PanelStatusBadge status={p.status} />
+                          <PanelStatusBadge status={p.displayStatus} />
                           <ValidityBadge expiryDate={p.expiry_date} />
                         </div>
                       </Td>
@@ -116,7 +135,7 @@ export default function MerchantPanels() {
                       subtitle={p.panel_name}
                       trailing={
                         <div className="flex flex-col items-end gap-1">
-                          <PanelStatusBadge status={p.status} />
+                          <PanelStatusBadge status={p.displayStatus} />
                           <ValidityBadge expiryDate={p.expiry_date} />
                         </div>
                       }
@@ -129,7 +148,7 @@ export default function MerchantPanels() {
         )}
       </Card>
 
-      <PanelDetailDrawer open={!!selected} panel={selected} onClose={() => setSelected(null)} />
+      <PanelDetailDrawer open={!!selected} panel={selected} onClose={() => setSelected(null)} onChanged={handleChanged} />
     </div>
   );
 }

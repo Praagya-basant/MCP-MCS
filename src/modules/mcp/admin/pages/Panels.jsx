@@ -13,44 +13,64 @@ import { PanelStatusBadge, ValidityBadge, Badge } from '@/shared/components/Badg
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listPanels } from '@/modules/mcp/api/panelsApi';
+import { listPanelMovements } from '@/modules/mcp/api/panelMovementsApi';
 import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, PANEL_STATUS } from '@/shared/utils/constants';
 import { IconLayers } from '@/shared/components/icons';
-import { formatDate } from '@/shared/utils/formatters';
+import { formatDate, getPanelDisplayStatus } from '@/shared/utils/formatters';
 import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { PanelDetailDrawer } from '@/modules/mcp/components/PanelDetailDrawer';
 
 export default function AdminPanels() {
-  const { data: panels, loading } = useAsyncData(listPanels, []);
+  const { data: panels, loading, reload } = useAsyncData(listPanels, []);
+  const { data: movements, reload: reloadMovements } = useAsyncData(listPanelMovements, []);
   const { data: buyers } = useAsyncData(listBuyers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [selected, setSelected] = useState(null);
 
+  const openHopMap = useMemo(() => {
+    const map = {};
+    (movements || []).forEach((m) => {
+      if (m.status === 'out') map[m.panel_id] = m.hop_number;
+    });
+    return map;
+  }, [movements]);
+
+  const rows = useMemo(
+    () => (panels || []).map((p) => ({ ...p, displayStatus: getPanelDisplayStatus(p.status, openHopMap[p.id]) })),
+    [panels, openHopMap]
+  );
+
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
-    useTableControls(panels || [], { searchFields: ['panel_code', 'panel_name'] });
+    useTableControls(rows, { searchFields: ['panel_code', 'panel_name'] });
 
   const statusTabs = useMemo(
     () => [
-      { value: 'all', label: 'All', count: (panels || []).length },
+      { value: 'all', label: 'All', count: rows.length },
       {
         value: PANEL_STATUS.IN_HALL,
         label: 'In Hall',
-        count: (panels || []).filter((p) => p.status === PANEL_STATUS.IN_HALL).length,
+        count: rows.filter((p) => p.status === PANEL_STATUS.IN_HALL).length,
       },
       {
         value: PANEL_STATUS.ISSUED,
         label: 'Issued',
-        count: (panels || []).filter((p) => p.status === PANEL_STATUS.ISSUED).length,
+        count: rows.filter((p) => p.status === PANEL_STATUS.ISSUED).length,
       },
       {
         value: PANEL_STATUS.RETIRED,
         label: 'Retired',
-        count: (panels || []).filter((p) => p.status === PANEL_STATUS.RETIRED).length,
+        count: rows.filter((p) => p.status === PANEL_STATUS.RETIRED).length,
       },
     ],
-    [panels]
+    [rows]
   );
+
+  function handleChanged() {
+    reload();
+    reloadMovements();
+  }
 
   return (
     <div>
@@ -127,7 +147,7 @@ export default function AdminPanels() {
                     <Td className="text-ink-secondary">{p.hall?.name}</Td>
                     <Td>
                       <div className="flex flex-wrap items-center gap-1">
-                        <PanelStatusBadge status={p.status} />
+                        <PanelStatusBadge status={p.displayStatus} />
                         <ValidityBadge expiryDate={p.expiry_date} />
                       </div>
                     </Td>
@@ -148,7 +168,7 @@ export default function AdminPanels() {
                     subtitle={p.panel_name}
                     trailing={
                       <div className="flex flex-col items-end gap-1">
-                        <PanelStatusBadge status={p.status} />
+                        <PanelStatusBadge status={p.displayStatus} />
                         <ValidityBadge expiryDate={p.expiry_date} />
                       </div>
                     }
@@ -169,7 +189,7 @@ export default function AdminPanels() {
         )}
       </Card>
 
-      <PanelDetailDrawer open={!!selected} panel={selected} onClose={() => setSelected(null)} />
+      <PanelDetailDrawer open={!!selected} panel={selected} onClose={() => setSelected(null)} onChanged={handleChanged} />
     </div>
   );
 }

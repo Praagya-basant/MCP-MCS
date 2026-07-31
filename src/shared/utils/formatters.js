@@ -1,4 +1,4 @@
-import { VALIDITY_STATUS, VALIDITY_EXPIRING_SOON_DAYS, SAMPLE_STATUS } from '@/shared/utils/constants';
+import { VALIDITY_STATUS, VALIDITY_EXPIRING_SOON_DAYS, SAMPLE_STATUS, PANEL_STATUS } from '@/shared/utils/constants';
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -123,6 +123,12 @@ export function getValidityStatus(expiryDate) {
  */
 export function getSampleDisplayStatus(status, hopNumber) {
   if (status !== SAMPLE_STATUS.CHECKED_OUT) return status;
+  return hopNumber > 1 ? 'in_transit' : status;
+}
+
+/** Same 'in_transit' refinement as getSampleDisplayStatus(), for panels.status. */
+export function getPanelDisplayStatus(status, hopNumber) {
+  if (status !== PANEL_STATUS.ISSUED) return status;
   return hopNumber > 1 ? 'in_transit' : status;
 }
 

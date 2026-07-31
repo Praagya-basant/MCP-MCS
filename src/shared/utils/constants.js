@@ -99,6 +99,8 @@ export const PANEL_STATUS_LABELS = {
   [PANEL_STATUS.IN_HALL]: 'In Hall',
   [PANEL_STATUS.ISSUED]: 'Issued',
   [PANEL_STATUS.RETIRED]: 'Retired',
+  // Not a DB status value — see getPanelDisplayStatus() in formatters.js.
+  in_transit: 'In Transit',
 };
 
 export const PAGE_SIZE = 20;
