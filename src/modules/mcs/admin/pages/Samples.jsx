@@ -11,7 +11,7 @@ import { SearchInput } from '@/shared/components/SearchInput';
 import { Pagination } from '@/shared/components/Pagination';
 import { PillTabs } from '@/shared/components/PillTabs';
 import { Select } from '@/shared/components/Input';
-import { StatusBadge } from '@/shared/components/Badge';
+import { StatusBadge, ValidityBadge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
@@ -163,7 +163,10 @@ export default function AdminSamples() {
                     <Td className="text-ink-secondary">{s.buyer?.name}</Td>
                     <Td className="text-ink-secondary">{s.hall?.name}</Td>
                     <Td>
-                      <StatusBadge status={s.status} />
+                      <div className="flex flex-wrap items-center gap-1">
+                        <StatusBadge status={s.status} />
+                        <ValidityBadge expiryDate={s.expiry_date} />
+                      </div>
                     </Td>
                     <Td className="text-ink-secondary">{formatDate(s.created_at)}</Td>
                     <Td className="text-right whitespace-nowrap">
@@ -215,7 +218,12 @@ export default function AdminSamples() {
                     leading={<SampleThumbnail sample={s} />}
                     title={<span className="font-mono">{s.bt_code}</span>}
                     subtitle={s.product_name}
-                    trailing={<StatusBadge status={s.status} />}
+                    trailing={
+                      <div className="flex flex-col items-end gap-1">
+                        <StatusBadge status={s.status} />
+                        <ValidityBadge expiryDate={s.expiry_date} />
+                      </div>
+                    }
                     meta={
                       <>
                         <span>{s.buyer?.name}</span>

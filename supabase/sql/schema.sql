@@ -396,13 +396,19 @@ create or replace function public.checkout_sample(
   p_destination text,
   p_reason text,
   p_reason_other text,
-  p_notes text
+  p_notes text,
+  p_photo_url text default null,
+  p_signature_url text default null,
+  p_purchaser_name text default null,
+  p_supplier_name text default null,
+  p_movement_id uuid default null
 )
 returns movements
 language plpgsql security definer set search_path = public as $$
 declare
   v_hall_id uuid;
   v_current_status text;
+  v_dest_hall_id uuid;
   v_movement movements;
 begin
   select hall_id, status into v_hall_id, v_current_status from samples where id = p_sample_id;
@@ -419,14 +425,28 @@ begin
     raise exception 'Sample is already checked out';
   end if;
 
+  -- Resolves the destination hall id from its name when the picked
+  -- destination is an actual hall (not Supplier/Other/Mandore) — purely
+  -- additive data for the multi-hop chain phase later; the free-text
+  -- `destination` column stays the source of truth for display.
+  select id into v_dest_hall_id from halls where name = p_destination;
+
   update samples set status = 'checked_out' where id = p_sample_id;
 
+  -- `p_movement_id` lets the caller pre-generate the id client-side so a
+  -- photo/signature can be uploaded to storage under
+  -- movements/{movement_id}/ BEFORE this call, then passed in as URLs
+  -- below — there's no id to build that path from until after the insert
+  -- otherwise.
   insert into movements (
-    sample_id, picked_by_name, picked_by_email, destination, reason,
-    reason_other, notes, logged_by, status
+    id, sample_id, picked_by_name, picked_by_email, destination, reason,
+    reason_other, notes, logged_by, status, from_hall_id, destination_hall_id,
+    photo_url, signature_url, purchaser_name, supplier_name
   ) values (
-    p_sample_id, p_picked_by_name, p_picked_by_email, p_destination, p_reason,
-    nullif(p_reason_other, ''), nullif(p_notes, ''), auth.uid(), 'out'
+    coalesce(p_movement_id, gen_random_uuid()), p_sample_id, p_picked_by_name, p_picked_by_email,
+    p_destination, p_reason, nullif(p_reason_other, ''), nullif(p_notes, ''), auth.uid(), 'out',
+    v_hall_id, v_dest_hall_id, p_photo_url, p_signature_url,
+    nullif(p_purchaser_name, ''), nullif(p_supplier_name, '')
   ) returning * into v_movement;
 
   return v_movement;
@@ -743,6 +763,7 @@ create table if not exists validity_requests (
   status text default 'pending' check (status in ('pending','approved','rejected')),
   approved_by uuid references profiles(id),
   approved_at timestamptz,
+  admin_note text,
   created_at timestamptz default now()
 );
 
@@ -896,6 +917,230 @@ create policy "notifications_select_own" on notifications for select to authenti
 drop policy if exists "notifications_update_own" on notifications;
 create policy "notifications_update_own" on notifications for update to authenticated
   using (recipient_id = auth.uid() or public.is_super_admin());
+
+-- ============================================================================
+-- 8. MCS DEPTH (Phase 2) — validity management + the daily expiry-alert job.
+-- checkout_sample() above was already extended (section 5) to accept
+-- photo/signature/purchaser/supplier fields — this section is the
+-- validity side: an audit log, two admin RPCs, and a pg_cron job.
+-- ============================================================================
+
+-- validity_requests already exists from the Phase 1 migration (its
+-- `create table if not exists` above is a no-op against the live DB) —
+-- add the column review_validity_request() below needs.
+alter table validity_requests add column if not exists admin_note text;
+
+-- Audit trail for every expiry-date change, whichever of the two paths
+-- caused it (admin_update_validity below, or an approved
+-- validity_requests row via review_validity_request). Panels aren't
+-- built yet (MCP module phase) but the shape is item_type/item_id
+-- generic so this table doesn't need to change when that phase lands.
+create table if not exists validity_changes (
+  id uuid primary key default gen_random_uuid(),
+  item_type text not null check (item_type in ('sample','panel')),
+  item_id uuid not null,
+  changed_by uuid references profiles(id) not null,
+  old_expiry_date date,
+  new_expiry_date date,
+  reason text,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_validity_changes_item_id on validity_changes(item_id);
+
+alter table validity_changes enable row level security;
+
+-- Admin reads (drawer's "Validity History"); no direct write policy —
+-- rows are only ever inserted by the two SECURITY DEFINER RPCs below,
+-- which check is_super_admin() themselves.
+drop policy if exists "validity_changes_select_admin" on validity_changes;
+create policy "validity_changes_select_admin" on validity_changes for select to authenticated
+  using (public.is_super_admin());
+
+-- Direct admin edit — "Manage Validity" in the sample drawer. Extending
+-- (add months / set a new date) and pre-expiring are the same operation
+-- here (just a new expiry_date), the frontend just frames the UI
+-- differently depending on whether the new date is later or earlier than
+-- today.
+create or replace function public.admin_update_validity(
+  p_item_type text,
+  p_item_id uuid,
+  p_new_expiry_date date,
+  p_reason text
+)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_old_expiry date;
+begin
+  if not public.is_super_admin() then
+    raise exception 'Only admins can manage validity';
+  end if;
+
+  if p_item_type = 'sample' then
+    select expiry_date into v_old_expiry from samples where id = p_item_id;
+    if not found then
+      raise exception 'Sample not found';
+    end if;
+    update samples set expiry_date = p_new_expiry_date where id = p_item_id;
+  elsif p_item_type = 'panel' then
+    select expiry_date into v_old_expiry from panels where id = p_item_id;
+    if not found then
+      raise exception 'Panel not found';
+    end if;
+    update panels set expiry_date = p_new_expiry_date where id = p_item_id;
+  else
+    raise exception 'Invalid item type: %', p_item_type;
+  end if;
+
+  insert into validity_changes (item_type, item_id, changed_by, old_expiry_date, new_expiry_date, reason)
+  values (p_item_type, p_item_id, auth.uid(), v_old_expiry, p_new_expiry_date, nullif(p_reason, ''));
+end;
+$$;
+
+grant execute on function public.admin_update_validity to authenticated;
+
+-- Approve/reject a merchant's validity_requests row. On approval, applies
+-- requested_expiry_date if given, otherwise adds requested_months to the
+-- item's current expiry (or today, if it had none set) — and logs it the
+-- same as a direct admin edit.
+create or replace function public.review_validity_request(
+  p_request_id uuid,
+  p_approve boolean,
+  p_admin_note text default null
+)
+returns validity_requests
+language plpgsql security definer set search_path = public as $$
+declare
+  v_request validity_requests;
+  v_old_expiry date;
+  v_new_expiry date;
+begin
+  if not public.is_super_admin() then
+    raise exception 'Only admins can review validity requests';
+  end if;
+
+  select * into v_request from validity_requests where id = p_request_id and status = 'pending';
+  if not found then
+    raise exception 'Request not found or already reviewed';
+  end if;
+
+  if p_approve then
+    if v_request.item_type = 'sample' then
+      select expiry_date into v_old_expiry from samples where id = v_request.item_id;
+    else
+      select expiry_date into v_old_expiry from panels where id = v_request.item_id;
+    end if;
+
+    v_new_expiry := coalesce(
+      v_request.requested_expiry_date,
+      (coalesce(v_old_expiry, current_date) + (coalesce(v_request.requested_months, 0) || ' months')::interval)::date
+    );
+
+    if v_request.item_type = 'sample' then
+      update samples set expiry_date = v_new_expiry where id = v_request.item_id;
+    else
+      update panels set expiry_date = v_new_expiry where id = v_request.item_id;
+    end if;
+
+    insert into validity_changes (item_type, item_id, changed_by, old_expiry_date, new_expiry_date, reason)
+    values (v_request.item_type, v_request.item_id, auth.uid(), v_old_expiry, v_new_expiry,
+            'Approved request: ' || coalesce(v_request.reason, 'no reason given'));
+  end if;
+
+  update validity_requests
+  set status = case when p_approve then 'approved' else 'rejected' end,
+      approved_by = auth.uid(),
+      approved_at = now(),
+      admin_note = p_admin_note
+  where id = p_request_id
+  returning * into v_request;
+
+  return v_request;
+end;
+$$;
+
+grant execute on function public.review_validity_request to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 8b. Daily validity-expiry alert job (pg_cron + pg_net)
+-- Writes a `notifications` row for every admin/hall-manager/merchant tied
+-- to a sample expiring in exactly 30 or 15 days, then calls the
+-- send-notification edge function (case 'validity_alert') for email.
+-- `app.settings.supabase_anon_key` is intentionally NOT hardcoded here —
+-- it's a per-project value that doesn't belong baked into a version-
+-- controlled file. Run once, separately (not part of this script):
+--   alter database postgres set app.settings.supabase_anon_key = '<your anon key from .env>';
+-- If pg_cron/pg_net aren't already enabled on the project, enable them
+-- first via the Supabase dashboard's Database -> Extensions page (the
+-- `create extension` calls below need that even from the SQL editor on
+-- some plans).
+-- ----------------------------------------------------------------------------
+
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+create or replace function public.send_validity_alerts()
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  r record;
+  v_recipient_ids uuid[];
+  v_anon_key text := current_setting('app.settings.supabase_anon_key', true);
+begin
+  for r in
+    select s.id, s.bt_code, s.product_name, s.expiry_date, s.buyer_id, s.hall_id,
+           (s.expiry_date - current_date)::int as days_left
+    from samples s
+    where s.expiry_date in (current_date + 30, current_date + 15)
+  loop
+    select array_agg(distinct p.id) into v_recipient_ids
+    from profiles p
+    left join merchant_buyers mb on mb.profile_id = p.id
+    where p.role = 'super_admin'
+       or (p.role = 'merchant' and (p.buyer_id = r.buyer_id or mb.buyer_id = r.buyer_id))
+       or (p.role = 'hall_manager' and p.hall_id = r.hall_id);
+
+    insert into notifications (recipient_id, title, message, type, item_type, item_id)
+    select uid,
+           'Sample expiring in ' || r.days_left || ' days',
+           r.bt_code || ' — ' || r.product_name || ' expires on ' || to_char(r.expiry_date, 'DD Mon YYYY'),
+           'validity_expiring', 'sample', r.id
+    from unnest(coalesce(v_recipient_ids, array[]::uuid[])) as uid;
+
+    if v_anon_key is not null then
+      perform net.http_post(
+        url := 'https://ztxqksvexjonqmfyjijf.supabase.co/functions/v1/send-notification',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || v_anon_key
+        ),
+        body := jsonb_build_object(
+          'type', 'validity_alert',
+          'payload', jsonb_build_object(
+            'btCode', r.bt_code,
+            'productName', r.product_name,
+            'daysLeft', r.days_left,
+            'expiryDate', r.expiry_date,
+            'buyerId', r.buyer_id,
+            'hallId', r.hall_id
+          )
+        )
+      );
+    end if;
+  end loop;
+end;
+$$;
+
+grant execute on function public.send_validity_alerts to postgres;
+
+do $$
+begin
+  if exists (select 1 from cron.job where jobname = 'validity-alerts-daily') then
+    perform cron.unschedule('validity-alerts-daily');
+  end if;
+  perform cron.schedule('validity-alerts-daily', '0 9 * * *', $cron$select public.send_validity_alerts();$cron$);
+end $$;
 
 -- ============================================================================
 -- Done. Next steps (see CLAUDE.md / README for the full checklist):

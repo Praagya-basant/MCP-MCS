@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Drawer } from '@/shared/components/Drawer';
-import { StatusBadge, Badge } from '@/shared/components/Badge';
+import { StatusBadge, Badge, ValidityBadge } from '@/shared/components/Badge';
 import { Textarea } from '@/shared/components/Input';
 import { Button } from '@/shared/components/Button';
 import { CardListSkeleton } from '@/shared/components/Skeleton';
@@ -8,11 +8,14 @@ import { EmptyState } from '@/shared/components/EmptyState';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { IssueSampleModal } from '@/modules/mcs/components/IssueSampleModal';
+import { ManageValidityModal } from '@/modules/mcs/components/ManageValidityModal';
 import { RaiseRecallModal } from '@/modules/mcs/merchant/components/RaiseRecallModal';
+import { RequestValidityExtensionModal } from '@/modules/mcs/merchant/components/RequestValidityExtensionModal';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useToast } from '@/shared/context/ToastContext';
 import { listMovementsForSample, getOpenMovementForSample, returnSample } from '@/modules/mcs/api/movementsApi';
 import { listComments, addComment } from '@/modules/mcs/api/commentsApi';
+import { listValidityChanges } from '@/modules/mcs/api/validityApi';
 import { formatDateTime, formatDate, initials } from '@/shared/utils/formatters';
 import { SAMPLE_STATUS, ROLES } from '@/shared/utils/constants';
 import { cn } from '@/shared/utils/cn';
@@ -38,6 +41,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
   const [tab, setTab] = useState('details');
   const [movements, setMovements] = useState(null);
   const [comments, setComments] = useState(null);
+  const [validityChanges, setValidityChanges] = useState(null);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [posting, setPosting] = useState(false);
@@ -45,6 +49,11 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
   const [returnConfirmOpen, setReturnConfirmOpen] = useState(false);
   const [returning, setReturning] = useState(false);
   const [recallOpen, setRecallOpen] = useState(false);
+  const [manageValidityOpen, setManageValidityOpen] = useState(false);
+  const [requestExtensionOpen, setRequestExtensionOpen] = useState(false);
+
+  const isAdmin = role === ROLES.SUPER_ADMIN;
+  const isMerchant = role === ROLES.MERCHANT;
 
   useEffect(() => {
     if (sample) setLocalSample(sample);
@@ -54,19 +63,30 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
     if (!open || !sample) return;
     setTab('details');
     setLoading(true);
-    Promise.all([listMovementsForSample(sample.id), listComments(sample.id)])
-      .then(([m, c]) => {
+    Promise.all([
+      listMovementsForSample(sample.id),
+      listComments(sample.id),
+      isAdmin ? listValidityChanges(sample.id) : Promise.resolve(null),
+    ])
+      .then(([m, c, v]) => {
         setMovements(m);
         setComments(c);
+        setValidityChanges(v);
       })
       .finally(() => setLoading(false));
     // Intentionally keyed on the id, not the `sample` object reference —
     // refetch when a different sample opens, not on every parent re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, sample?.id]);
+  }, [open, sample?.id, isAdmin]);
 
   function reloadHistory() {
     return listMovementsForSample(localSample.id).then(setMovements);
+  }
+
+  function handleValidityUpdated(newExpiryDate) {
+    setLocalSample((prev) => ({ ...prev, expiry_date: newExpiryDate }));
+    onChanged?.();
+    listValidityChanges(localSample.id).then(setValidityChanges);
   }
 
   async function handlePostComment() {
@@ -110,7 +130,6 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
   if (!localSample) return null;
 
   const canIssueReturn = role === ROLES.HALL_MANAGER || role === ROLES.SUPER_ADMIN;
-  const isMerchant = role === ROLES.MERCHANT;
   const showIssue = canIssueReturn && localSample.status === SAMPLE_STATUS.IN_HALL;
   const showReturn = canIssueReturn && localSample.status === SAMPLE_STATUS.CHECKED_OUT;
   const showRecall = isMerchant && localSample.status === SAMPLE_STATUS.CHECKED_OUT;
@@ -138,6 +157,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
                 {localSample.buyer?.name && <Badge>{localSample.buyer.name}</Badge>}
                 {localSample.hall?.name && <Badge>{localSample.hall.name}</Badge>}
                 <StatusBadge status={localSample.status} />
+                <ValidityBadge expiryDate={localSample.expiry_date} />
               </div>
             </div>
           </div>
@@ -160,24 +180,86 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
 
           <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
             {tab === 'details' && (
-              <dl className="grid grid-cols-[120px_1fr] gap-y-3 text-body">
-                <dt className="text-ink-secondary">BT Code</dt>
-                <dd className="text-ink font-mono">{localSample.bt_code}</dd>
-                <dt className="text-ink-secondary">Product Ref</dt>
-                <dd className="text-ink">{localSample.product_ref || '—'}</dd>
-                <dt className="text-ink-secondary">Product Name</dt>
-                <dd className="text-ink">{localSample.product_name}</dd>
-                <dt className="text-ink-secondary">Buyer</dt>
-                <dd className="text-ink">{localSample.buyer?.name || '—'}</dd>
-                <dt className="text-ink-secondary">Hall</dt>
-                <dd className="text-ink">{localSample.hall?.name}</dd>
-                <dt className="text-ink-secondary">Status</dt>
-                <dd>
-                  <StatusBadge status={localSample.status} />
-                </dd>
-                <dt className="text-ink-secondary">Date Added</dt>
-                <dd className="text-ink">{formatDate(localSample.created_at)}</dd>
-              </dl>
+              <>
+                <dl className="grid grid-cols-[140px_1fr] gap-y-3 text-body">
+                  <dt className="text-ink-secondary">BT Code</dt>
+                  <dd className="text-ink font-mono">{localSample.bt_code}</dd>
+                  <dt className="text-ink-secondary">Product Ref</dt>
+                  <dd className="text-ink">{localSample.product_ref || '—'}</dd>
+                  <dt className="text-ink-secondary">Product Name</dt>
+                  <dd className="text-ink">{localSample.product_name}</dd>
+                  <dt className="text-ink-secondary">Collection</dt>
+                  <dd className="text-ink">{localSample.collection_name || '—'}</dd>
+                  <dt className="text-ink-secondary">Buyer</dt>
+                  <dd className="text-ink">{localSample.buyer?.name || '—'}</dd>
+                  <dt className="text-ink-secondary">Hall</dt>
+                  <dd className="text-ink">{localSample.hall?.name}</dd>
+                  <dt className="text-ink-secondary">Status</dt>
+                  <dd>
+                    <StatusBadge status={localSample.status} />
+                  </dd>
+                  <dt className="text-ink-secondary">Signed By</dt>
+                  <dd className="text-ink">{localSample.signed_by || '—'}</dd>
+                  <dt className="text-ink-secondary">Signed Date</dt>
+                  <dd className="text-ink">{localSample.signed_date ? formatDate(localSample.signed_date) : '—'}</dd>
+                  <dt className="text-ink-secondary">Validity</dt>
+                  <dd className="text-ink">
+                    {localSample.expiry_date ? (
+                      <span className="flex items-center gap-2">
+                        {formatDate(localSample.expiry_date)}
+                        <ValidityBadge expiryDate={localSample.expiry_date} />
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </dd>
+                  <dt className="text-ink-secondary">Date Added to Hall</dt>
+                  <dd className="text-ink">
+                    {localSample.date_added_to_hall ? formatDate(localSample.date_added_to_hall) : formatDate(localSample.created_at)}
+                  </dd>
+                </dl>
+
+                {isAdmin && (
+                  <div className="mt-4">
+                    <Button variant="secondary" size="sm" onClick={() => setManageValidityOpen(true)}>
+                      Manage Validity
+                    </Button>
+                  </div>
+                )}
+                {isMerchant && (
+                  <div className="mt-4">
+                    <Button variant="secondary" size="sm" onClick={() => setRequestExtensionOpen(true)}>
+                      Request Validity Extension
+                    </Button>
+                  </div>
+                )}
+
+                {isAdmin && (
+                  <div className="mt-6 pt-4 border-t border-border">
+                    <p className="text-caption font-medium text-ink-secondary mb-3">Validity History</p>
+                    {loading ? (
+                      <CardListSkeleton rows={2} />
+                    ) : !validityChanges || validityChanges.length === 0 ? (
+                      <p className="text-caption text-ink-muted">No validity changes yet.</p>
+                    ) : (
+                      <ul className="flex flex-col gap-2.5">
+                        {validityChanges.map((v) => (
+                          <li key={v.id} className="text-[13px]">
+                            <p className="text-ink">
+                              {v.old_expiry_date ? formatDate(v.old_expiry_date) : 'Not set'} →{' '}
+                              <span className="font-medium">{formatDate(v.new_expiry_date)}</span>
+                            </p>
+                            <p className="text-ink-muted">
+                              {v.changed_by_profile?.full_name} · {formatDateTime(v.created_at)}
+                              {v.reason ? ` · ${v.reason}` : ''}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {tab === 'history' &&
@@ -208,12 +290,36 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
                         <p className="mt-0.5 text-[13px] text-ink-secondary">
                           Reason: {m.reason === 'Other' ? m.reason_other : m.reason}
                         </p>
+                        {m.supplier_name && (
+                          <p className="mt-0.5 text-[13px] text-ink-secondary">Supplier: {m.supplier_name}</p>
+                        )}
+                        {m.purchaser_name && (
+                          <p className="mt-0.5 text-[13px] text-ink-secondary">Purchaser: {m.purchaser_name}</p>
+                        )}
                         {isReturned && (
                           <p className="mt-0.5 text-[12px] text-status-in-hall-text">
                             Returned: {formatDateTime(m.returned_at)}
                           </p>
                         )}
                         {m.notes && <p className="mt-0.5 text-[13px] text-ink-muted">{m.notes}</p>}
+                        {(m.photo_url || m.signature_url) && (
+                          <div className="mt-2 flex items-center gap-2">
+                            {m.photo_url && (
+                              <a href={m.photo_url} target="_blank" rel="noreferrer" className="interactive">
+                                <img src={m.photo_url} alt="Movement photo" className="w-14 h-14 rounded-control object-cover border border-border" />
+                              </a>
+                            )}
+                            {m.signature_url && (
+                              <a href={m.signature_url} target="_blank" rel="noreferrer" className="interactive">
+                                <img
+                                  src={m.signature_url}
+                                  alt="Signature"
+                                  className="w-14 h-14 rounded-control object-contain border border-border bg-white p-1"
+                                />
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </li>
                     );
                   })}
@@ -313,6 +419,27 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
           onClose={() => setRecallOpen(false)}
           sample={localSample}
           onCreated={() => setRecallOpen(false)}
+        />
+      )}
+
+      {isMerchant && (
+        <RequestValidityExtensionModal
+          open={requestExtensionOpen}
+          onClose={() => setRequestExtensionOpen(false)}
+          sample={localSample}
+          onCreated={() => setRequestExtensionOpen(false)}
+        />
+      )}
+
+      {isAdmin && (
+        <ManageValidityModal
+          open={manageValidityOpen}
+          onClose={() => setManageValidityOpen(false)}
+          sample={localSample}
+          onSuccess={(newExpiryDate) => {
+            setManageValidityOpen(false);
+            handleValidityUpdated(newExpiryDate);
+          }}
         />
       )}
     </>

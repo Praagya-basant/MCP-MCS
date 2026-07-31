@@ -49,6 +49,18 @@ function formatDateTime(iso) {
   return `${day} ${month} ${year}, ${hours}:${minutes} ${period}`;
 }
 
+// Matches the frontend's formatDate() ("25 Jul 2026") — used for plain
+// `date` columns (expiry_date has no time component), unlike
+// formatDateTime() above which is for timestamptz columns.
+function formatDateOnly(value) {
+  if (!value) return '';
+  const date = new Date(`${value}T00:00:00Z`);
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = SHORT_MONTHS[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
+  return `${day} ${month} ${year}`;
+}
+
 function escapeHtml(value) {
   if (value == null) return '';
   return String(value)
@@ -205,6 +217,15 @@ async function getHallManagerEmails(hallId) {
   return data.map((row) => row.email).filter(Boolean);
 }
 
+async function getSuperAdminEmails() {
+  const { data, error } = await supabase.from('profiles').select('email').eq('role', 'super_admin');
+  if (error) {
+    console.error('Failed to load super admins', error);
+    return [];
+  }
+  return data.map((row) => row.email).filter(Boolean);
+}
+
 async function getHallIdByName(name) {
   const { data, error } = await supabase.from('halls').select('id').eq('name', name).maybeSingle();
   if (error) {
@@ -309,6 +330,83 @@ async function handleRecall(payload) {
 }
 
 /**
+ * Fired by the daily send_validity_alerts() pg_cron job (schema.sql,
+ * section 8b) for every sample expiring in exactly 30 or 15 days.
+ * Recipients are resolved independently here (not passed in the payload),
+ * same as checkout/return above — the cron job separately writes the
+ * in-app `notifications` rows for the same audience.
+ */
+async function handleValidityAlert(payload) {
+  const { btCode, productName, daysLeft, expiryDate, buyerId, hallId } = payload;
+  const merchantEmails = buyerId ? await getMerchantContactEmails(buyerId) : [];
+  const hallManagerEmails = hallId ? await getHallManagerEmails(hallId) : [];
+  const adminEmails = await getSuperAdminEmails();
+
+  await sendEmail({
+    to: dedupe([...merchantEmails, ...hallManagerEmails, ...adminEmails]),
+    subject: `Validity Expiring in ${daysLeft} Days — ${btCode} · ${productName}`,
+    heading: 'Sample Validity Expiring',
+    rows: [
+      { label: 'BT Code', value: btCode },
+      { label: 'Product Name', value: productName },
+      { label: 'Expiry Date', value: formatDateOnly(expiryDate) },
+      { label: 'Days Remaining', value: String(daysLeft) },
+    ],
+    btCode,
+  });
+}
+
+/** Merchant "Request Validity Extension" — admin-only per the notification matrix. */
+async function handleValidityRequested(payload) {
+  const { btCode, productName, requestedByName, requestedMonths, requestedExpiryDate, reason } = payload;
+  const adminEmails = await getSuperAdminEmails();
+
+  await sendEmail({
+    to: adminEmails,
+    subject: `Validity Extension Requested — ${btCode} · ${productName}`,
+    heading: 'Validity Extension Requested',
+    rows: [
+      { label: 'BT Code', value: btCode },
+      { label: 'Product Name', value: productName },
+      { label: 'Requested By', value: requestedByName },
+      {
+        label: 'Requested Extension',
+        value: requestedExpiryDate
+          ? formatDateOnly(requestedExpiryDate)
+          : requestedMonths
+            ? `${requestedMonths} month(s)`
+            : 'Not specified',
+      },
+      { label: 'Reason', value: reason || 'Not specified' },
+    ],
+    btCode,
+  });
+}
+
+/**
+ * Fires after either an admin's direct "Manage Validity" edit or an
+ * approved validity_requests row — both just land on a new expiry_date.
+ */
+async function handleValidityExtended(payload) {
+  const { btCode, productName, buyerId, newExpiryDate, reason } = payload;
+  const merchantEmails = buyerId ? await getMerchantContactEmails(buyerId) : [];
+  const adminEmails = await getSuperAdminEmails();
+
+  await sendEmail({
+    to: dedupe([...merchantEmails, ...adminEmails]),
+    subject: `Validity Updated — ${btCode} · ${productName}`,
+    heading: 'Validity Updated',
+    rows: [
+      { label: 'BT Code', value: btCode },
+      { label: 'Product Name', value: productName },
+      { label: 'New Expiry Date', value: formatDateOnly(newExpiryDate) },
+      { label: 'Reason', value: reason || 'Not specified' },
+    ],
+    btCode,
+  });
+}
+
+/**
  * Manager/merchant "Send Feedback" -> always goes to the fixed
  * praagya@basant.info recipient, not a DB-looked-up admin list — this is
  * a direct line to the app owner, independent of whichever admin
@@ -350,6 +448,15 @@ Deno.serve(async (req) => {
         break;
       case 'feedback':
         await handleFeedback(payload);
+        break;
+      case 'validity_alert':
+        await handleValidityAlert(payload);
+        break;
+      case 'validity_requested':
+        await handleValidityRequested(payload);
+        break;
+      case 'validity_extended':
+        await handleValidityExtended(payload);
         break;
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {

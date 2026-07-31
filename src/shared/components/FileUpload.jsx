@@ -1,7 +1,14 @@
 import { useRef, useState } from 'react';
 import { cn } from '@/shared/utils/cn';
 
-export function FileUpload({ value, onChange, accept = 'image/*', className }) {
+/**
+ * `capture` is forwarded as-is to the underlying input (e.g.
+ * `capture="environment"`) — on mobile that opens the camera directly
+ * instead of a gallery/file chooser; desktop browsers ignore it and just
+ * show the normal file picker, so one input covers both per the "camera
+ * on mobile, file picker on desktop" requirement with no platform branch.
+ */
+export function FileUpload({ value, onChange, accept = 'image/*', capture, className }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -19,6 +26,7 @@ export function FileUpload({ value, onChange, accept = 'image/*', className }) {
         ref={inputRef}
         type="file"
         accept={accept}
+        capture={capture}
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}
       />

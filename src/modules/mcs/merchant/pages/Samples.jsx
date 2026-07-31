@@ -8,7 +8,7 @@ import { TableSkeleton } from '@/shared/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SearchInput } from '@/shared/components/SearchInput';
 import { PillTabs } from '@/shared/components/PillTabs';
-import { StatusBadge } from '@/shared/components/Badge';
+import { StatusBadge, ValidityBadge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
@@ -131,7 +131,10 @@ export default function MerchantSamples() {
                       <Td className="font-medium font-mono">{s.bt_code}</Td>
                       <Td>{s.product_name}</Td>
                       <Td>
-                        <StatusBadge status={s.status} />
+                        <div className="flex flex-wrap items-center gap-1">
+                          <StatusBadge status={s.status} />
+                          <ValidityBadge expiryDate={s.expiry_date} />
+                        </div>
                       </Td>
                       <Td className="text-ink-secondary">{s.location}</Td>
                       <Td className="text-ink-secondary">{s.lastMovement ? formatRelativeTime(s.lastMovement) : '—'}</Td>
@@ -149,7 +152,12 @@ export default function MerchantSamples() {
                       leading={<SampleThumbnail sample={s} />}
                       title={<span className="font-mono">{s.bt_code}</span>}
                       subtitle={s.product_name}
-                      trailing={<StatusBadge status={s.status} />}
+                      trailing={
+                        <div className="flex flex-col items-end gap-1">
+                          <StatusBadge status={s.status} />
+                          <ValidityBadge expiryDate={s.expiry_date} />
+                        </div>
+                      }
                       meta={
                         <>
                           <span>{s.location}</span>

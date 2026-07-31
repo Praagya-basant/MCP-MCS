@@ -35,7 +35,20 @@ export async function getSampleByBtCode(btCode) {
   return data ? mapSample(data) : null;
 }
 
-export async function createSample({ buyerId, hallId, btCode, productRef, productName, imageUrl }) {
+export async function createSample({
+  buyerId,
+  hallId,
+  btCode,
+  productRef,
+  productName,
+  imageUrl,
+  collectionName,
+  signedBy,
+  signedDate,
+  validityMonths,
+  expiryDate,
+  dateAddedToHall,
+}) {
   const { data, error } = await supabase
     .from('samples')
     .insert({
@@ -45,6 +58,12 @@ export async function createSample({ buyerId, hallId, btCode, productRef, produc
       product_ref: productRef || null,
       product_name: productName,
       image_url: imageUrl || null,
+      collection_name: collectionName || null,
+      signed_by: signedBy || null,
+      signed_date: signedDate || null,
+      validity_months: validityMonths || null,
+      expiry_date: expiryDate || null,
+      date_added_to_hall: dateAddedToHall || null,
     })
     .select(SAMPLE_SELECT)
     .single();

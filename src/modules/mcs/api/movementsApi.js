@@ -1,6 +1,25 @@
-import { supabase } from '@/shared/lib/supabaseClient';
+import { supabase, SAMPLE_IMAGES_BUCKET } from '@/shared/lib/supabaseClient';
 import { sendNotification } from '@/shared/lib/notify';
 import { shortenBuyerName } from '@/shared/utils/formatters';
+
+/**
+ * Photo/signature both land in the same public `sample-images` bucket
+ * (no new bucket/RLS needed — its existing admin/hall-manager upload
+ * policies already cover any path prefix, not just the sample-image
+ * paths it was originally built for), under movements/{movementId}/ so
+ * everything about one issue event lives together.
+ */
+async function uploadMovementFile(movementId, file, filename) {
+  const path = `movements/${movementId}/${filename}`;
+  const { error } = await supabase.storage.from(SAMPLE_IMAGES_BUCKET).upload(path, file, {
+    cacheControl: '3600',
+    upsert: true,
+    contentType: file.type || undefined,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from(SAMPLE_IMAGES_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
 
 const MOVEMENT_SELECT =
   '*, sample:samples(id, bt_code, product_name, image_url, buyer_id, hall_id, buyer:buyers(id, name), hall:halls(id, hall_number, name)), logged_by_profile:profiles(id, full_name)';
@@ -52,6 +71,11 @@ export async function listMovementsForSample(sampleId) {
  * untouched). Email is intentionally NOT awaited: it must never delay the
  * UI response to a successful DB write, and `sendNotification` already
  * swallows its own errors so a failed send can't surface here either.
+ *
+ * The movement id is generated here (not left to the RPC's default)
+ * specifically so photo/signature can be uploaded to their final
+ * movements/{id}/ path BEFORE the RPC call, letting the URLs be written
+ * in the same insert instead of a follow-up update.
  */
 export async function issueSample({
   sample,
@@ -61,7 +85,24 @@ export async function issueSample({
   reasonOther,
   notes,
   loggedByName,
+  photoFile,
+  signatureBlob,
+  purchaserName,
+  supplierName,
 }) {
+  const movementId = crypto.randomUUID();
+
+  let photoUrl = null;
+  if (photoFile) {
+    const ext = photoFile.name?.split('.').pop()?.toLowerCase() || 'jpg';
+    photoUrl = await uploadMovementFile(movementId, photoFile, `photo.${ext}`);
+  }
+
+  let signatureUrl = null;
+  if (signatureBlob) {
+    signatureUrl = await uploadMovementFile(movementId, signatureBlob, 'signature.png');
+  }
+
   const { data: movement, error } = await supabase.rpc('checkout_sample', {
     p_sample_id: sample.id,
     p_picked_by_name: pickedByName,
@@ -73,6 +114,11 @@ export async function issueSample({
     p_reason: reason,
     p_reason_other: reasonOther || null,
     p_notes: notes || null,
+    p_photo_url: photoUrl,
+    p_signature_url: signatureUrl,
+    p_purchaser_name: purchaserName || null,
+    p_supplier_name: supplierName || null,
+    p_movement_id: movementId,
   });
 
   if (error) throw error;
@@ -87,6 +133,7 @@ export async function issueSample({
     reason: reason === 'Other' ? reasonOther : reason,
     pickedAt: movement.picked_at,
     loggedByName,
+    photoUrl,
   });
 
   return movement;

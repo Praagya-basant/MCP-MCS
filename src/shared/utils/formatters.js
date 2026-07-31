@@ -1,3 +1,5 @@
+import { VALIDITY_STATUS, VALIDITY_EXPIRING_SOON_DAYS } from '@/shared/utils/constants';
+
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /**
@@ -86,6 +88,29 @@ export function formatLastLogin(value) {
   if (sameDayAs(date, now)) return `Today, ${time}`;
   if (sameDayAs(date, yesterday)) return `Yesterday, ${time}`;
   return `${formatDate(value)}, ${time}`;
+}
+
+/**
+ * Whole days from today until `value` (negative once past) — plain `date`
+ * columns come back as "YYYY-MM-DD" strings, parsed with an explicit
+ * local-midnight time (no `Z`) so this doesn't drift a day depending on
+ * the viewer's UTC offset.
+ */
+export function daysUntil(value) {
+  if (!value) return null;
+  const target = new Date(`${value}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/** Valid / Expiring Soon (within VALIDITY_EXPIRING_SOON_DAYS) / Expired, or null if no expiry is set. */
+export function getValidityStatus(expiryDate) {
+  if (!expiryDate) return null;
+  const days = daysUntil(expiryDate);
+  if (days < 0) return VALIDITY_STATUS.EXPIRED;
+  if (days <= VALIDITY_EXPIRING_SOON_DAYS) return VALIDITY_STATUS.EXPIRING_SOON;
+  return VALIDITY_STATUS.VALID;
 }
 
 export function isToday(value) {

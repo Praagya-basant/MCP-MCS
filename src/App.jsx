@@ -16,6 +16,7 @@ import AdminTeam from '@/modules/mcs/admin/pages/Team';
 import AdminHalls from '@/modules/mcs/admin/pages/Halls';
 import AdminSamples from '@/modules/mcs/admin/pages/Samples';
 import AdminMovements from '@/modules/mcs/admin/pages/Movements';
+import AdminValidityRequests from '@/modules/mcs/admin/pages/ValidityRequests';
 import AdminFeedback from '@/modules/mcs/admin/pages/Feedback';
 import AdminSettings from '@/modules/mcs/admin/pages/Settings';
 
@@ -63,6 +64,7 @@ function AppRoutes() {
           <Route path="halls" element={<AdminHalls />} />
           <Route path="samples" element={<AdminSamples />} />
           <Route path="movements" element={<AdminMovements />} />
+          <Route path="validity-requests" element={<AdminValidityRequests />} />
           <Route path="feedback" element={<AdminFeedback />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>

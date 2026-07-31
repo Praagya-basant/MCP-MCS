@@ -2,25 +2,39 @@ import { useState } from 'react';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
 import { Input, Select, Textarea, FormField } from '@/shared/components/Input';
+import { FileUpload } from '@/shared/components/FileUpload';
+import { SignaturePad } from '@/shared/components/SignaturePad';
 import { issueSample } from '@/modules/mcs/api/movementsApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useToast } from '@/shared/context/ToastContext';
 import { useAuth } from '@/shared/context/AuthContext';
-import { NON_HALL_DESTINATIONS, REASON_OPTIONS } from '@/shared/utils/constants';
+import { NON_HALL_DESTINATIONS, REASON_OPTIONS, PURCHASER_OPTIONS } from '@/shared/utils/constants';
 import { cn } from '@/shared/utils/cn';
 
-const EMPTY = { pickedByName: '', destination: '', reason: '', reasonOther: '', notes: '' };
+const EMPTY = {
+  pickedByName: '',
+  destination: '',
+  reason: '',
+  reasonOther: '',
+  notes: '',
+  supplierName: '',
+  purchaser: '',
+  purchaserOther: '',
+};
 
 export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
   const toast = useToast();
   const { profile } = useAuth();
   const { data: halls } = useAsyncData(listHalls, []);
   const [form, setForm] = useState(EMPTY);
+  const [photo, setPhoto] = useState(null);
+  const [signatureBlob, setSignatureBlob] = useState(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const destinationOptions = [...(halls || []).map((h) => h.name), ...NON_HALL_DESTINATIONS];
+  const isSupplier = form.destination === 'Supplier';
 
   function set(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -28,6 +42,8 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
 
   function handleClose() {
     setForm(EMPTY);
+    setPhoto(null);
+    setSignatureBlob(null);
     setError('');
     onClose();
   }
@@ -44,6 +60,10 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
       setError('Describe the reason.');
       return;
     }
+    if (isSupplier && form.purchaser === 'Other' && !form.purchaserOther.trim()) {
+      setError('Enter the purchaser name.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -58,6 +78,10 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
         reasonOther: form.reasonOther.trim(),
         notes: form.notes.trim(),
         loggedByName: profile?.full_name,
+        photoFile: photo instanceof File ? photo : null,
+        signatureBlob,
+        supplierName: isSupplier ? form.supplierName.trim() : '',
+        purchaserName: isSupplier ? (form.purchaser === 'Other' ? form.purchaserOther.trim() : form.purchaser) : '',
       });
       toast.success('Sample issued successfully');
       onSuccess?.();
@@ -116,6 +140,40 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
           </Select>
         </FormField>
 
+        {isSupplier && (
+          <>
+            <FormField label="Supplier Name" htmlFor="supplier-name">
+              <Input
+                id="supplier-name"
+                placeholder="Supplier name"
+                value={form.supplierName}
+                onChange={(e) => set('supplierName', e.target.value)}
+              />
+            </FormField>
+
+            <FormField label="Purchaser" htmlFor="purchaser">
+              <Select id="purchaser" value={form.purchaser} onChange={(e) => set('purchaser', e.target.value)}>
+                <option value="">Select purchaser</option>
+                {PURCHASER_OPTIONS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+
+            {form.purchaser === 'Other' && (
+              <FormField label="Purchaser Name" htmlFor="purchaser-other" required>
+                <Input
+                  id="purchaser-other"
+                  value={form.purchaserOther}
+                  onChange={(e) => set('purchaserOther', e.target.value)}
+                />
+              </FormField>
+            )}
+          </>
+        )}
+
         <FormField label="Reason" required>
           <div className="flex flex-wrap gap-2">
             {REASON_OPTIONS.map((r) => {
@@ -144,6 +202,14 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
             <Input id="reason-other" value={form.reasonOther} onChange={(e) => set('reasonOther', e.target.value)} />
           </FormField>
         )}
+
+        <FormField label="Photo" hint="Optional — opens the camera on mobile">
+          <FileUpload value={photo} onChange={setPhoto} accept="image/*" capture="environment" />
+        </FormField>
+
+        <FormField label="Signature" hint="Optional">
+          <SignaturePad onChange={setSignatureBlob} />
+        </FormField>
 
         <FormField label="Notes" htmlFor="notes" hint="Optional">
           <Textarea

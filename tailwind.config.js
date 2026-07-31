@@ -27,6 +27,8 @@ export default {
           'checked-out-text': '#D97706',
           'in-transit-bg': '#EFF6FF',
           'in-transit-text': '#2563EB',
+          'expired-bg': '#FEF2F2',
+          'expired-text': '#DC2626',
         },
       },
       fontSize: {
