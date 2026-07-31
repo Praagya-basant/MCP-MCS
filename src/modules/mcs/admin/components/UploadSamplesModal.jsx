@@ -8,7 +8,8 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useToast } from '@/shared/context/ToastContext';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
-import { bulkImportSamples } from '@/modules/mcs/api/samplesApi';
+import { bulkImportSamples, uploadAndSetSampleImage } from '@/modules/mcs/api/samplesApi';
+import { extractSpreadsheetImages } from '@/shared/lib/extractSpreadsheetImages';
 import { cn } from '@/shared/utils/cn';
 
 const ACCEPTED_EXTENSIONS = ['.xlsx', '.xls'];
@@ -86,14 +87,18 @@ async function parseExcelFile(file, halls) {
 
   return sheetRows
     .slice(1)
-    .map((row) => {
+    .map((row, rowIndex) => {
       const btCode = String(row[columns.btCode] ?? '').trim();
       const productName = String(row[columns.productName] ?? '').trim();
       const productRef = columns.productRef !== undefined ? String(row[columns.productRef] ?? '').trim() : '';
       const hallRaw = columns.hall !== undefined ? String(row[columns.hall] ?? '').trim() : '';
       const matchedHall = resolveHall(hallRaw, halls);
 
-      return { btCode, productRef, productName, hallRaw, matchedHall };
+      // rowIndex tracks this row's position among data rows (before the
+      // filter below can drop blank ones) so it lines up with
+      // extractSpreadsheetImages()'s dataRowIndex keys, letting us
+      // re-match an embedded image back to its row after import.
+      return { btCode, productRef, productName, hallRaw, matchedHall, rowIndex };
     })
     .filter((r) => r.btCode || r.productName || r.hallRaw);
 }
@@ -157,6 +162,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState('');
   const [parsedRows, setParsedRows] = useState(null);
+  const [imagesByRow, setImagesByRow] = useState(new Map());
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -172,6 +178,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
     setParsing(false);
     setParseError('');
     setParsedRows(null);
+    setImagesByRow(new Map());
     setImporting(false);
     setResult(null);
   }
@@ -187,6 +194,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
 
     setParseError('');
     setParsedRows(null);
+    setImagesByRow(new Map());
     setFileName(file.name);
 
     if (!isAcceptedFile(file)) {
@@ -197,13 +205,20 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
 
     setParsing(true);
     try {
-      const parsed = await parseExcelFile(file, halls);
+      const [parsed, images] = await Promise.all([
+        parseExcelFile(file, halls),
+        // Embedded images are a .xlsx-only feature (drawing parts don't
+        // exist in the legacy .xls binary format) — extraction quietly
+        // no-ops for a .xls upload rather than erroring the whole import.
+        extractSpreadsheetImages(file).catch(() => new Map()),
+      ]);
       if (parsed.length === 0) {
         setParseError('No rows found in that file.');
         setFileName('');
         return;
       }
       setParsedRows(parsed);
+      setImagesByRow(images);
     } catch (err) {
       setParseError(err.message || 'Could not read that file. Make sure it’s a valid Excel workbook.');
       setFileName('');
@@ -219,8 +234,33 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
     setImporting(true);
     try {
       const { inserted, skipped } = await bulkImportSamples({ buyerId: buyer.id, rows: validRows });
-      toast.success(`${inserted.length} sample${inserted.length === 1 ? '' : 's'} imported successfully, ${skipped.length} skipped as duplicates`);
-      setResult({ insertedCount: inserted.length, skipped, errorRows });
+
+      let imagesUploaded = 0;
+      if (imagesByRow.size > 0 && inserted.length > 0) {
+        const rowIndexByBtCode = new Map(validRows.map((r) => [r.btCode, r.rowIndex]));
+        const uploads = inserted.map(async (sample) => {
+          const rowIndex = rowIndexByBtCode.get(sample.bt_code);
+          const image = rowIndex !== undefined ? imagesByRow.get(rowIndex) : undefined;
+          if (!image) return;
+          try {
+            const file = new File([image.blob], `${sample.bt_code}.${image.extension}`, { type: image.blob.type || `image/${image.extension}` });
+            await uploadAndSetSampleImage({ sample, file });
+            imagesUploaded += 1;
+          } catch {
+            // A single row's image failing to upload shouldn't roll back
+            // or block the rest — the sample itself already imported
+            // fine, it just keeps a blank image_url like any other
+            // manually-added sample.
+          }
+        });
+        await Promise.all(uploads);
+      }
+
+      toast.success(
+        `${inserted.length} sample${inserted.length === 1 ? '' : 's'} imported successfully, ${skipped.length} skipped as duplicates` +
+          (imagesUploaded > 0 ? `, ${imagesUploaded} image${imagesUploaded === 1 ? '' : 's'} matched` : '')
+      );
+      setResult({ insertedCount: inserted.length, skipped, errorRows, imagesFoundCount: imagesByRow.size, imagesUploaded });
       onImported?.();
     } catch (err) {
       toast.error(err.message);
@@ -261,6 +301,12 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
               {result.insertedCount} sample{result.insertedCount === 1 ? '' : 's'} imported successfully
             </p>
             <p className="mt-0.5 text-caption text-ink-secondary">for {buyer.name}.</p>
+            {result.imagesFoundCount > 0 && (
+              <p className="mt-1 text-caption text-ink-secondary">
+                {result.imagesFoundCount} image{result.imagesFoundCount === 1 ? '' : 's'} found in the file, {result.imagesUploaded}{' '}
+                matched to an imported row and uploaded.
+              </p>
+            )}
           </div>
 
           {result.skipped.length > 0 && (
@@ -353,8 +399,9 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
                   </svg>
                   <span className="text-caption text-ink font-medium">{fileName}</span>
                   <span className="text-caption text-ink-muted">
-                    {validRows.length} valid, {errorRows.length} error{errorRows.length === 1 ? '' : 's'} &middot; click or drop to
-                    replace
+                    {validRows.length} valid, {errorRows.length} error{errorRows.length === 1 ? '' : 's'}
+                    {imagesByRow.size > 0 ? `, ${imagesByRow.size} image${imagesByRow.size === 1 ? '' : 's'} found` : ''} &middot; click
+                    or drop to replace
                   </span>
                 </>
               ) : parseError ? (
