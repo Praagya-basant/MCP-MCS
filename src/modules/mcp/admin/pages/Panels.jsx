@@ -9,6 +9,7 @@ import { SearchInput } from '@/shared/components/SearchInput';
 import { Pagination } from '@/shared/components/Pagination';
 import { PillTabs } from '@/shared/components/PillTabs';
 import { Select } from '@/shared/components/Input';
+import { Button } from '@/shared/components/Button';
 import { PanelStatusBadge, ValidityBadge, Badge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
@@ -17,10 +18,11 @@ import { listPanelMovements } from '@/modules/mcp/api/panelMovementsApi';
 import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, PANEL_STATUS } from '@/shared/utils/constants';
-import { IconLayers } from '@/shared/components/icons';
+import { IconLayers, IconCamera } from '@/shared/components/icons';
 import { formatDate, getPanelDisplayStatus } from '@/shared/utils/formatters';
 import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { PanelDetailDrawer } from '@/modules/mcp/components/PanelDetailDrawer';
+import { PanelImageModal } from '@/modules/mcp/components/PanelImageModal';
 import { useOpenPanelFromLocation } from '@/modules/mcp/hooks/useOpenPanelFromLocation';
 
 export default function AdminPanels() {
@@ -29,6 +31,7 @@ export default function AdminPanels() {
   const { data: buyers } = useAsyncData(listBuyers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [selected, setSelected] = useState(null);
+  const [imagePanel, setImagePanel] = useState(null);
   useOpenPanelFromLocation(panels, setSelected);
 
   const openHopMap = useMemo(() => {
@@ -72,6 +75,10 @@ export default function AdminPanels() {
   function handleChanged() {
     reload();
     reloadMovements();
+  }
+
+  function handleImageSaved() {
+    reload();
   }
 
   return (
@@ -132,6 +139,7 @@ export default function AdminPanels() {
                   <Th>Hall</Th>
                   <Th>Status</Th>
                   <Th>Added</Th>
+                  <Th></Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -154,6 +162,19 @@ export default function AdminPanels() {
                       </div>
                     </Td>
                     <Td className="text-ink-secondary">{formatDate(p.created_at)}</Td>
+                    <Td className="text-right whitespace-nowrap">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label="Upload panel image"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setImagePanel(p);
+                        }}
+                      >
+                        <IconCamera className="w-4 h-4" />
+                      </Button>
+                    </Td>
                   </Tr>
                 ))}
               </Tbody>
@@ -181,6 +202,11 @@ export default function AdminPanels() {
                         <span>{formatDate(p.created_at)}</span>
                       </>
                     }
+                    actions={
+                      <Button size="sm" variant="ghost" aria-label="Upload panel image" onClick={() => setImagePanel(p)}>
+                        <IconCamera className="w-4 h-4" />
+                      </Button>
+                    }
                   />
                 ))}
               </CardList>
@@ -192,6 +218,13 @@ export default function AdminPanels() {
       </Card>
 
       <PanelDetailDrawer open={!!selected} panel={selected} onClose={() => setSelected(null)} onChanged={handleChanged} />
+
+      <PanelImageModal
+        open={!!imagePanel}
+        panel={imagePanel}
+        onClose={() => setImagePanel(null)}
+        onSaved={handleImageSaved}
+      />
     </div>
   );
 }

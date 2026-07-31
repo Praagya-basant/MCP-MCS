@@ -89,8 +89,8 @@ export async function retirePanel({ panel, reason }) {
 /**
  * Same public `sample-images` bucket MCS uses (see samplesApi.js /
  * movementsApi.js), under a `panels/` prefix — its RLS is bucket-scoped
- * (admin OR hall_manager), not path-scoped, so no new storage policy is
- * needed for a new module to share it.
+ * (admin, hall_manager, or merchant), not path-scoped, so no new storage
+ * policy is needed for a new module to share it.
  */
 export async function uploadPanelImage(file) {
   const ext = file.name.split('.').pop();
@@ -104,4 +104,42 @@ export async function uploadPanelImage(file) {
 
   const { data } = supabase.storage.from(SAMPLE_IMAGES_BUCKET).getPublicUrl(path);
   return data.publicUrl;
+}
+
+function sanitizePathSegment(value) {
+  return String(value || '').trim().replace(/[^a-zA-Z0-9-_]+/g, '_') || 'unknown';
+}
+
+/**
+ * Row-level "add/replace image" flow (Admin Panels' camera button, and
+ * the merchant's own "Replace Image" action in the panel drawer) —
+ * distinct from uploadPanelImage() above, which is only used by the hall
+ * manager's Add Panel form. NOT available to hall_manager past that
+ * initial upload — set_panel_image() (called below) only accepts admin
+ * or the panel's own (or a shared panel's any) merchant, per the access
+ * matrix. Path is deterministic — `panels/{buyer}/{panel_code}.ext` —
+ * same reasoning as uploadAndSetSampleImage: re-uploading overwrites the
+ * same object (`upsert: true`) instead of orphaning the old file.
+ */
+export async function uploadAndSetPanelImage({ panel, file }) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const folder = sanitizePathSegment(panel.buyer?.name);
+  const path = `panels/${folder}/${panel.panel_code}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage.from(SAMPLE_IMAGES_BUCKET).upload(path, file, {
+    cacheControl: '3600',
+    upsert: true,
+  });
+  if (uploadError) throw uploadError;
+
+  const { data: pub } = supabase.storage.from(SAMPLE_IMAGES_BUCKET).getPublicUrl(path);
+  const imageUrl = `${pub.publicUrl}?t=${Date.now()}`;
+
+  const { data: updated, error } = await supabase.rpc('set_panel_image', {
+    p_panel_id: panel.id,
+    p_image_url: imageUrl,
+  });
+  if (error) throw error;
+
+  return mapPanel({ ...panel, ...updated });
 }

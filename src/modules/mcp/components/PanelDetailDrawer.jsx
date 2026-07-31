@@ -11,6 +11,7 @@ import { ForwardPanelModal } from '@/modules/mcp/components/ForwardPanelModal';
 import { RetirePanelModal } from '@/modules/mcp/admin/components/RetirePanelModal';
 import { ManageValidityModal } from '@/shared/components/ManageValidityModal';
 import { RequestValidityExtensionModal } from '@/shared/components/RequestValidityExtensionModal';
+import { PanelImageModal } from '@/modules/mcp/components/PanelImageModal';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useToast } from '@/shared/context/ToastContext';
 import { listPanelMovementsForPanel, returnPanel } from '@/modules/mcp/api/panelMovementsApi';
@@ -45,6 +46,7 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
   const [retireOpen, setRetireOpen] = useState(false);
   const [manageValidityOpen, setManageValidityOpen] = useState(false);
   const [requestExtensionOpen, setRequestExtensionOpen] = useState(false);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
 
   const isAdmin = role === ROLES.SUPER_ADMIN;
   const isMerchant = role === ROLES.MERCHANT;
@@ -227,9 +229,12 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
               </div>
             )}
             {tab === 'details' && isMerchant && (
-              <div className="mt-4">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="secondary" size="sm" onClick={() => setRequestExtensionOpen(true)}>
                   Request Validity Extension
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => setImageModalOpen(true)}>
+                  {localPanel.image_url ? 'Replace Image' : 'Upload Image'}
                 </Button>
               </div>
             )}
@@ -413,6 +418,19 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
           onSuccess={(newExpiryDate) => {
             setManageValidityOpen(false);
             handleValidityUpdated(newExpiryDate);
+          }}
+        />
+      )}
+
+      {isMerchant && (
+        <PanelImageModal
+          open={imageModalOpen}
+          panel={localPanel}
+          onClose={() => setImageModalOpen(false)}
+          onSaved={(updated) => {
+            setImageModalOpen(false);
+            setLocalPanel(updated);
+            onChanged?.();
           }}
         />
       )}

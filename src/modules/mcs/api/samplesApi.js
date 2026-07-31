@@ -184,12 +184,16 @@ function sanitizePathSegment(value) {
 }
 
 /**
- * Row-level "add/replace image" flow (Admin & Hall Samples' camera
- * button) — distinct from uploadSampleImage() above, which is only used
- * by the Add Sample form. Path is deterministic — `{buyer}/{bt_code}.ext`
- * (e.g. `MDM/BT0069C.jpeg`) — rather than a random filename, specifically
- * so re-uploading for the same sample overwrites the same object
- * (`upsert: true`) instead of orphaning the old file in storage.
+ * Row-level "add/replace image" flow (Admin Samples' camera button, and
+ * the merchant's own "Replace Image" action in the sample drawer) —
+ * distinct from uploadSampleImage() above, which is only used by the
+ * hall manager's Add Sample form. NOT available to hall_manager past
+ * that initial upload — set_sample_image() (called below) only accepts
+ * admin or the sample's own merchant, per the access matrix. Path is
+ * deterministic — `{buyer}/{bt_code}.ext` (e.g. `MDM/BT0069C.jpeg`) —
+ * rather than a random filename, specifically so re-uploading for the
+ * same sample overwrites the same object (`upsert: true`) instead of
+ * orphaning the old file in storage.
  */
 export async function uploadAndSetSampleImage({ sample, file }) {
   const ext = file.name.split('.').pop().toLowerCase();

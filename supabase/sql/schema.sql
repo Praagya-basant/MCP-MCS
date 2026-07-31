@@ -249,9 +249,12 @@ create policy "buyers_update_admin" on buyers for update to authenticated
 -- bypasses RLS for the scoping checks on samples/movements/etc).
 drop policy if exists "merchant_buyers_select" on merchant_buyers;
 drop policy if exists "merchant_buyers_write_admin" on merchant_buyers;
+-- `to authenticated` added (was previously omitted, applying to PUBLIC
+-- instead of authenticated — harmless since auth.uid() is null for anon,
+-- but inconsistent with every other policy in this file).
 drop policy if exists "Admin full access" on merchant_buyers;
-create policy "Admin full access" on merchant_buyers
-  using (exists (select 1 from profiles where id = auth.uid() and role = 'super_admin'));
+create policy "Admin full access" on merchant_buyers for all to authenticated
+  using (public.is_super_admin());
 
 -- halls: hall numbers aren't sensitive and are needed app-wide
 -- (destination dropdowns, headers) — readable by any authenticated user.
@@ -417,7 +420,7 @@ begin
     raise exception 'Sample not found';
   end if;
 
-  if not public.is_super_admin() and v_hall_id <> public.current_hall_id() then
+  if not public.is_super_admin() and v_hall_id is distinct from public.current_hall_id() then
     raise exception 'Not authorized to check out this sample';
   end if;
 
@@ -468,7 +471,7 @@ begin
     raise exception 'Movement not found';
   end if;
 
-  if not public.is_super_admin() and v_hall_id <> public.current_hall_id() then
+  if not public.is_super_admin() and v_hall_id is distinct from public.current_hall_id() then
     raise exception 'Not authorized to return this sample';
   end if;
 
@@ -516,28 +519,28 @@ $$;
 grant execute on function public.clear_movement_history to authenticated;
 
 -- ----------------------------------------------------------------------------
--- 5c. Set a sample's image_url — admin or that sample's own hall manager
--- `samples_update_admin` only grants direct table UPDATE to admins (hall
--- managers never got one, since checkout/return went through the RPCs
--- above instead), so hall managers have no way to set image_url via a
--- plain `.update()`. Same pattern as checkout_sample: SECURITY DEFINER,
--- hall-scoped check, admin bypass.
+-- 5c. Set a sample's image_url — admin, or the merchant who owns that
+-- sample's buyer. Deliberately NOT hall_manager: per the spec's access
+-- matrix, a manager can attach a photo once at Add Sample time (that's a
+-- plain insert with image_url set, not this RPC) but cannot replace an
+-- existing sample's image afterward — only admin or the owning merchant
+-- can. Same SECURITY DEFINER pattern as checkout_sample otherwise.
 -- ----------------------------------------------------------------------------
 
 create or replace function public.set_sample_image(p_sample_id uuid, p_image_url text)
 returns samples
 language plpgsql security definer set search_path = public as $$
 declare
-  v_hall_id uuid;
+  v_buyer_id uuid;
   v_sample samples;
 begin
-  select hall_id into v_hall_id from samples where id = p_sample_id;
+  select buyer_id into v_buyer_id from samples where id = p_sample_id;
 
-  if v_hall_id is null then
+  if v_buyer_id is null then
     raise exception 'Sample not found';
   end if;
 
-  if not public.is_super_admin() and v_hall_id <> public.current_hall_id() then
+  if not public.is_super_admin() and not (public.current_role() = 'merchant' and public.is_merchant_buyer(v_buyer_id)) then
     raise exception 'Not authorized to update this sample';
   end if;
 
@@ -636,18 +639,25 @@ insert into storage.buckets (id, name, public)
 values ('sample-images', 'sample-images', true)
 on conflict (id) do nothing;
 
+-- Merchant added here (for the image upload the spec grants them) even
+-- though the actual "does this URL get attached to sample X" gate is
+-- set_sample_image() above (which checks real buyer ownership via a DB
+-- join) — this bucket has no per-object path scoping, so a raw storage
+-- write here is inert on its own; it's only meaningful once a RPC or an
+-- insert the caller is already allowed to make (Add Sample) points a row
+-- at it. hall_manager keeps insert/update for that Add Sample flow.
 drop policy if exists "sample_images_upload" on storage.objects;
 create policy "sample_images_upload" on storage.objects for insert to authenticated
   with check (
     bucket_id = 'sample-images'
-    and (public.is_super_admin() or public.current_role() = 'hall_manager')
+    and (public.is_super_admin() or public.current_role() = 'hall_manager' or public.current_role() = 'merchant')
   );
 
 drop policy if exists "sample_images_update" on storage.objects;
 create policy "sample_images_update" on storage.objects for update to authenticated
   using (
     bucket_id = 'sample-images'
-    and (public.is_super_admin() or public.current_role() = 'hall_manager')
+    and (public.is_super_admin() or public.current_role() = 'hall_manager' or public.current_role() = 'merchant')
   );
 
 drop policy if exists "sample_images_delete" on storage.objects;
@@ -893,9 +903,22 @@ drop policy if exists "validity_requests_select" on validity_requests;
 create policy "validity_requests_select" on validity_requests for select to authenticated
   using (public.is_super_admin() or requested_by = auth.uid());
 
+-- Fixed from the original draft, which only checked `requested_by =
+-- auth.uid()` with no ownership check at all — a merchant could raise a
+-- request against any item_id regardless of buyer. Now mirrors
+-- recall_requests_insert_merchant's shape, branching on item_type since
+-- this table is polymorphic; shared panels (is_shared) are included
+-- since panels_select already lets any merchant see those.
 drop policy if exists "validity_requests_insert_merchant" on validity_requests;
 create policy "validity_requests_insert_merchant" on validity_requests for insert to authenticated
-  with check (public.current_role() = 'merchant' and requested_by = auth.uid());
+  with check (
+    public.current_role() = 'merchant'
+    and requested_by = auth.uid()
+    and (
+      (item_type = 'sample' and exists (select 1 from samples s where s.id = item_id and public.is_merchant_buyer(s.buyer_id)))
+      or (item_type = 'panel' and exists (select 1 from panels p where p.id = item_id and (p.is_shared or public.is_merchant_buyer(p.buyer_id))))
+    )
+  );
 
 drop policy if exists "validity_requests_update_admin" on validity_requests;
 create policy "validity_requests_update_admin" on validity_requests for update to authenticated
@@ -1200,7 +1223,7 @@ begin
     raise exception 'Sample is not currently checked out';
   end if;
 
-  if not public.is_super_admin() and v_sample.hall_id <> public.current_hall_id() then
+  if not public.is_super_admin() and v_sample.hall_id is distinct from public.current_hall_id() then
     raise exception 'Not authorized to forward this sample';
   end if;
 
@@ -1477,7 +1500,7 @@ begin
     raise exception 'Panel not found';
   end if;
 
-  if not public.is_super_admin() and v_hall_id <> public.current_hall_id() then
+  if not public.is_super_admin() and v_hall_id is distinct from public.current_hall_id() then
     raise exception 'Not authorized to check out this panel';
   end if;
 
@@ -1523,7 +1546,7 @@ begin
     raise exception 'Movement not found';
   end if;
 
-  if not public.is_super_admin() and v_hall_id <> public.current_hall_id() then
+  if not public.is_super_admin() and v_hall_id is distinct from public.current_hall_id() then
     raise exception 'Not authorized to return this panel';
   end if;
 
@@ -1577,7 +1600,7 @@ begin
     raise exception 'Panel is not currently issued';
   end if;
 
-  if not public.is_super_admin() and v_panel.hall_id <> public.current_hall_id() then
+  if not public.is_super_admin() and v_panel.hall_id is distinct from public.current_hall_id() then
     raise exception 'Not authorized to forward this panel';
   end if;
 
@@ -1660,6 +1683,42 @@ end;
 $$;
 
 grant execute on function public.retire_panel to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 15. RBAC AUDIT FOLLOW-UP — set_panel_image, mirroring set_sample_image
+-- (section 5c): admin, or the merchant who owns that panel's buyer (or
+-- any merchant, if the panel is_shared). Closes the parity gap the audit
+-- found — panels had no per-row image replace path at all, only the
+-- one-time image set at Add Panel creation.
+-- ----------------------------------------------------------------------------
+
+create or replace function public.set_panel_image(p_panel_id uuid, p_image_url text)
+returns panels
+language plpgsql security definer set search_path = public as $$
+declare
+  v_buyer_id uuid;
+  v_is_shared boolean;
+  v_panel panels;
+begin
+  select buyer_id, is_shared into v_buyer_id, v_is_shared from panels where id = p_panel_id;
+
+  if v_buyer_id is null then
+    raise exception 'Panel not found';
+  end if;
+
+  if not public.is_super_admin()
+     and not (public.current_role() = 'merchant' and (v_is_shared or public.is_merchant_buyer(v_buyer_id))) then
+    raise exception 'Not authorized to update this panel';
+  end if;
+
+  update panels set image_url = p_image_url where id = p_panel_id
+  returning * into v_panel;
+
+  return v_panel;
+end;
+$$;
+
+grant execute on function public.set_panel_image to authenticated;
 
 -- ============================================================================
 -- Done. Next steps (see CLAUDE.md / README for the full checklist):

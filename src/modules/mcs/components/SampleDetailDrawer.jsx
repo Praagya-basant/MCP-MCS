@@ -13,6 +13,7 @@ import { ManageValidityModal } from '@/shared/components/ManageValidityModal';
 import { RaiseRecallModal } from '@/modules/mcs/merchant/components/RaiseRecallModal';
 import { RequestValidityExtensionModal } from '@/shared/components/RequestValidityExtensionModal';
 import { RaiseShiftRequestModal } from '@/modules/mcs/components/RaiseShiftRequestModal';
+import { SampleImageModal } from '@/modules/mcs/components/SampleImageModal';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useToast } from '@/shared/context/ToastContext';
 import { listMovementsForSample, getOpenMovementForSample, returnSample } from '@/modules/mcs/api/movementsApi';
@@ -56,6 +57,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
   const [manageValidityOpen, setManageValidityOpen] = useState(false);
   const [requestExtensionOpen, setRequestExtensionOpen] = useState(false);
   const [shiftRequestOpen, setShiftRequestOpen] = useState(false);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
 
   const isAdmin = role === ROLES.SUPER_ADMIN;
   const isMerchant = role === ROLES.MERCHANT;
@@ -256,9 +258,12 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
                   </div>
                 )}
                 {isMerchant && (
-                  <div className="mt-4">
+                  <div className="mt-4 flex flex-wrap gap-2">
                     <Button variant="secondary" size="sm" onClick={() => setRequestExtensionOpen(true)}>
                       Request Validity Extension
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => setImageModalOpen(true)}>
+                      {localSample.image_url ? 'Replace Image' : 'Upload Image'}
                     </Button>
                   </div>
                 )}
@@ -504,6 +509,19 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
           onSuccess={(newExpiryDate) => {
             setManageValidityOpen(false);
             handleValidityUpdated(newExpiryDate);
+          }}
+        />
+      )}
+
+      {isMerchant && (
+        <SampleImageModal
+          open={imageModalOpen}
+          sample={localSample}
+          onClose={() => setImageModalOpen(false)}
+          onSaved={(updated) => {
+            setImageModalOpen(false);
+            setLocalSample(updated);
+            onChanged?.();
           }}
         />
       )}
