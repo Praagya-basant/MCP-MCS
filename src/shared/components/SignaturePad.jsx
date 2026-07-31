@@ -39,7 +39,12 @@ export function SignaturePad({ onChange, className }) {
       ctx.lineWidth = 2.5;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#1A1A1A';
+      // Canvas can't read Tailwind's CSS-var color tokens directly — pull
+      // the current --color-ink triplet at draw time so the stroke stays
+      // legible in both themes (a near-black stroke would vanish on a
+      // dark-mode canvas).
+      const inkVar = getComputedStyle(document.documentElement).getPropertyValue('--color-ink').trim();
+      ctx.strokeStyle = inkVar ? `rgb(${inkVar.replace(/\s+/g, ' ')})` : '#1A1A1A';
 
       // Resizing clears the canvas's pixel buffer — redraw whatever was
       // already signed so rotating a phone mid-signature doesn't wipe it.
@@ -101,7 +106,7 @@ export function SignaturePad({ onChange, className }) {
     <div className={cn('flex flex-col gap-2', className)}>
       <div
         ref={containerRef}
-        className="relative h-40 rounded-control border border-border bg-surface touch-none"
+        className="relative h-40 rounded-control border border-dashed border-border-strong bg-surface touch-none"
       >
         <canvas
           ref={canvasRef}

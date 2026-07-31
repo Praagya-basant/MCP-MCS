@@ -50,6 +50,19 @@ export function FileUpload({ value, onChange, accept = 'image/*', capture, class
       >
         {previewUrl ? (
           <img src={previewUrl} alt="Sample preview" className="w-full h-full object-cover" />
+        ) : capture ? (
+          <div className="flex flex-col items-center gap-1.5 text-ink-muted px-4 text-center">
+            <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
+              <path
+                d="M4 8a2 2 0 012-2h1.5l.9-1.5A1.5 1.5 0 019.79 3.7h4.42a1.5 1.5 0 011.39.8L16.5 6H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+              <circle cx="12" cy="13" r="3.25" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+            <span className="text-caption font-medium">Take Photo</span>
+          </div>
         ) : (
           <div className="flex flex-col items-center gap-1.5 text-ink-muted px-4 text-center">
             <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">

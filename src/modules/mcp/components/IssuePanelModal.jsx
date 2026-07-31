@@ -4,6 +4,7 @@ import { Button } from '@/shared/components/Button';
 import { Input, Select, Textarea, FormField } from '@/shared/components/Input';
 import { FileUpload } from '@/shared/components/FileUpload';
 import { SignaturePad } from '@/shared/components/SignaturePad';
+import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { issuePanel } from '@/modules/mcp/api/panelMovementsApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
@@ -107,10 +108,12 @@ export function IssuePanelModal({ open, onClose, panel, onSuccess }) {
         </>
       }
     >
-      <div className="mb-6 -mt-1">
-        <p className="text-caption text-ink-secondary">
-          <span className="font-mono text-ink font-medium">{panel.panel_code}</span> · {panel.panel_name}
-        </p>
+      <div className="mb-6 -mt-1 flex items-center gap-3 pb-4 border-b border-border">
+        <PanelThumbnail panel={panel} size="md" />
+        <div className="min-w-0">
+          <p className="text-body font-semibold text-ink truncate">{panel.panel_name}</p>
+          <p className="font-mono text-caption text-ink-secondary">{panel.panel_code}</p>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
@@ -181,8 +184,8 @@ export function IssuePanelModal({ open, onClose, panel, onSuccess }) {
                   className={cn(
                     'interactive h-8 px-3 rounded-control text-caption font-medium border',
                     active
-                      ? 'bg-ink text-white border-ink scale-105'
-                      : 'bg-white text-ink-secondary border-border hover:bg-surface-subtle hover:text-ink scale-100'
+                      ? 'bg-accent text-accent-ink border-accent scale-105'
+                      : 'bg-card text-ink-secondary border-border hover:bg-surface-subtle hover:text-ink scale-100'
                   )}
                 >
                   {r}
@@ -198,25 +201,27 @@ export function IssuePanelModal({ open, onClose, panel, onSuccess }) {
           </FormField>
         )}
 
-        <FormField label="Photo" hint="Optional — opens the camera on mobile">
-          <FileUpload value={photo} onChange={setPhoto} accept="image/*" capture="environment" />
-        </FormField>
+        <div className="pt-1 border-t border-border flex flex-col gap-6">
+          <FormField label="Photo" hint="Optional — opens the camera on mobile">
+            <FileUpload value={photo} onChange={setPhoto} accept="image/*" capture="environment" />
+          </FormField>
 
-        <FormField label="Signature" hint="Optional">
-          <SignaturePad onChange={setSignatureBlob} />
-        </FormField>
+          <FormField label="Signature" hint="Optional">
+            <SignaturePad onChange={setSignatureBlob} />
+          </FormField>
 
-        <FormField label="Notes" htmlFor="notes" hint="Optional">
-          <Textarea
-            id="notes"
-            placeholder="Any additional notes..."
-            value={form.notes}
-            onChange={(e) => set('notes', e.target.value)}
-            rows={3}
-          />
-        </FormField>
+          <FormField label="Notes" htmlFor="notes" hint="Optional">
+            <Textarea
+              id="notes"
+              placeholder="Any additional notes..."
+              value={form.notes}
+              onChange={(e) => set('notes', e.target.value)}
+              rows={3}
+            />
+          </FormField>
+        </div>
 
-        {error && <p className="text-caption text-red-600">{error}</p>}
+        {error && <p className="text-caption text-error">{error}</p>}
       </form>
     </Modal>
   );
