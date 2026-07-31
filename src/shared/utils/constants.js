@@ -85,4 +85,20 @@ export const VALIDITY_STATUS_LABELS = {
 // send_validity_alerts() in schema.sql.
 export const VALIDITY_EXPIRING_SOON_DAYS = 30;
 
+// MCP module (panels) — mirrors SAMPLE_STATUS but panels get a third
+// terminal state (admin-only "Retire", see panels.status check
+// constraint in schema.sql); there's no in_transit display refinement
+// yet since panel forwarding hasn't been built.
+export const PANEL_STATUS = {
+  IN_HALL: 'in_hall',
+  ISSUED: 'issued',
+  RETIRED: 'retired',
+};
+
+export const PANEL_STATUS_LABELS = {
+  [PANEL_STATUS.IN_HALL]: 'In Hall',
+  [PANEL_STATUS.ISSUED]: 'Issued',
+  [PANEL_STATUS.RETIRED]: 'Retired',
+};
+
 export const PAGE_SIZE = 20;

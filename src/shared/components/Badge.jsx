@@ -6,6 +6,8 @@ import {
   RECALL_STATUS_LABELS,
   VALIDITY_STATUS,
   VALIDITY_STATUS_LABELS,
+  PANEL_STATUS,
+  PANEL_STATUS_LABELS,
 } from '@/shared/utils/constants';
 import { daysUntil, getValidityStatus } from '@/shared/utils/formatters';
 
@@ -21,6 +23,20 @@ export function StatusBadge({ status, className }) {
   return (
     <span className={cn(BADGE_BASE, STATUS_STYLES[status] || 'bg-surface-subtle text-ink-secondary', className)}>
       {SAMPLE_STATUS_LABELS[status] || status}
+    </span>
+  );
+}
+
+const PANEL_STATUS_STYLES = {
+  [PANEL_STATUS.IN_HALL]: 'bg-status-in-hall-bg text-status-in-hall-text',
+  [PANEL_STATUS.ISSUED]: 'bg-status-checked-out-bg text-status-checked-out-text',
+  [PANEL_STATUS.RETIRED]: 'bg-surface-subtle text-ink-muted',
+};
+
+export function PanelStatusBadge({ status, className }) {
+  return (
+    <span className={cn(BADGE_BASE, PANEL_STATUS_STYLES[status] || 'bg-surface-subtle text-ink-secondary', className)}>
+      {PANEL_STATUS_LABELS[status] || status}
     </span>
   );
 }

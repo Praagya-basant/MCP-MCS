@@ -27,11 +27,15 @@ const navSections = [
       { to: '/admin/settings', label: 'Settings', icon: <IconSettings /> },
     ],
   },
+  {
+    title: 'MCP',
+    items: [{ to: '/admin/mcp/panels', label: 'Panels', icon: <IconLayers /> }],
+  },
 ];
 
 // Bottom nav only fits 4 real routes + the always-present Profile tab —
-// the rest (Halls/Validity Requests/Shift Requests/Feedback/Settings)
-// live in the Profile sheet's "More" list instead (see BottomNav).
+// the rest (Halls/Validity Requests/Shift Requests/Feedback/Settings/
+// Panels) live in the Profile sheet's "More" list instead (see BottomNav).
 const mobileNavItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: <IconGrid />, end: true },
   { to: '/admin/team', label: 'Team', icon: <IconUsers /> },
@@ -45,6 +49,7 @@ const mobileMoreItems = [
   { to: '/admin/shift-requests', label: 'Shift Requests', icon: <IconLayers /> },
   { to: '/admin/feedback', label: 'Feedback', icon: <IconMessage />, badgeKey: 'feedbackUnread' },
   { to: '/admin/settings', label: 'Settings', icon: <IconSettings /> },
+  { to: '/admin/mcp/panels', label: 'Panels', icon: <IconLayers /> },
 ];
 
 export default function AdminLayout() {

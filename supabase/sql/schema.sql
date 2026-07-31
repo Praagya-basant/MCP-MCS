@@ -1401,6 +1401,44 @@ $$;
 grant execute on function public.review_shift_request to authenticated;
 
 -- ============================================================================
+-- 12. MCP MODULE FOUNDATION (Phase 6a) — panels/panel_movements tables
+-- already exist from the Phase 1 migration (unused until now, so these
+-- are safe to apply against zero existing rows). This pass only builds
+-- Add Panel + list views + a read-only drawer; issue/return/forward/
+-- retire land in a later pass once this foundation is confirmed working.
+-- ============================================================================
+
+-- panel_code was left nullable/non-unique in the Phase 1 stub — bringing
+-- it in line with samples.bt_code (required, unique) now, before any
+-- panel rows exist to conflict with the new constraint.
+alter table panels alter column panel_code set not null;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'panels_panel_code_key') then
+    alter table panels add constraint panels_panel_code_key unique (panel_code);
+  end if;
+end $$;
+
+-- Mirrors movements.hop_number (Phase 3) ahead of the forward_panel RPC
+-- that will use it — added now so it doesn't need a second migration
+-- once that lands.
+alter table panel_movements add column if not exists hop_number integer not null default 1;
+
+-- Fills in the Phase 1 policy's deferred "is_shared cross-buyer
+-- visibility" — a shared panel isn't tied to one buyer's collection, so
+-- every merchant can see it, not just is_merchant_buyer(buyer_id)'s
+-- match. Non-shared panels are unchanged (still scoped to their own
+-- buyer).
+drop policy if exists "panels_select" on panels;
+create policy "panels_select" on panels for select to authenticated
+  using (
+    public.is_super_admin()
+    or (public.current_role() = 'hall_manager' and hall_id = public.current_hall_id())
+    or (public.current_role() = 'merchant' and (is_shared or public.is_merchant_buyer(buyer_id)))
+  );
+
+-- ============================================================================
 -- Done. Next steps (see CLAUDE.md / README for the full checklist):
 --   1. Deploy the `send-notification` and `create-user` edge functions.
 --   2. Create your first super_admin: add a user in Supabase Auth, then
