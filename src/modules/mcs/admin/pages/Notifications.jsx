@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Card } from '@/shared/components/Card';
 import { Button } from '@/shared/components/Button';
@@ -8,9 +9,18 @@ import { EmptyState } from '@/shared/components/EmptyState';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useAuth } from '@/shared/context/AuthContext';
 import { listNotifications, markNotificationRead, markAllNotificationsRead, getNotificationRoute } from '@/shared/lib/notificationsApi';
+import { getNotificationMeta } from '@/shared/lib/notificationMeta';
 import { formatDateTime } from '@/shared/utils/formatters';
 import { IconBell } from '@/shared/components/icons';
 import { cn } from '@/shared/utils/cn';
+
+const TONE_ICON_BG = {
+  neutral: 'bg-surface-subtle text-ink-secondary',
+  success: 'bg-status-in-hall-bg text-status-in-hall-text',
+  warning: 'bg-status-checked-out-bg text-status-checked-out-text',
+  info: 'bg-status-in-transit-bg text-status-in-transit-text',
+  error: 'bg-status-expired-bg text-status-expired-text',
+};
 
 const TYPE_LABELS = {
   checkout: 'Sample Issued',
@@ -91,7 +101,7 @@ export default function AdminNotifications() {
         </Card>
       ) : groups.length === 0 ? (
         <Card>
-          <EmptyState icon={<IconBell className="w-12 h-12 text-ink-muted" />} title="No notifications yet" description="System notifications will appear here." />
+          <EmptyState icon={<IconBell className="w-12 h-12 text-ink-muted" />} title="All caught up" description="System notifications will appear here." />
         </Card>
       ) : (
         <div className="flex flex-col gap-6">
@@ -101,27 +111,34 @@ export default function AdminNotifications() {
                 <p className="text-body font-medium text-ink">{TYPE_LABELS[group.type] || group.type}</p>
               </div>
               <ul>
-                {group.rows.map((n) => (
-                  <li key={n.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleClickNotification(n)}
-                      className="interactive w-full text-left px-4 py-3 border-b border-border last:border-b-0 hover:bg-surface-subtle flex gap-3"
+                {group.rows.map((n, i) => {
+                  const { icon: Icon, tone } = getNotificationMeta(n.type);
+                  return (
+                    <motion.li
+                      key={n.id}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: Math.min(i, 10) * 0.03 }}
+                      className={cn('relative border-b border-border last:border-b-0', !n.is_read && 'bg-accent/[0.04]')}
                     >
-                      <span
-                        className={cn(
-                          'mt-1.5 w-1.5 h-1.5 rounded-full shrink-0',
-                          n.is_read ? 'bg-transparent' : 'bg-status-checked-out-text'
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className={cn('text-body', n.is_read ? 'text-ink' : 'text-ink font-medium')}>{n.title}</p>
-                        <p className="mt-0.5 text-caption text-ink-secondary">{n.message}</p>
-                      </div>
-                      <span className="text-caption text-ink-muted shrink-0 whitespace-nowrap">{formatDateTime(n.created_at)}</span>
-                    </button>
-                  </li>
-                ))}
+                      {!n.is_read && <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent" />}
+                      <button
+                        type="button"
+                        onClick={() => handleClickNotification(n)}
+                        className="interactive w-full text-left pl-4 pr-4 py-3 hover:bg-surface-subtle flex gap-3"
+                      >
+                        <span className={cn('w-8 h-8 rounded-full flex items-center justify-center shrink-0', TONE_ICON_BG[tone] || TONE_ICON_BG.neutral)}>
+                          <Icon className="w-4 h-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className={cn('text-body', n.is_read ? 'text-ink' : 'text-ink font-medium')}>{n.title}</p>
+                          <p className="mt-0.5 text-caption text-ink-secondary">{n.message}</p>
+                        </div>
+                        <span className="text-caption text-ink-muted shrink-0 whitespace-nowrap">{formatDateTime(n.created_at)}</span>
+                      </button>
+                    </motion.li>
+                  );
+                })}
               </ul>
             </Card>
           ))}

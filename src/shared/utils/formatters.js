@@ -150,3 +150,27 @@ export function isToday(value) {
     d.getDate() === now.getDate()
   );
 }
+
+export function isYesterday(value) {
+  if (!value) return false;
+  const d = new Date(value);
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return (
+    d.getFullYear() === yesterday.getFullYear() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getDate() === yesterday.getDate()
+  );
+}
+
+/** Buckets a timestamped list into Today/Yesterday/Earlier, preserving each bucket's incoming order. */
+export function groupByDay(items, getDate) {
+  const groups = { Today: [], Yesterday: [], Earlier: [] };
+  items.forEach((item) => {
+    const value = getDate(item);
+    if (isToday(value)) groups.Today.push(item);
+    else if (isYesterday(value)) groups.Yesterday.push(item);
+    else groups.Earlier.push(item);
+  });
+  return Object.entries(groups).filter(([, rows]) => rows.length > 0);
+}

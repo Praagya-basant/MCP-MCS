@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/shared/utils/cn';
 import { useAuth } from '@/shared/context/AuthContext';
 import { IconBell } from '@/shared/components/icons';
@@ -10,7 +11,8 @@ import {
   markAllNotificationsRead,
   getNotificationRoute,
 } from '@/shared/lib/notificationsApi';
-import { formatRelativeTime } from '@/shared/utils/formatters';
+import { getNotificationMeta } from '@/shared/lib/notificationMeta';
+import { formatRelativeTime, groupByDay } from '@/shared/utils/formatters';
 import { ROLES } from '@/shared/utils/constants';
 
 // No realtime subscription (this codebase doesn't use Supabase Realtime
@@ -19,11 +21,55 @@ import { ROLES } from '@/shared/utils/constants';
 // without introducing a new architectural pattern for one component.
 const POLL_INTERVAL_MS = 45000;
 
+const TONE_ICON_BG = {
+  neutral: 'bg-surface-subtle text-ink-secondary',
+  success: 'bg-status-in-hall-bg text-status-in-hall-text',
+  warning: 'bg-status-checked-out-bg text-status-checked-out-text',
+  info: 'bg-status-in-transit-bg text-status-in-transit-text',
+  error: 'bg-status-expired-bg text-status-expired-text',
+};
+
+function NotificationRow({ n, onOpen, onSwipeRead }) {
+  const { icon: Icon, tone } = getNotificationMeta(n.type);
+  return (
+    <motion.li
+      layout
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, height: 0 }}
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={{ left: 0.5, right: 0 }}
+      onDragEnd={(e, info) => {
+        if (info.offset.x < -80 && !n.is_read) onSwipeRead(n);
+      }}
+      className={cn('relative border-b border-border last:border-b-0', !n.is_read && 'bg-accent/[0.04]')}
+    >
+      {!n.is_read && <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent" />}
+      <button
+        type="button"
+        onClick={() => onOpen(n)}
+        className="interactive w-full text-left pl-4 pr-3 py-3 hover:bg-surface-subtle flex gap-2.5"
+      >
+        <span className={cn('w-8 h-8 rounded-full flex items-center justify-center shrink-0', TONE_ICON_BG[tone] || TONE_ICON_BG.neutral)}>
+          <Icon className="w-4 h-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-caption font-medium text-ink truncate">{n.title}</p>
+          <p className="mt-0.5 text-caption text-ink-secondary line-clamp-2">{n.message}</p>
+        </div>
+        <span className="text-[11px] text-ink-muted shrink-0 whitespace-nowrap">{formatRelativeTime(n.created_at)}</span>
+      </button>
+    </motion.li>
+  );
+}
+
 /**
- * Bell + unread badge + dropdown panel, used in both Topbar variants
- * (desktop row and the mobile top bar). The notification list itself is
- * only fetched the first time the dropdown opens, not on mount, so every
- * logged-in session isn't paying for it up front.
+ * Bell + unread badge + panel, used in both Topbar variants (desktop row
+ * and the mobile top bar). The notification list itself is only fetched
+ * the first time the panel opens, not on mount, so every logged-in
+ * session isn't paying for it up front. Mobile renders the panel as a
+ * full-screen overlay (fixed inset-0); desktop as a 380px dropdown.
  */
 export function NotificationBell({ className }) {
   const { role } = useAuth();
@@ -85,16 +131,21 @@ export function NotificationBell({ className }) {
     }
   }
 
+  function markRead(n) {
+    if (n.is_read) return;
+    setItems((prev) => (prev || []).map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
+    setUnreadCount((c) => Math.max(0, c - 1));
+    markNotificationRead(n.id).catch(() => {});
+  }
+
   function handleClickNotification(n) {
-    if (!n.is_read) {
-      setItems((prev) => (prev || []).map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
-      setUnreadCount((c) => Math.max(0, c - 1));
-      markNotificationRead(n.id).catch(() => {});
-    }
+    markRead(n);
     setOpen(false);
     const route = getNotificationRoute(role, n.item_type, n.item_id);
     if (route) navigate(route.to, { state: route.state });
   }
+
+  const groups = groupByDay(items || [], (n) => n.created_at);
 
   return (
     <div className={cn('relative', className)} ref={ref}>
@@ -115,51 +166,61 @@ export function NotificationBell({ className }) {
       {mounted && (
         <div
           className={cn(
-            'absolute right-0 mt-1.5 w-80 max-w-[90vw] bg-white border border-border rounded-lg shadow-lg origin-top-right transition-all duration-150 ease-out flex flex-col max-h-[70vh] z-20',
-            visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+            'fixed inset-0 md:absolute md:inset-auto md:right-0 md:mt-1.5 md:w-[380px] max-w-full md:max-w-[90vw]',
+            'bg-card md:border md:border-border md:rounded-lg shadow-dropdown origin-top-right transition-all duration-150 ease-out flex flex-col md:max-h-[70vh] z-20',
+            visible ? 'opacity-100 scale-100' : 'opacity-0 md:scale-95'
           )}
         >
           <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
             <span className="text-body font-medium text-ink">Notifications</span>
-            {unreadCount > 0 && (
+            <div className="flex items-center gap-3">
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllRead}
+                  className="interactive text-caption text-ink-secondary hover:text-ink"
+                >
+                  Mark all read
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleMarkAllRead}
-                className="interactive text-caption text-ink-secondary hover:text-ink"
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+                className="interactive md:hidden text-ink-muted hover:text-ink"
               >
-                Mark all read
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                </svg>
               </button>
-            )}
+            </div>
           </div>
-          <div className="overflow-y-auto scrollbar-thin">
+          <div className="overflow-y-auto scrollbar-thin flex-1">
             {loading ? (
               <div className="px-4 py-6 text-center text-caption text-ink-muted">Loading...</div>
-            ) : !items || items.length === 0 ? (
-              <div className="px-4 py-6 text-center text-caption text-ink-muted">No notifications yet.</div>
+            ) : groups.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 px-4 py-14 text-center">
+                <span className="w-12 h-12 rounded-full bg-surface-subtle flex items-center justify-center text-ink-muted">
+                  <IconBell className="w-6 h-6" />
+                </span>
+                <p className="text-body font-medium text-ink">All caught up</p>
+                <p className="text-caption text-ink-muted">You have no notifications right now.</p>
+              </div>
             ) : (
-              <ul>
-                {items.map((n) => (
-                  <li key={n.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleClickNotification(n)}
-                      className="interactive w-full text-left px-4 py-3 border-b border-border last:border-b-0 hover:bg-surface-subtle flex gap-2.5"
-                    >
-                      <span
-                        className={cn(
-                          'mt-1.5 w-1.5 h-1.5 rounded-full shrink-0',
-                          n.is_read ? 'bg-transparent' : 'bg-status-checked-out-text'
-                        )}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-caption font-medium text-ink truncate">{n.title}</p>
-                        <p className="mt-0.5 text-caption text-ink-secondary line-clamp-2">{n.message}</p>
-                        <p className="mt-1 text-[11px] text-ink-muted">{formatRelativeTime(n.created_at)}</p>
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              groups.map(([label, rows]) => (
+                <div key={label}>
+                  <p className="px-4 pt-3 pb-1 text-[10px] font-medium uppercase tracking-widest text-ink-muted select-none">
+                    {label}
+                  </p>
+                  <ul>
+                    <AnimatePresence initial={false}>
+                      {rows.map((n) => (
+                        <NotificationRow key={n.id} n={n} onOpen={handleClickNotification} onSwipeRead={markRead} />
+                      ))}
+                    </AnimatePresence>
+                  </ul>
+                </div>
+              ))
             )}
           </div>
           {role === ROLES.SUPER_ADMIN && (
