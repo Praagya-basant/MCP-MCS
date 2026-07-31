@@ -51,8 +51,12 @@ export function Drawer({ open, onClose, title, children }) {
       />
       <div
         className={cn(
-          'drawer-panel relative w-full md:max-w-[480px] h-full bg-card shadow-xl flex flex-col',
-          visible ? 'translate-x-0' : 'translate-x-full'
+          'drawer-panel relative w-full md:max-w-[480px] h-full bg-card shadow-xl flex flex-col rounded-t-2xl md:rounded-none overflow-hidden',
+          // Mobile: full-screen sheet sliding up from the bottom. Desktop
+          // (md:+): today's 480px panel sliding in from the right. Both
+          // axes are independently controlled Tailwind transform utilities
+          // (--tw-translate-x/-y), so they compose without conflict.
+          visible ? 'translate-y-0 md:translate-x-0' : 'translate-y-full translate-x-0 md:translate-y-0 md:translate-x-full'
         )}
       >
         {title && (

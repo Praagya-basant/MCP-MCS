@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import { motion } from 'framer-motion';
 import { cn } from '@/shared/utils/cn';
 
 const VARIANTS = {
@@ -27,10 +28,13 @@ export const Button = forwardRef(function Button(
   { variant = 'primary', size = 'md', className, children, loading, disabled, ...props },
   ref
 ) {
+  const isDisabled = disabled || loading;
   return (
-    <button
+    <motion.button
       ref={ref}
-      disabled={disabled || loading}
+      disabled={isDisabled}
+      whileTap={isDisabled ? undefined : { scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       className={cn(
         'interactive inline-flex items-center justify-center gap-2 rounded-control font-medium whitespace-nowrap disabled:cursor-not-allowed',
         VARIANTS[variant],
@@ -46,6 +50,6 @@ export const Button = forwardRef(function Button(
         </svg>
       )}
       {children}
-    </button>
+    </motion.button>
   );
 });

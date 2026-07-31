@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Drawer } from '@/shared/components/Drawer';
 import { PanelStatusBadge, Badge, ValidityBadge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
@@ -128,6 +129,10 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
         <div className="flex flex-col h-full min-h-0">
           <div className="relative shrink-0">
             <PanelThumbnail panel={localPanel} size="lg" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-card to-transparent" />
+            <span className="absolute top-3 left-3">
+              <PanelStatusBadge status={displayStatus} className="shadow-card backdrop-blur-sm" />
+            </span>
             <button
               onClick={onClose}
               className="interactive absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center text-ink hover:bg-white shadow-card"
@@ -137,13 +142,12 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
                 <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
               </svg>
             </button>
-            <div className="px-6 pt-4 pb-4 border-b border-border">
+            <div className="relative px-6 pt-2 pb-4 border-b border-border">
               <p className="font-mono text-caption text-ink-secondary tracking-wide">{localPanel.panel_code}</p>
-              <h3 className="mt-0.5 text-body-lg font-semibold text-ink">{localPanel.panel_name}</h3>
+              <h3 className="mt-0.5 text-heading font-bold text-ink">{localPanel.panel_name}</h3>
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                 {localPanel.buyer?.name && <Badge>{localPanel.buyer.name}</Badge>}
                 {localPanel.hall?.name && <Badge>{localPanel.hall.name}</Badge>}
-                <PanelStatusBadge status={displayStatus} />
                 <ValidityBadge expiryDate={localPanel.expiry_date} />
                 {localPanel.is_shared && <Badge>Shared</Badge>}
               </div>
@@ -157,16 +161,29 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
                 type="button"
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  'interactive h-11 px-3 -mb-px text-body font-medium border-b-2 whitespace-nowrap',
-                  tab === t.id ? 'border-ink text-ink' : 'border-transparent text-ink-secondary hover:text-ink'
+                  'interactive relative h-11 px-3 text-body font-medium whitespace-nowrap',
+                  tab === t.id ? 'text-ink' : 'text-ink-secondary hover:text-ink'
                 )}
               >
                 {t.label}
+                {tab === t.id && (
+                  <motion.span
+                    layoutId="panelDrawerTabIndicator"
+                    className="absolute left-0 right-0 -bottom-px h-[2px] bg-ink rounded-full"
+                    transition={{ type: 'spring', stiffness: 500, damping: 36 }}
+                  />
+                )}
               </button>
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18 }}
+            className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5"
+          >
             {tab === 'details' && (
               <dl className="grid grid-cols-[140px_1fr] gap-y-3 text-body">
                 <dt className="text-ink-secondary">Panel Code</dt>
@@ -276,63 +293,81 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
                     const isReturned = m.status === 'returned';
                     const isLast = i === movements.length - 1;
                     return (
-                      <li key={m.id} className={cn('relative pl-5', !isLast && 'pb-4')}>
+                      <motion.li
+                        key={m.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.25, delay: Math.min(i, 8) * 0.05 }}
+                        className={cn('relative pl-5', !isLast && 'pb-4')}
+                      >
                         <span
                           className={cn(
-                            'absolute left-0 top-1 w-1.5 h-1.5 rounded-full',
+                            'absolute left-0 top-4 w-1.5 h-1.5 rounded-full',
                             isReturned ? 'bg-status-in-hall-text' : 'bg-status-checked-out-text'
                           )}
                         />
-                        {!isLast && <span className="absolute left-[2.5px] top-3 bottom-0 w-px bg-border" />}
+                        {!isLast && <span className="absolute left-[2.5px] top-6 bottom-0 w-px bg-border" />}
 
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className="text-body font-semibold text-ink">
-                            {isReturned ? 'Returned' : m.hop_number > 1 ? 'Forwarded' : 'Issued'}
-                          </span>
-                          <span className="text-[12px] text-ink-muted shrink-0">{formatDateTime(m.picked_at)}</span>
-                        </div>
-                        <p className="mt-1 text-[13px] text-ink-secondary">
-                          {m.from_hall?.name ? `From: ${m.from_hall.name} · ` : ''}To: {m.destination}
-                        </p>
-                        <p className="mt-0.5 text-[13px] text-ink-secondary">
-                          Reason: {m.reason === 'Other' ? m.reason_other : m.reason}
-                        </p>
-                        {m.supplier_name && (
-                          <p className="mt-0.5 text-[13px] text-ink-secondary">Supplier: {m.supplier_name}</p>
-                        )}
-                        {m.purchaser_name && (
-                          <p className="mt-0.5 text-[13px] text-ink-secondary">Purchaser: {m.purchaser_name}</p>
-                        )}
-                        {isReturned && (
-                          <p className="mt-0.5 text-[12px] text-status-in-hall-text">
-                            Returned: {formatDateTime(m.returned_at)}
-                          </p>
-                        )}
-                        {m.notes && <p className="mt-0.5 text-[13px] text-ink-muted">{m.notes}</p>}
-                        {(m.photo_url || m.signature_url) && (
-                          <div className="mt-2 flex items-center gap-2">
-                            {m.photo_url && (
-                              <a href={m.photo_url} target="_blank" rel="noreferrer" className="interactive">
-                                <img src={m.photo_url} alt="Movement photo" className="w-14 h-14 rounded-control object-cover border border-border" />
-                              </a>
-                            )}
-                            {m.signature_url && (
-                              <a href={m.signature_url} target="_blank" rel="noreferrer" className="interactive">
-                                <img
-                                  src={m.signature_url}
-                                  alt="Signature"
-                                  className="w-14 h-14 rounded-control object-contain border border-border bg-white p-1"
-                                />
-                              </a>
-                            )}
+                        <div className="rounded-card border border-border bg-surface-subtle px-3.5 py-3">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-body font-semibold text-ink">
+                              {isReturned ? 'Returned' : m.hop_number > 1 ? 'Forwarded' : 'Issued'}
+                            </span>
+                            <span className="text-[12px] text-ink-muted shrink-0">{formatDateTime(m.picked_at)}</span>
                           </div>
-                        )}
-                      </li>
+                          <p className="mt-1.5 text-[13px] text-ink-secondary flex items-center gap-1.5 flex-wrap">
+                            {m.from_hall?.name && (
+                              <>
+                                <span>{m.from_hall.name}</span>
+                                <span aria-hidden="true">&rarr;</span>
+                              </>
+                            )}
+                            <span className="text-ink font-medium">{m.destination}</span>
+                          </p>
+                          {m.picked_by_name && (
+                            <p className="mt-1 text-[13px] text-ink-secondary">Picked by {m.picked_by_name}</p>
+                          )}
+                          <div className="mt-1.5">
+                            <Badge>{m.reason === 'Other' ? m.reason_other : m.reason}</Badge>
+                          </div>
+                          {m.supplier_name && (
+                            <p className="mt-1.5 text-[13px] text-ink-secondary">Supplier: {m.supplier_name}</p>
+                          )}
+                          {m.purchaser_name && (
+                            <p className="mt-0.5 text-[13px] text-ink-secondary">Purchaser: {m.purchaser_name}</p>
+                          )}
+                          {isReturned && (
+                            <p className="mt-1.5 text-[12px] text-status-in-hall-text">
+                              Returned: {formatDateTime(m.returned_at)}
+                            </p>
+                          )}
+                          {m.notes && <p className="mt-1.5 text-[13px] text-ink-muted">{m.notes}</p>}
+                          {(m.photo_url || m.signature_url) && (
+                            <div className="mt-2.5 flex items-center gap-2">
+                              {m.photo_url && (
+                                <a href={m.photo_url} target="_blank" rel="noreferrer" className="interactive">
+                                  <img src={m.photo_url} alt="Movement photo" className="w-14 h-14 rounded-control object-cover border border-border" loading="lazy" />
+                                </a>
+                              )}
+                              {m.signature_url && (
+                                <a href={m.signature_url} target="_blank" rel="noreferrer" className="interactive">
+                                  <img
+                                    src={m.signature_url}
+                                    alt="Signature"
+                                    className="w-14 h-14 rounded-control object-contain border border-border bg-white p-1"
+                                    loading="lazy"
+                                  />
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </motion.li>
                     );
                   })}
                 </ul>
               ))}
-          </div>
+          </motion.div>
 
           {hasFooterAction && (
             <div className="px-6 py-4 border-t border-border flex items-center gap-2 shrink-0">
