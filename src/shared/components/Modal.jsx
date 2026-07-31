@@ -47,7 +47,7 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 'md:m
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
       <div
-        className={cn('modal-overlay absolute inset-0 bg-black/40', visible ? 'opacity-100' : 'opacity-0')}
+        className={cn('modal-overlay absolute inset-0 bg-black/40 backdrop-blur-sm', visible ? 'opacity-100' : 'opacity-0')}
         onClick={onClose}
       />
       <div

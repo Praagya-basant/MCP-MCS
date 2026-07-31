@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/shared/utils/cn';
 import { useAuth } from '@/shared/context/AuthContext';
 import { initials } from '@/shared/utils/formatters';
@@ -30,8 +31,6 @@ export function Topbar({ contextLabel, navSections, sidebarSubtitle }) {
   const location = useLocation();
   const { profile, role } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuMounted, setMenuMounted] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -41,19 +40,6 @@ export function Topbar({ contextLabel, navSections, sidebarSubtitle }) {
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
-
-  // Mounted-vs-visible so the dropdown animates closed instead of
-  // vanishing instantly — same pattern as Modal/Drawer.
-  useEffect(() => {
-    if (menuOpen) {
-      setMenuMounted(true);
-      const raf = requestAnimationFrame(() => setMenuVisible(true));
-      return () => cancelAnimationFrame(raf);
-    }
-    setMenuVisible(false);
-    const timer = setTimeout(() => setMenuMounted(false), 150);
-    return () => clearTimeout(timer);
-  }, [menuOpen]);
 
   const avatarColor = AVATAR_COLORS[role] || 'bg-ink';
   const pageTitle = currentPageTitle(navSections, location.pathname, sidebarSubtitle);
@@ -98,16 +84,32 @@ export function Topbar({ contextLabel, navSections, sidebarSubtitle }) {
               <IconChevronDown className="w-3.5 h-3.5 text-ink-secondary" />
             </button>
 
-            {menuMounted && (
-              <div
-                className={cn(
-                  'absolute right-0 mt-1.5 w-60 bg-card border border-border rounded-lg shadow-dropdown py-1.5 origin-top-right transition-all duration-150 ease-out',
-                  menuVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-                )}
-              >
-                <AccountMenuContent onClose={() => setMenuOpen(false)} />
-              </div>
-            )}
+            <AnimatePresence>
+              {menuOpen && (
+                <>
+                  {/* Full-viewport blur behind the dropdown — click-to-
+                      dismiss doubles up with the existing outside-click
+                      handler, purely a visual/premium touch. */}
+                  <motion.div
+                    className="fixed inset-0 z-10 backdrop-blur-[2px] bg-black/5"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    onClick={() => setMenuOpen(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                    className="absolute right-0 mt-1.5 w-60 bg-card border border-border rounded-lg shadow-dropdown py-1.5 origin-top-right z-20"
+                  >
+                    <AccountMenuContent onClose={() => setMenuOpen(false)} />
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
