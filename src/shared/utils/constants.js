@@ -28,6 +28,10 @@ export const SAMPLE_STATUS = {
 export const SAMPLE_STATUS_LABELS = {
   [SAMPLE_STATUS.IN_HALL]: 'In Hall',
   [SAMPLE_STATUS.CHECKED_OUT]: 'Issued',
+  // Not a DB status value — a display-only refinement of CHECKED_OUT for a
+  // sample on its 2nd+ movement leg (forwarded onward at least once since
+  // it was last returned). See getSampleDisplayStatus() in formatters.js.
+  in_transit: 'In Transit',
 };
 
 export const MOVEMENT_STATUS = {

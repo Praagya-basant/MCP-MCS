@@ -1143,6 +1143,101 @@ begin
 end $$;
 
 -- ============================================================================
+-- 9. MOVEMENT CHAIN (Phase 3) — multi-hop forwarding.
+-- A "Forward" is a hall-to-hall (or hall-to-supplier/other) hop while a
+-- sample is already checked out, distinct from Issue (in_hall ->
+-- checked_out) and Return (checked_out -> in_hall). Modeled as closing
+-- the active movement leg ("returned", green in the history timeline)
+-- and opening a new one ("out", amber) in the same transaction — no
+-- third movement "type" needed, matching the issue/return color legend.
+-- `samples.hall_id` is treated as "current physical location": Forward
+-- updates it (to whichever hall receives the sample), Issue/Return never
+-- touch it — so a forwarded sample becomes visible to its NEW hall's
+-- manager (current_hall_id() scoping) going forward, and Return always
+-- lands it back in whatever hall it's currently sitting in.
+-- ============================================================================
+
+alter table movements add column if not exists hop_number integer not null default 1;
+
+-- Only admin, or the hall_manager of the sample's CURRENT hall (i.e. the
+-- one who currently "has" it), may forward it onward — same authorization
+-- shape as checkout_sample/return_sample above. `p_movement_id` is the
+-- active ('out') leg being closed; `p_new_movement_id` lets the caller
+-- pre-generate the new leg's id client-side for photo/signature upload
+-- paths, same as checkout_sample's p_movement_id.
+create or replace function public.forward_sample(
+  p_movement_id uuid,
+  p_picked_by_name text,
+  p_picked_by_email text,
+  p_destination text,
+  p_reason text,
+  p_reason_other text,
+  p_notes text,
+  p_photo_url text default null,
+  p_signature_url text default null,
+  p_purchaser_name text default null,
+  p_supplier_name text default null,
+  p_new_movement_id uuid default null
+)
+returns movements
+language plpgsql security definer set search_path = public as $$
+declare
+  v_sample samples;
+  v_old_movement movements;
+  v_old_hall_id uuid;
+  v_dest_hall_id uuid;
+  v_new_movement movements;
+begin
+  select s.* into v_sample
+  from movements m join samples s on s.id = m.sample_id
+  where m.id = p_movement_id;
+
+  if v_sample.id is null then
+    raise exception 'Movement not found';
+  end if;
+
+  if v_sample.status <> 'checked_out' then
+    raise exception 'Sample is not currently checked out';
+  end if;
+
+  if not public.is_super_admin() and v_sample.hall_id <> public.current_hall_id() then
+    raise exception 'Not authorized to forward this sample';
+  end if;
+
+  update movements
+  set status = 'returned', returned_at = now()
+  where id = p_movement_id and status = 'out'
+  returning * into v_old_movement;
+
+  if v_old_movement.id is null then
+    raise exception 'Movement already closed or not found';
+  end if;
+
+  v_old_hall_id := v_sample.hall_id;
+  select id into v_dest_hall_id from halls where name = p_destination;
+
+  if v_dest_hall_id is not null then
+    update samples set hall_id = v_dest_hall_id where id = v_sample.id;
+  end if;
+
+  insert into movements (
+    id, sample_id, picked_by_name, picked_by_email, destination, reason,
+    reason_other, notes, logged_by, status, from_hall_id, destination_hall_id,
+    photo_url, signature_url, purchaser_name, supplier_name, hop_number
+  ) values (
+    coalesce(p_new_movement_id, gen_random_uuid()), v_sample.id, p_picked_by_name, p_picked_by_email,
+    p_destination, p_reason, nullif(p_reason_other, ''), nullif(p_notes, ''), auth.uid(), 'out',
+    v_old_hall_id, v_dest_hall_id, p_photo_url, p_signature_url,
+    nullif(p_purchaser_name, ''), nullif(p_supplier_name, ''), v_old_movement.hop_number + 1
+  ) returning * into v_new_movement;
+
+  return v_new_movement;
+end;
+$$;
+
+grant execute on function public.forward_sample to authenticated;
+
+-- ============================================================================
 -- Done. Next steps (see CLAUDE.md / README for the full checklist):
 --   1. Deploy the `send-notification` and `create-user` edge functions.
 --   2. Create your first super_admin: add a user in Supabase Auth, then

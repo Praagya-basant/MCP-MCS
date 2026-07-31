@@ -286,6 +286,41 @@ async function handleCheckout(payload) {
 }
 
 /**
+ * Sample Forwarded — a checked-out sample moving onward to a new
+ * destination (see forward_sample() in schema.sql), distinct from a
+ * fresh Issue. Same recipient shape as handleCheckout (merchant contacts
+ * + the new destination hall's manager, when it resolves to one).
+ */
+async function handleForward(payload) {
+  const { btCode, productName, fromDestination, buyerId, destination, reason, pickedAt } = payload;
+
+  const merchantEmails = await getMerchantContactEmails(buyerId);
+
+  let hodEmails = [];
+  if (!NON_HOD_DESTINATIONS.includes(String(destination || '').trim().toLowerCase())) {
+    const destHallId = await getHallIdByName(destination);
+    if (destHallId) {
+      hodEmails = await getHallManagerEmails(destHallId);
+    }
+  }
+
+  await sendEmail({
+    to: dedupe([...merchantEmails, ...hodEmails]),
+    subject: `Sample Forwarded — ${btCode} · ${productName}`,
+    heading: 'Sample Forwarded',
+    rows: [
+      { label: 'BT Code', value: btCode },
+      { label: 'Product Name', value: productName },
+      { label: 'From', value: fromDestination },
+      { label: 'New Destination', value: destination },
+      { label: 'Reason', value: reason },
+      { label: 'Date & Time', value: formatDateTime(pickedAt) },
+    ],
+    btCode,
+  });
+}
+
+/**
  * Return sends ONE email covering the buyer's merchant contacts and the
  * sample's OWN (home) hall manager — the one who now has it back and
  * needs to know. `hallId` is the sample's home hall, not a destination,
@@ -439,6 +474,9 @@ Deno.serve(async (req) => {
     switch (type) {
       case 'checkout':
         await handleCheckout(payload);
+        break;
+      case 'forward':
+        await handleForward(payload);
         break;
       case 'return':
         await handleReturn(payload);

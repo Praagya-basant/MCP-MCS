@@ -17,7 +17,7 @@ import { listSamples } from '@/modules/mcs/api/samplesApi';
 import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { PAGE_SIZE, SAMPLE_STATUS } from '@/shared/utils/constants';
 import { IconBox, IconPlus } from '@/shared/components/icons';
-import { formatRelativeTime } from '@/shared/utils/formatters';
+import { formatRelativeTime, getSampleDisplayStatus } from '@/shared/utils/formatters';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
 import { useOpenSampleFromLocation } from '@/modules/mcs/hooks/useOpenSampleFromLocation';
@@ -41,9 +41,23 @@ export default function HallSamples() {
     return map;
   }, [movements]);
 
+  const openHopMap = useMemo(() => {
+    const map = {};
+    (movements || []).forEach((m) => {
+      if (m.status === 'out') map[m.sample_id] = m.hop_number;
+    });
+    return map;
+  }, [movements]);
+
   const rows = useMemo(
-    () => (samples || []).map((s) => ({ ...s, buyer_name: s.buyer?.name, lastMovement: lastMovementMap[s.id] })),
-    [samples, lastMovementMap]
+    () =>
+      (samples || []).map((s) => ({
+        ...s,
+        buyer_name: s.buyer?.name,
+        lastMovement: lastMovementMap[s.id],
+        displayStatus: getSampleDisplayStatus(s.status, openHopMap[s.id]),
+      })),
+    [samples, lastMovementMap, openHopMap]
   );
 
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
@@ -121,7 +135,7 @@ export default function HallSamples() {
                     <Td className="text-ink-secondary">{s.buyer_name}</Td>
                     <Td>
                       <div className="flex flex-wrap items-center gap-1">
-                        <StatusBadge status={s.status} />
+                        <StatusBadge status={s.displayStatus} />
                         <ValidityBadge expiryDate={s.expiry_date} />
                       </div>
                     </Td>
@@ -144,7 +158,7 @@ export default function HallSamples() {
                     subtitle={s.product_name}
                     trailing={
                       <div className="flex flex-col items-end gap-1">
-                        <StatusBadge status={s.status} />
+                        <StatusBadge status={s.displayStatus} />
                         <ValidityBadge expiryDate={s.expiry_date} />
                       </div>
                     }

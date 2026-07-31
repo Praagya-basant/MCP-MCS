@@ -1,4 +1,4 @@
-import { VALIDITY_STATUS, VALIDITY_EXPIRING_SOON_DAYS } from '@/shared/utils/constants';
+import { VALIDITY_STATUS, VALIDITY_EXPIRING_SOON_DAYS, SAMPLE_STATUS } from '@/shared/utils/constants';
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -111,6 +111,19 @@ export function getValidityStatus(expiryDate) {
   if (days < 0) return VALIDITY_STATUS.EXPIRED;
   if (days <= VALIDITY_EXPIRING_SOON_DAYS) return VALIDITY_STATUS.EXPIRING_SOON;
   return VALIDITY_STATUS.VALID;
+}
+
+/**
+ * 'in_transit' is a display-only refinement of 'checked_out', not a real
+ * samples.status value — a sample whose currently active movement leg is
+ * its 2nd or later hop (forwarded onward at least once) reads as "In
+ * Transit" instead of "Issued". `hopNumber` comes from the sample's open
+ * movement (see forward_sample/hop_number in schema.sql); pass undefined
+ * when it isn't known and this just echoes `status` back unchanged.
+ */
+export function getSampleDisplayStatus(status, hopNumber) {
+  if (status !== SAMPLE_STATUS.CHECKED_OUT) return status;
+  return hopNumber > 1 ? 'in_transit' : status;
 }
 
 export function isToday(value) {

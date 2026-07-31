@@ -8,15 +8,17 @@ import { EmptyState } from '@/shared/components/EmptyState';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { IssueSampleModal } from '@/modules/mcs/components/IssueSampleModal';
+import { ForwardSampleModal } from '@/modules/mcs/components/ForwardSampleModal';
 import { ManageValidityModal } from '@/modules/mcs/components/ManageValidityModal';
 import { RaiseRecallModal } from '@/modules/mcs/merchant/components/RaiseRecallModal';
 import { RequestValidityExtensionModal } from '@/modules/mcs/merchant/components/RequestValidityExtensionModal';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useToast } from '@/shared/context/ToastContext';
 import { listMovementsForSample, getOpenMovementForSample, returnSample } from '@/modules/mcs/api/movementsApi';
+import { getSample } from '@/modules/mcs/api/samplesApi';
 import { listComments, addComment } from '@/modules/mcs/api/commentsApi';
 import { listValidityChanges } from '@/modules/mcs/api/validityApi';
-import { formatDateTime, formatDate, initials } from '@/shared/utils/formatters';
+import { formatDateTime, formatDate, initials, getSampleDisplayStatus } from '@/shared/utils/formatters';
 import { SAMPLE_STATUS, ROLES } from '@/shared/utils/constants';
 import { cn } from '@/shared/utils/cn';
 
@@ -46,6 +48,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
   const [newComment, setNewComment] = useState('');
   const [posting, setPosting] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
+  const [forwardOpen, setForwardOpen] = useState(false);
   const [returnConfirmOpen, setReturnConfirmOpen] = useState(false);
   const [returning, setReturning] = useState(false);
   const [recallOpen, setRecallOpen] = useState(false);
@@ -81,6 +84,13 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
 
   function reloadHistory() {
     return listMovementsForSample(localSample.id).then(setMovements);
+  }
+
+  async function handleForwardSuccess() {
+    const fresh = await getSample(localSample.id);
+    setLocalSample(fresh);
+    reloadHistory();
+    onChanged?.();
   }
 
   function handleValidityUpdated(newExpiryDate) {
@@ -129,11 +139,20 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
 
   if (!localSample) return null;
 
+  const openMovement = (movements || []).find((m) => m.status === 'out') || null;
+  const displayStatus = getSampleDisplayStatus(localSample.status, openMovement?.hop_number);
+
   const canIssueReturn = role === ROLES.HALL_MANAGER || role === ROLES.SUPER_ADMIN;
   const showIssue = canIssueReturn && localSample.status === SAMPLE_STATUS.IN_HALL;
   const showReturn = canIssueReturn && localSample.status === SAMPLE_STATUS.CHECKED_OUT;
+  // Mirrors forward_sample()'s own authorization check server-side: admin,
+  // or the hall_manager whose hall currently "has" the sample.
+  const showForward =
+    canIssueReturn &&
+    localSample.status === SAMPLE_STATUS.CHECKED_OUT &&
+    (isAdmin || profile?.hall_id === localSample.hall_id);
   const showRecall = isMerchant && localSample.status === SAMPLE_STATUS.CHECKED_OUT;
-  const hasFooterAction = showIssue || showReturn || showRecall;
+  const hasFooterAction = showIssue || showReturn || showForward || showRecall;
 
   return (
     <>
@@ -156,7 +175,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                 {localSample.buyer?.name && <Badge>{localSample.buyer.name}</Badge>}
                 {localSample.hall?.name && <Badge>{localSample.hall.name}</Badge>}
-                <StatusBadge status={localSample.status} />
+                <StatusBadge status={displayStatus} />
                 <ValidityBadge expiryDate={localSample.expiry_date} />
               </div>
             </div>
@@ -196,7 +215,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
                   <dd className="text-ink">{localSample.hall?.name}</dd>
                   <dt className="text-ink-secondary">Status</dt>
                   <dd>
-                    <StatusBadge status={localSample.status} />
+                    <StatusBadge status={displayStatus} />
                   </dd>
                   <dt className="text-ink-secondary">Signed By</dt>
                   <dd className="text-ink">{localSample.signed_by || '—'}</dd>
@@ -283,10 +302,14 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
                         {!isLast && <span className="absolute left-[2.5px] top-3 bottom-0 w-px bg-border" />}
 
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="text-body font-semibold text-ink">{isReturned ? 'Returned' : 'Issued'}</span>
+                          <span className="text-body font-semibold text-ink">
+                            {isReturned ? 'Returned' : m.hop_number > 1 ? 'Forwarded' : 'Issued'}
+                          </span>
                           <span className="text-[12px] text-ink-muted shrink-0">{formatDateTime(m.picked_at)}</span>
                         </div>
-                        <p className="mt-1 text-[13px] text-ink-secondary">To: {m.destination}</p>
+                        <p className="mt-1 text-[13px] text-ink-secondary">
+                          {m.from_hall?.name ? `From: ${m.from_hall.name} · ` : ''}To: {m.destination}
+                        </p>
                         <p className="mt-0.5 text-[13px] text-ink-secondary">
                           Reason: {m.reason === 'Other' ? m.reason_other : m.reason}
                         </p>
@@ -386,6 +409,11 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
                   Return
                 </Button>
               )}
+              {showForward && (
+                <Button variant="secondary" className="flex-1" onClick={() => setForwardOpen(true)}>
+                  Forward
+                </Button>
+              )}
               {showRecall && (
                 <Button variant="secondary" className="flex-1" onClick={() => setRecallOpen(true)}>
                   Raise Recall
@@ -401,6 +429,14 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
         sample={localSample}
         onClose={() => setIssueOpen(false)}
         onSuccess={handleIssueSuccess}
+      />
+
+      <ForwardSampleModal
+        open={forwardOpen}
+        sample={localSample}
+        movement={openMovement}
+        onClose={() => setForwardOpen(false)}
+        onSuccess={handleForwardSuccess}
       />
 
       <ConfirmDialog

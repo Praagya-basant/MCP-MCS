@@ -54,10 +54,17 @@ export async function getOpenMovementForSample(sampleId) {
   return data ? mapMovement(data) : data;
 }
 
+// Only listMovementsForSample needs the from/destination hall names (the
+// drawer's "From -> To" journey timeline) — listMovements()/
+// getOpenMovementForSample() above stay on '*' since their callers only
+// ever show the free-text `destination` column, not the resolved hall.
+const MOVEMENT_WITH_HALLS_SELECT =
+  '*, from_hall:halls!movements_from_hall_id_fkey(id, name), destination_hall:halls!movements_destination_hall_id_fkey(id, name)';
+
 export async function listMovementsForSample(sampleId) {
   const { data, error } = await supabase
     .from('movements')
-    .select('*')
+    .select(MOVEMENT_WITH_HALLS_SELECT)
     .eq('sample_id', sampleId)
     .order('picked_at', { ascending: false });
   if (error) throw error;
@@ -137,6 +144,70 @@ export async function issueSample({
   });
 
   return movement;
+}
+
+/**
+ * Forwards an already-checked-out sample onward to a new destination via
+ * the atomic `forward_sample` RPC — closes the current active movement
+ * leg and opens a new one in the same transaction (see schema.sql
+ * section 9). `movement` must be the sample's current open ('out') leg.
+ */
+export async function forwardSample({
+  sample,
+  movement,
+  pickedByName,
+  destination,
+  reason,
+  reasonOther,
+  notes,
+  photoFile,
+  signatureBlob,
+  purchaserName,
+  supplierName,
+}) {
+  const newMovementId = crypto.randomUUID();
+
+  let photoUrl = null;
+  if (photoFile) {
+    const ext = photoFile.name?.split('.').pop()?.toLowerCase() || 'jpg';
+    photoUrl = await uploadMovementFile(newMovementId, photoFile, `photo.${ext}`);
+  }
+
+  let signatureUrl = null;
+  if (signatureBlob) {
+    signatureUrl = await uploadMovementFile(newMovementId, signatureBlob, 'signature.png');
+  }
+
+  const { data: newMovement, error } = await supabase.rpc('forward_sample', {
+    p_movement_id: movement.id,
+    p_picked_by_name: pickedByName,
+    p_picked_by_email: '',
+    p_destination: destination,
+    p_reason: reason,
+    p_reason_other: reasonOther || null,
+    p_notes: notes || null,
+    p_photo_url: photoUrl,
+    p_signature_url: signatureUrl,
+    p_purchaser_name: purchaserName || null,
+    p_supplier_name: supplierName || null,
+    p_new_movement_id: newMovementId,
+  });
+
+  if (error) throw error;
+
+  sendNotification('forward', {
+    btCode: sample.bt_code,
+    productName: sample.product_name,
+    fromDestination: movement.destination,
+    buyerId: sample.buyer_id,
+    pickedByName,
+    destination,
+    reason: reason === 'Other' ? reasonOther : reason,
+    pickedAt: newMovement.picked_at,
+    photoUrl,
+  });
+
+  return newMovement;
 }
 
 /**

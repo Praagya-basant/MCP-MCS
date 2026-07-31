@@ -15,11 +15,12 @@ import { StatusBadge, ValidityBadge } from '@/shared/components/Badge';
 import { useAsyncData } from '@/shared/hooks/useAsyncData';
 import { useTableControls } from '@/shared/hooks/useTableControls';
 import { listSamples } from '@/modules/mcs/api/samplesApi';
+import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, SAMPLE_STATUS } from '@/shared/utils/constants';
 import { IconBox, IconCamera, IconLayers, IconUpload, IconTrash } from '@/shared/components/icons';
-import { formatDate } from '@/shared/utils/formatters';
+import { formatDate, getSampleDisplayStatus } from '@/shared/utils/formatters';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
 import { SampleImageModal } from '@/modules/mcs/components/SampleImageModal';
@@ -31,6 +32,7 @@ import { useOpenSampleFromLocation } from '@/modules/mcs/hooks/useOpenSampleFrom
 export default function AdminSamples() {
   const location = useLocation();
   const { data: samples, loading, reload, setData } = useAsyncData(listSamples, []);
+  const { data: movements, reload: reloadMovements } = useAsyncData(listMovements, []);
   const { data: buyers } = useAsyncData(listBuyers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [selected, setSelected] = useState(null);
@@ -39,6 +41,19 @@ export default function AdminSamples() {
   const [sampleToDelete, setSampleToDelete] = useState(null);
   const [bulkImageOpen, setBulkImageOpen] = useState(false);
   useOpenSampleFromLocation(samples, setSelected);
+
+  const openHopMap = useMemo(() => {
+    const map = {};
+    (movements || []).forEach((m) => {
+      if (m.status === 'out') map[m.sample_id] = m.hop_number;
+    });
+    return map;
+  }, [movements]);
+
+  const rows = useMemo(
+    () => (samples || []).map((s) => ({ ...s, displayStatus: getSampleDisplayStatus(s.status, openHopMap[s.id]) })),
+    [samples, openHopMap]
+  );
 
   function handleImageSaved(updated) {
     setData((prev) => (prev || []).map((s) => (s.id === updated.id ? updated : s)));
@@ -56,30 +71,31 @@ export default function AdminSamples() {
   }
 
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
-    useTableControls(samples || [], {
+    useTableControls(rows, {
       searchFields: ['bt_code', 'product_name'],
       initialFilters: location.state?.statusFilter ? { status: location.state.statusFilter } : undefined,
     });
 
   const statusTabs = useMemo(
     () => [
-      { value: 'all', label: 'All', count: (samples || []).length },
+      { value: 'all', label: 'All', count: rows.length },
       {
         value: SAMPLE_STATUS.IN_HALL,
         label: 'In Hall',
-        count: (samples || []).filter((r) => r.status === SAMPLE_STATUS.IN_HALL).length,
+        count: rows.filter((r) => r.status === SAMPLE_STATUS.IN_HALL).length,
       },
       {
         value: SAMPLE_STATUS.CHECKED_OUT,
         label: 'Issued',
-        count: (samples || []).filter((r) => r.status === SAMPLE_STATUS.CHECKED_OUT).length,
+        count: rows.filter((r) => r.status === SAMPLE_STATUS.CHECKED_OUT).length,
       },
     ],
-    [samples]
+    [rows]
   );
 
   function handleChanged() {
     reload();
+    reloadMovements();
   }
 
   return (
@@ -164,7 +180,7 @@ export default function AdminSamples() {
                     <Td className="text-ink-secondary">{s.hall?.name}</Td>
                     <Td>
                       <div className="flex flex-wrap items-center gap-1">
-                        <StatusBadge status={s.status} />
+                        <StatusBadge status={s.displayStatus} />
                         <ValidityBadge expiryDate={s.expiry_date} />
                       </div>
                     </Td>
@@ -220,7 +236,7 @@ export default function AdminSamples() {
                     subtitle={s.product_name}
                     trailing={
                       <div className="flex flex-col items-end gap-1">
-                        <StatusBadge status={s.status} />
+                        <StatusBadge status={s.displayStatus} />
                         <ValidityBadge expiryDate={s.expiry_date} />
                       </div>
                     }
