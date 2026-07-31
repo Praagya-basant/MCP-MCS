@@ -19,6 +19,7 @@ import { listBuyers } from '@/modules/mcs/api/buyersApi';
 import { listHalls } from '@/modules/mcs/api/hallsApi';
 import { PAGE_SIZE, REASON_OPTIONS } from '@/shared/utils/constants';
 import { IconMove } from '@/shared/components/icons';
+import { PickerAvatar } from '@/shared/components/PickerAvatar';
 import { formatDateTime } from '@/shared/utils/formatters';
 
 function pickedByLabel(m) {
@@ -70,7 +71,7 @@ export default function AdminMovements() {
     [flatRows, dateFrom, dateTo]
   );
 
-  const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
+  const { search, setSearch, filters, setFilter, sort, toggleSort, page, setPage, totalPages, totalCount, pageRows } =
     useTableControls(dateFiltered, {
       searchFields: ['bt_code', 'product_name', 'picked_by_label'],
       initialSort: { key: 'picked_at', dir: 'desc' },
@@ -81,7 +82,7 @@ export default function AdminMovements() {
       <PageHeader title="Movements" description="Full movement log across every hall." />
 
       <Card>
-        <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">
+        <div className="sticky top-16 z-[1] bg-card px-4 py-3 border-b border-border flex flex-wrap items-center gap-2 rounded-t-card shadow-sm">
           <SearchInput value={search} onChange={setSearch} placeholder="Search BT code or picker..." className="max-w-xs" />
           <Select value={filters.hall_id || 'all'} onChange={(e) => setFilter('hall_id', e.target.value)} className="w-auto min-w-[140px]">
             <option value="all">All halls</option>
@@ -134,13 +135,17 @@ export default function AdminMovements() {
             <Table className="hidden md:table">
               <Thead>
                 <Tr>
-                  <Th>BT Code</Th>
+                  <Th sortable active={sort?.key === 'bt_code'} dir={sort?.dir} onClick={() => toggleSort('bt_code')}>
+                    BT Code
+                  </Th>
                   <Th>Buyer</Th>
                   <Th>Hall</Th>
                   <Th>Picked By</Th>
                   <Th>Reason</Th>
                   <Th>Status</Th>
-                  <Th className="text-right">Picked At</Th>
+                  <Th sortable active={sort?.key === 'picked_at'} dir={sort?.dir} onClick={() => toggleSort('picked_at')} className="text-right">
+                    Picked At
+                  </Th>
                   <Th className="text-right">Returned At</Th>
                 </Tr>
               </Thead>
@@ -150,7 +155,9 @@ export default function AdminMovements() {
                     <Td className="font-medium">{m.bt_code}</Td>
                     <Td className="text-ink-secondary">{m.buyer_name}</Td>
                     <Td className="text-ink-secondary">{m.hall_name}</Td>
-                    <Td>{m.picked_by_label}</Td>
+                    <Td>
+                      <PickerAvatar name={m.picked_by_label} />
+                    </Td>
                     <Td>
                       <Badge>{reasonLabel(m)}</Badge>
                     </Td>

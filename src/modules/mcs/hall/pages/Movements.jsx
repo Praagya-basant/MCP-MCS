@@ -18,6 +18,7 @@ import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { exportToExcel } from '@/shared/lib/excelExport';
 import { PAGE_SIZE, REASON_OPTIONS } from '@/shared/utils/constants';
 import { IconMove, IconDownload } from '@/shared/components/icons';
+import { PickerAvatar } from '@/shared/components/PickerAvatar';
 import { formatDateTime } from '@/shared/utils/formatters';
 
 function movementsToRows(rows) {
@@ -98,7 +99,7 @@ export default function HallMovements() {
       />
 
       <Card>
-        <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">
+        <div className="sticky top-16 z-[1] bg-card px-4 py-3 border-b border-border flex flex-wrap items-center gap-2 rounded-t-card shadow-sm">
           <SearchInput value={search} onChange={setSearch} placeholder="Search BT code or picker..." className="max-w-xs" />
           <Select value={filters.reason || 'all'} onChange={(e) => setFilter('reason', e.target.value)} className="w-auto min-w-[140px]">
             <option value="all">All reasons</option>
@@ -146,7 +147,9 @@ export default function HallMovements() {
                   <Tr key={m.id}>
                     <Td className="font-medium">{m.bt_code}</Td>
                     <Td className="text-ink-secondary">{m.buyer_name}</Td>
-                    <Td>{m.picked_by_name}</Td>
+                    <Td>
+                      <PickerAvatar name={m.picked_by_name} />
+                    </Td>
                     <Td>
                       <Badge>{m.reason === 'Other' ? m.reason_other || 'Other' : m.reason}</Badge>
                     </Td>
