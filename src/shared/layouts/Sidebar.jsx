@@ -26,7 +26,7 @@ export function Sidebar({ sections, subtitle }) {
   const badgeValues = { feedbackUnread: unreadCount || 0 };
 
   return (
-    <aside className="w-[240px] shrink-0 h-screen sticky top-0 bg-sidebar border-r border-border flex flex-col">
+    <aside className="hidden md:flex w-[240px] shrink-0 h-screen sticky top-0 bg-sidebar border-r border-border flex-col">
       <div className="min-h-[64px] flex items-center px-6 py-6 border-b border-border shrink-0">
         <Logo variant="black" className="h-5 w-auto object-contain" />
       </div>

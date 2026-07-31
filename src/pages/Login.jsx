@@ -81,7 +81,7 @@ export default function Login() {
                 placeholder="you@basant.info"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="interactive h-9 rounded-control border border-border bg-white px-3 text-body text-ink placeholder:text-ink-muted focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink"
+                className="interactive h-11 md:h-9 rounded-control border border-border bg-white px-3 text-body text-ink placeholder:text-ink-muted focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink"
               />
             </div>
 
@@ -96,7 +96,7 @@ export default function Login() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="interactive h-9 rounded-control border border-border bg-white px-3 text-body text-ink placeholder:text-ink-muted focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink"
+                className="interactive h-11 md:h-9 rounded-control border border-border bg-white px-3 text-body text-ink placeholder:text-ink-muted focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink"
               />
             </div>
 
@@ -106,7 +106,7 @@ export default function Login() {
               type="submit"
               disabled={submitting}
               className={cn(
-                'interactive w-full h-[42px] rounded-control bg-ink text-white font-medium',
+                'interactive w-full h-11 md:h-[42px] rounded-control bg-ink text-white font-medium',
                 'hover:bg-[#2b2b2b] disabled:bg-ink/40 disabled:text-white/70 disabled:cursor-not-allowed',
                 'flex items-center justify-center gap-2'
               )}

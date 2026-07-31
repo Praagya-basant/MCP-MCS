@@ -4,6 +4,7 @@ import { PageHeader } from '@/shared/components/PageHeader';
 import { Card } from '@/shared/components/Card';
 import { Button } from '@/shared/components/Button';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
+import { CardList, CardListItem } from '@/shared/components/CardList';
 import { TableSkeleton } from '@/shared/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SearchInput } from '@/shared/components/SearchInput';
@@ -98,7 +99,7 @@ export default function HallSamples() {
           <EmptyState title="No matches" description="Try adjusting your search or filters." />
         ) : (
           <>
-            <Table>
+            <Table className="hidden md:table">
               <Thead>
                 <Tr>
                   <Th className="w-[64px]"></Th>
@@ -128,6 +129,28 @@ export default function HallSamples() {
                 ))}
               </Tbody>
             </Table>
+
+            <div className="md:hidden p-3">
+              <CardList>
+                {pageRows.map((s) => (
+                  <CardListItem
+                    key={s.id}
+                    onClick={() => setSelected(s)}
+                    leading={<SampleThumbnail sample={s} />}
+                    title={<span className="font-mono">{s.bt_code}</span>}
+                    subtitle={s.product_name}
+                    trailing={<StatusBadge status={s.status} />}
+                    meta={
+                      <>
+                        <span>{s.buyer_name}</span>
+                        <span>{s.lastMovement ? formatRelativeTime(s.lastMovement) : 'No movement yet'}</span>
+                      </>
+                    }
+                  />
+                ))}
+              </CardList>
+            </div>
+
             <Pagination page={page} totalPages={totalPages} totalCount={totalCount} pageSize={PAGE_SIZE} onPageChange={setPage} />
           </>
         )}

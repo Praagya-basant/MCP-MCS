@@ -238,7 +238,7 @@ export function UploadSamplesModal({ open, buyer, onClose, onImported }) {
       open={open}
       onClose={handleClose}
       title="Upload Samples"
-      maxWidth="max-w-[640px]"
+      maxWidth="md:max-w-[640px]"
       footer={
         result ? (
           <Button onClick={handleClose}>Done</Button>

@@ -26,8 +26,30 @@ const navSections = [
   },
 ];
 
+// Bottom nav only fits 4 real routes + the always-present Profile tab —
+// the rest (Halls/Feedback/Settings) live in the Profile sheet's "More"
+// list instead (see BottomNav).
+const mobileNavItems = [
+  { to: '/admin/dashboard', label: 'Dashboard', icon: <IconGrid />, end: true },
+  { to: '/admin/team', label: 'Team', icon: <IconUsers /> },
+  { to: '/admin/samples', label: 'Samples', icon: <IconBox /> },
+  { to: '/admin/movements', label: 'Movements', icon: <IconMove /> },
+];
+
+const mobileMoreItems = [
+  { to: '/admin/halls', label: 'Halls', icon: <IconLayers /> },
+  { to: '/admin/feedback', label: 'Feedback', icon: <IconMessage />, badgeKey: 'feedbackUnread' },
+  { to: '/admin/settings', label: 'Settings', icon: <IconSettings /> },
+];
+
 export default function AdminLayout() {
   return (
-    <DashboardLayout navSections={navSections} sidebarSubtitle="Admin" contextLabel="Admin" />
+    <DashboardLayout
+      navSections={navSections}
+      sidebarSubtitle="Admin"
+      contextLabel="Admin"
+      mobileNavItems={mobileNavItems}
+      mobileMoreItems={mobileMoreItems}
+    />
   );
 }

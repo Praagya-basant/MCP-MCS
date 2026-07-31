@@ -15,6 +15,11 @@
 
   body {
     @apply bg-bg text-ink text-body antialiased;
+    /* Removes the ~300ms double-tap-to-zoom delay on touch devices and the
+       gray flash Android/Chrome shows on tap — both read as "lag" even
+       though nothing is actually slow. */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* Hide the browser's native page scrollbar everywhere — scrolling
@@ -44,7 +49,7 @@
 
 @layer components {
   .interactive {
-    transition: all 0.15s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .scrollbar-thin {

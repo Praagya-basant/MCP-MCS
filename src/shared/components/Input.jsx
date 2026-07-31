@@ -6,7 +6,7 @@ export const Input = forwardRef(function Input({ className, error, ...props }, r
     <input
       ref={ref}
       className={cn(
-        'interactive w-full h-9 rounded-control border bg-white px-3 text-body text-ink placeholder:text-ink-muted',
+        'interactive w-full h-11 md:h-9 rounded-control border bg-white px-3 text-body text-ink placeholder:text-ink-muted',
         'focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink',
         error ? 'border-red-400' : 'border-border',
         props.disabled && 'bg-surface-subtle text-ink-muted cursor-not-allowed',
@@ -38,7 +38,7 @@ export const Select = forwardRef(function Select({ className, error, children, .
       <select
         ref={ref}
         className={cn(
-          'interactive w-full h-9 appearance-none rounded-control border bg-white pl-3 pr-8 text-body text-ink',
+          'interactive w-full h-11 md:h-9 appearance-none rounded-control border bg-white pl-3 pr-8 text-body text-ink',
           'focus:outline-none focus:ring-[1.5px] focus:ring-ink focus:border-ink',
           error ? 'border-red-400' : 'border-border',
           props.disabled && 'bg-surface-subtle text-ink-muted cursor-not-allowed',

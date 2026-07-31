@@ -3,12 +3,15 @@ import { createPortal } from 'react-dom';
 import { cn } from '@/shared/utils/cn';
 
 /**
- * Right-side panel, 480px wide. Stays mounted for the 0.25s close
- * transition (mounted vs. visible are separate states) instead of
- * vanishing instantly, so both open and close animate. Deliberately has
- * no built-in header/title bar — callers with rich headers (e.g. the
- * sample detail drawer's image + badges) render their own; pass a plain
- * `title` for a simple text + close-button bar instead.
+ * Right-side panel, 480px wide at md: and up — full-screen below that
+ * (max-width only kicks in at md:, so mobile is always the full viewport
+ * width regardless of exact device size, not just "coincidentally full
+ * width" because most phones happen to be under 480px). Stays mounted for
+ * the 0.25s close transition (mounted vs. visible are separate states)
+ * instead of vanishing instantly, so both open and close animate.
+ * Deliberately has no built-in header/title bar — callers with rich
+ * headers (e.g. the sample detail drawer's image + badges) render their
+ * own; pass a plain `title` for a simple text + close-button bar instead.
  */
 export function Drawer({ open, onClose, title, children }) {
   const [mounted, setMounted] = useState(open);
@@ -48,7 +51,7 @@ export function Drawer({ open, onClose, title, children }) {
       />
       <div
         className={cn(
-          'drawer-panel relative w-full max-w-[480px] h-full bg-white shadow-xl flex flex-col',
+          'drawer-panel relative w-full md:max-w-[480px] h-full bg-white shadow-xl flex flex-col',
           visible ? 'translate-x-0' : 'translate-x-full'
         )}
       >

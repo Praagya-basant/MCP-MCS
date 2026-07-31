@@ -15,6 +15,12 @@ const navSections = [
   },
 ];
 
+// 5 real routes don't fit the 4-slot bottom nav (5th slot is always
+// Profile) — Export is the least-frequently-tapped one, so it moves into
+// the Profile sheet's "More" list instead.
+const mobileNavItems = navSections[0].items.slice(0, 4);
+const mobileMoreItems = navSections[0].items.slice(4);
+
 export default function MerchantLayout() {
   const { profile } = useAuth();
   const buyerName = profile?.buyer?.name;
@@ -24,6 +30,8 @@ export default function MerchantLayout() {
       navSections={navSections}
       sidebarSubtitle="Merchant"
       contextLabel={buyerName || 'Merchant'}
+      mobileNavItems={mobileNavItems}
+      mobileMoreItems={mobileMoreItems}
     />
   );
 }

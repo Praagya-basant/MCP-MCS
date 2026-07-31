@@ -120,7 +120,7 @@ export function BulkImageUploadModal({ open, samples, onClose, onUploaded }) {
       open={open}
       onClose={handleClose}
       title="Upload Images"
-      maxWidth="max-w-[640px]"
+      maxWidth="md:max-w-[640px]"
       footer={
         result ? (
           <Button onClick={handleClose}>Done</Button>

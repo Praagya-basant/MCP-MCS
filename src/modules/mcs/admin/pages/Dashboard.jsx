@@ -126,7 +126,7 @@ export default function AdminDashboard() {
     <div>
       <PageHeader title="Dashboard" description="Platform-wide overview across every hall and buyer." />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-8">
         {loading || !stats ? (
           <>
             <StatCardSkeleton />

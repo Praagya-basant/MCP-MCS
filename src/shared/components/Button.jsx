@@ -16,9 +16,11 @@ const VARIANTS = {
     'bg-status-checked-out-text text-white hover:bg-[#b45f04] disabled:opacity-40',
 };
 
+// 44px minimum tap target on mobile regardless of size variant (Apple HIG /
+// Material guidance) — desktop keeps today's tighter density unchanged.
 const SIZES = {
-  md: 'h-9 px-4 text-body',
-  sm: 'h-8 px-3 text-caption',
+  md: 'h-11 md:h-9 px-4 text-body',
+  sm: 'h-11 md:h-8 px-3 text-caption',
 };
 
 export const Button = forwardRef(function Button(

@@ -76,7 +76,7 @@ export function IssueSampleModal({ open, onClose, sample, onSuccess }) {
       open={open}
       onClose={handleClose}
       title="Issue Sample"
-      maxWidth="max-w-[520px]"
+      maxWidth="md:max-w-[520px]"
       footer={
         <>
           <Button variant="ghost" onClick={handleClose} disabled={submitting}>

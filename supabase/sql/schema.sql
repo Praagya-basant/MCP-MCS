@@ -638,6 +638,266 @@ create policy "sample_images_delete" on storage.objects for delete to authentica
   );
 
 -- ============================================================================
+-- 7. MAJOR UPGRADE (Foundation phase) — MCP module tables, validity/shift
+-- request tables, notifications, and new columns on samples/movements.
+-- Nothing here is wired to any UI yet (that's later phases) — this is
+-- purely the schema so every later phase has ground to build on. Written
+-- and reviewed against the live schema above, not run against the DB by
+-- me directly (no service-role access) — hand this whole file to the
+-- Supabase SQL editor.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 7a. New columns on existing tables
+-- ----------------------------------------------------------------------------
+
+alter table samples
+  add column if not exists buyer_code text,
+  add column if not exists collection_name text,
+  add column if not exists signed_by text,
+  add column if not exists signed_date date,
+  add column if not exists validity_months integer,
+  add column if not exists expiry_date date,
+  add column if not exists date_added_to_hall date;
+
+-- halls.name already exists (added in an earlier session) — kept for
+-- idempotency so this file stays runnable standalone on a fresh project.
+alter table halls add column if not exists name text;
+
+alter table movements
+  add column if not exists from_hall_id uuid references halls(id),
+  add column if not exists destination_hall_id uuid references halls(id),
+  add column if not exists purchaser_name text,
+  add column if not exists supplier_name text,
+  add column if not exists photo_url text,
+  add column if not exists signature_url text;
+
+-- ----------------------------------------------------------------------------
+-- 7b. New tables
+-- ----------------------------------------------------------------------------
+
+create table if not exists panels (
+  id uuid primary key default gen_random_uuid(),
+  buyer_id uuid references buyers(id) not null,
+  hall_id uuid references halls(id) not null,
+  panel_code text,
+  panel_name text not null,
+  panel_ref text,
+  panel_finish text,
+  finish_recipe text,
+  collection_name text,
+  image_url text,
+  status text default 'in_hall' check (status in ('in_hall','issued','retired')),
+  is_shared boolean default false,
+  signed_by text,
+  signed_date date,
+  validity_months integer,
+  expiry_date date,
+  date_added_to_hall date,
+  created_at timestamptz default now()
+);
+
+create table if not exists panel_movements (
+  id uuid primary key default gen_random_uuid(),
+  panel_id uuid references panels(id) not null,
+  from_hall_id uuid references halls(id),
+  destination text not null,
+  destination_hall_id uuid references halls(id),
+  picked_by_name text not null,
+  picked_by_email text,
+  reason text not null,
+  reason_other text,
+  purchaser_name text,
+  supplier_name text,
+  photo_url text,
+  signature_url text,
+  status text default 'out' check (status in ('out','returned')),
+  picked_at timestamptz default now(),
+  returned_at timestamptz,
+  notes text,
+  logged_by uuid references profiles(id)
+);
+
+create table if not exists shift_requests (
+  id uuid primary key default gen_random_uuid(),
+  item_type text not null check (item_type in ('sample','panel')),
+  item_id uuid not null,
+  from_hall_id uuid references halls(id) not null,
+  to_hall_id uuid references halls(id) not null,
+  requested_by uuid references profiles(id) not null,
+  status text default 'pending' check (status in ('pending','approved','rejected')),
+  admin_note text,
+  approved_by uuid references profiles(id),
+  approved_at timestamptz,
+  created_at timestamptz default now()
+);
+
+create table if not exists validity_requests (
+  id uuid primary key default gen_random_uuid(),
+  item_type text not null check (item_type in ('sample','panel')),
+  item_id uuid not null,
+  requested_by uuid references profiles(id) not null,
+  requested_months integer,
+  requested_expiry_date date,
+  reason text,
+  status text default 'pending' check (status in ('pending','approved','rejected')),
+  approved_by uuid references profiles(id),
+  approved_at timestamptz,
+  created_at timestamptz default now()
+);
+
+-- Already exists (built in an earlier session) — kept here so this file
+-- stays runnable standalone; the create is a no-op against the live DB.
+create table if not exists merchant_buyers (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid references profiles(id) not null,
+  buyer_id uuid references buyers(id) not null,
+  unique(profile_id, buyer_id)
+);
+
+create table if not exists notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid references profiles(id) not null,
+  title text not null,
+  message text not null,
+  type text not null,
+  item_type text,
+  item_id uuid,
+  is_read boolean default false,
+  created_at timestamptz default now()
+);
+
+-- ----------------------------------------------------------------------------
+-- 7c. Indexes
+-- ----------------------------------------------------------------------------
+
+create index if not exists idx_samples_expiry_date on samples(expiry_date);
+create index if not exists idx_movements_from_hall_id on movements(from_hall_id);
+create index if not exists idx_movements_destination_hall_id on movements(destination_hall_id);
+create index if not exists idx_panels_buyer_id on panels(buyer_id);
+create index if not exists idx_panels_hall_id on panels(hall_id);
+create index if not exists idx_panels_status on panels(status);
+create index if not exists idx_panels_expiry_date on panels(expiry_date);
+create index if not exists idx_panel_movements_panel_id on panel_movements(panel_id);
+create index if not exists idx_panel_movements_status on panel_movements(status);
+create index if not exists idx_panel_movements_picked_at on panel_movements(picked_at);
+create index if not exists idx_shift_requests_item_id on shift_requests(item_id);
+create index if not exists idx_shift_requests_requested_by on shift_requests(requested_by);
+create index if not exists idx_shift_requests_status on shift_requests(status);
+create index if not exists idx_validity_requests_item_id on validity_requests(item_id);
+create index if not exists idx_validity_requests_requested_by on validity_requests(requested_by);
+create index if not exists idx_validity_requests_status on validity_requests(status);
+create index if not exists idx_notifications_recipient_id on notifications(recipient_id);
+create index if not exists idx_notifications_is_read on notifications(is_read);
+create index if not exists idx_notifications_created_at on notifications(created_at);
+
+-- ----------------------------------------------------------------------------
+-- 7d. Row level security
+--
+-- These are tightened from the original draft spec, which omitted `for`
+-- clauses on several policies — without one, a policy defaults to `for
+-- all` (select/insert/update/delete together), which would have let
+-- merchants write to panels (spec says they're read-only) and let a
+-- shift/validity requester edit their own request's status after
+-- submitting it (only admin should ever change status — that happens via
+-- an RPC in the phase that builds the approval flow, matching the
+-- existing checkout_sample/return_sample pattern). Split into explicit
+-- `for select` / `for insert` / `for update` below instead.
+-- ----------------------------------------------------------------------------
+
+alter table panels enable row level security;
+alter table panel_movements enable row level security;
+alter table shift_requests enable row level security;
+alter table validity_requests enable row level security;
+alter table merchant_buyers enable row level security;
+alter table notifications enable row level security;
+
+-- panels: same shape as samples_select/samples_insert. is_shared cross-buyer
+-- visibility is deferred to the MCP module build — this is the baseline.
+drop policy if exists "panels_select" on panels;
+create policy "panels_select" on panels for select to authenticated
+  using (
+    public.is_super_admin()
+    or (public.current_role() = 'hall_manager' and hall_id = public.current_hall_id())
+    or (public.current_role() = 'merchant' and public.is_merchant_buyer(buyer_id))
+  );
+
+drop policy if exists "panels_insert" on panels;
+create policy "panels_insert" on panels for insert to authenticated
+  with check (
+    public.is_super_admin()
+    or (public.current_role() = 'hall_manager' and hall_id = public.current_hall_id())
+  );
+
+drop policy if exists "panels_update_admin" on panels;
+create policy "panels_update_admin" on panels for update to authenticated
+  using (public.is_super_admin());
+
+-- panel_movements: read-scoped via the parent panel's hall/buyer, mirroring
+-- movements_select. No insert/update policy yet — writes will go through a
+-- SECURITY DEFINER RPC (like checkout_sample/return_sample) once the panel
+-- issue/return flow is built; until then RLS blocks all writes by default.
+drop policy if exists "panel_movements_select" on panel_movements;
+create policy "panel_movements_select" on panel_movements for select to authenticated
+  using (
+    public.is_super_admin()
+    or exists (
+      select 1 from panels p where p.id = panel_movements.panel_id
+      and (
+        (public.current_role() = 'hall_manager' and p.hall_id = public.current_hall_id())
+        or (public.current_role() = 'merchant' and public.is_merchant_buyer(p.buyer_id))
+      )
+    )
+  );
+
+-- shift_requests: requester (manager or merchant) sees their own; admin
+-- sees all. Broader visibility (e.g. a hall manager seeing a merchant-
+-- raised request for their hall) is added when the shift-request flow
+-- itself is built. Approval is admin-only.
+drop policy if exists "shift_requests_select" on shift_requests;
+create policy "shift_requests_select" on shift_requests for select to authenticated
+  using (public.is_super_admin() or requested_by = auth.uid());
+
+drop policy if exists "shift_requests_insert" on shift_requests;
+create policy "shift_requests_insert" on shift_requests for insert to authenticated
+  with check (requested_by = auth.uid());
+
+drop policy if exists "shift_requests_update_admin" on shift_requests;
+create policy "shift_requests_update_admin" on shift_requests for update to authenticated
+  using (public.is_super_admin());
+
+-- validity_requests: merchants raise their own, admin approves. Mirrors
+-- recall_requests_insert_merchant's shape.
+drop policy if exists "validity_requests_select" on validity_requests;
+create policy "validity_requests_select" on validity_requests for select to authenticated
+  using (public.is_super_admin() or requested_by = auth.uid());
+
+drop policy if exists "validity_requests_insert_merchant" on validity_requests;
+create policy "validity_requests_insert_merchant" on validity_requests for insert to authenticated
+  with check (public.current_role() = 'merchant' and requested_by = auth.uid());
+
+drop policy if exists "validity_requests_update_admin" on validity_requests;
+create policy "validity_requests_update_admin" on validity_requests for update to authenticated
+  using (public.is_super_admin());
+
+-- merchant_buyers: already has its "Admin full access" policy from an
+-- earlier session (admin-only select/insert/update/delete) — nothing to
+-- add here; re-stated in the enable-RLS block above only for idempotency.
+
+-- notifications: recipient reads/marks their own read; admin reads all.
+-- No insert policy for regular users on purpose — notifications are
+-- system-generated (via a SECURITY DEFINER RPC or the service-role edge
+-- function), not user-authored, even to yourself. That write path is
+-- added in the notification-service phase.
+drop policy if exists "notifications_select_own" on notifications;
+create policy "notifications_select_own" on notifications for select to authenticated
+  using (recipient_id = auth.uid() or public.is_super_admin());
+
+drop policy if exists "notifications_update_own" on notifications;
+create policy "notifications_update_own" on notifications for update to authenticated
+  using (recipient_id = auth.uid() or public.is_super_admin());
+
+-- ============================================================================
 -- Done. Next steps (see CLAUDE.md / README for the full checklist):
 --   1. Deploy the `send-notification` and `create-user` edge functions.
 --   2. Create your first super_admin: add a user in Supabase Auth, then

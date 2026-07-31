@@ -6,8 +6,15 @@ import { cn } from '@/shared/utils/cn';
  * Stays mounted for the close transition (mounted vs. visible are
  * separate states) instead of vanishing instantly, so both open and
  * close animate.
+ *
+ * Mobile (<md): bottom sheet — flush to the screen edges, slides up from
+ * the bottom, only the top corners rounded. Desktop (md:+): today's
+ * centered dialog, unchanged. `maxWidth` only takes effect at md: and up
+ * (callers pass it pre-prefixed, e.g. `"md:max-w-[640px]"` — Tailwind's
+ * static scanner needs the literal class string in source, so it can't be
+ * built by prefixing a plain `"max-w-[640px]"` at runtime here).
  */
-export function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-[480px]' }) {
+export function Modal({ open, onClose, title, children, footer, maxWidth = 'md:max-w-[480px]' }) {
   const [mounted, setMounted] = useState(open);
   const [visible, setVisible] = useState(false);
 
@@ -38,15 +45,18 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 'max-
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
       <div
         className={cn('modal-overlay absolute inset-0 bg-black/40', visible ? 'opacity-100' : 'opacity-0')}
         onClick={onClose}
       />
       <div
         className={cn(
-          'modal-panel relative w-full bg-white rounded-modal shadow-xl flex flex-col max-h-[90vh]',
-          visible ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.98]',
+          'modal-panel relative w-full bg-white shadow-xl flex flex-col',
+          'max-h-[92vh] rounded-t-2xl md:rounded-t-modal md:rounded-b-modal md:max-h-[90vh]',
+          visible
+            ? 'translate-y-0 opacity-100 md:scale-100'
+            : 'translate-y-full opacity-0 md:translate-y-0 md:scale-[0.98]',
           maxWidth
         )}
         role="dialog"
@@ -57,7 +67,7 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 'max-
             <h2 className="text-heading font-semibold text-ink select-none">{title}</h2>
             <button
               onClick={onClose}
-              className="text-ink-muted hover:text-ink interactive"
+              className="interactive w-9 h-9 -mr-2 flex items-center justify-center text-ink-muted hover:text-ink"
               aria-label="Close"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">

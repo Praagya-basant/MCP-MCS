@@ -17,6 +17,10 @@ const navSections = [
   },
 ];
 
+// All 3 routes fit in the bottom nav with room to spare — no overflow
+// into the Profile sheet's "More" list needed for this role.
+const mobileNavItems = navSections[0].items;
+
 export default function HallLayout() {
   const { profile } = useAuth();
 
@@ -25,6 +29,7 @@ export default function HallLayout() {
       navSections={navSections}
       sidebarSubtitle="Manager"
       contextLabel={profile?.hall?.name || 'Manager'}
+      mobileNavItems={mobileNavItems}
     />
   );
 }

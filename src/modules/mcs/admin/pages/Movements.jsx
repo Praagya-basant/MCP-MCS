@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Card } from '@/shared/components/Card';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
+import { CardList, CardListItem } from '@/shared/components/CardList';
 import { TableSkeleton } from '@/shared/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SearchInput } from '@/shared/components/SearchInput';
@@ -130,7 +131,7 @@ export default function AdminMovements() {
           <EmptyState title="No matches" description="Try adjusting your search or filters." />
         ) : (
           <>
-            <Table>
+            <Table className="hidden md:table">
               <Thead>
                 <Tr>
                   <Th>BT Code</Th>
@@ -162,6 +163,28 @@ export default function AdminMovements() {
                 ))}
               </Tbody>
             </Table>
+
+            <div className="md:hidden p-3">
+              <CardList>
+                {pageRows.map((m) => (
+                  <CardListItem
+                    key={m.id}
+                    onClick={() => setSelected(m)}
+                    title={<span className="font-mono">{m.bt_code}</span>}
+                    subtitle={`${m.buyer_name || '—'} · ${m.hall_name || '—'}`}
+                    trailing={<MovementStatusBadge status={m.status} />}
+                    meta={
+                      <>
+                        <span>{m.picked_by_label}</span>
+                        <span>{reasonLabel(m)}</span>
+                        <span>{formatDateTime(m.picked_at)}</span>
+                      </>
+                    }
+                  />
+                ))}
+              </CardList>
+            </div>
+
             <Pagination page={page} totalPages={totalPages} totalCount={totalCount} pageSize={PAGE_SIZE} onPageChange={setPage} />
           </>
         )}

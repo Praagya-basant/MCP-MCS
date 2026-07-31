@@ -175,6 +175,15 @@ export function IconTrash(props) {
   );
 }
 
+export function IconUser(props) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20c0-4.1 3.4-7.5 7.5-7.5s7.5 3.4 7.5 7.5" />
+    </svg>
+  );
+}
+
 export function IconSettings(props) {
   return (
     <svg {...base} {...props}>
