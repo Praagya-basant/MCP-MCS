@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Card } from '@/shared/components/Card';
 import { Button } from '@/shared/components/Button';
@@ -24,6 +24,7 @@ import { useOpenPanelFromLocation } from '@/modules/mcp/hooks/useOpenPanelFromLo
 
 export default function HallPanels() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: panels, loading, reload } = useAsyncData(listPanels, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listPanelMovements, []);
   const [selected, setSelected] = useState(null);
@@ -43,7 +44,10 @@ export default function HallPanels() {
   );
 
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
-    useTableControls(rows, { searchFields: ['panel_code', 'panel_name'] });
+    useTableControls(rows, {
+      searchFields: ['panel_code', 'panel_name'],
+      initialFilters: location.state?.statusFilter ? { status: location.state.statusFilter } : undefined,
+    });
 
   const statusTabs = useMemo(
     () => [

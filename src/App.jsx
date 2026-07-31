@@ -39,9 +39,11 @@ import MerchantExport from '@/modules/mcs/merchant/pages/Export';
 import AdminMcpDashboard from '@/modules/mcp/admin/pages/Dashboard';
 import AdminPanels from '@/modules/mcp/admin/pages/Panels';
 import AdminPanelMovements from '@/modules/mcp/admin/pages/Movements';
+import HallMcpDashboard from '@/modules/mcp/hall/pages/Dashboard';
 import HallPanels from '@/modules/mcp/hall/pages/Panels';
 import HallAddPanel from '@/modules/mcp/hall/pages/AddPanel';
 import HallPanelMovements from '@/modules/mcp/hall/pages/Movements';
+import MerchantMcpDashboard from '@/modules/mcp/merchant/pages/Dashboard';
 import MerchantPanels from '@/modules/mcp/merchant/pages/Panels';
 
 function RootRedirect() {
@@ -93,6 +95,7 @@ function AppRoutes() {
           <Route path="samples" element={<HallSamples />} />
           <Route path="add-sample" element={<HallAddSample />} />
           <Route path="movements" element={<HallMovements />} />
+          <Route path="mcp/dashboard" element={<HallMcpDashboard />} />
           <Route path="mcp/panels" element={<HallPanels />} />
           <Route path="mcp/add-panel" element={<HallAddPanel />} />
           <Route path="mcp/movements" element={<HallPanelMovements />} />
@@ -108,6 +111,7 @@ function AppRoutes() {
           <Route path="history" element={<MerchantHistory />} />
           <Route path="recalls" element={<MerchantRecalls />} />
           <Route path="export" element={<MerchantExport />} />
+          <Route path="mcp/dashboard" element={<MerchantMcpDashboard />} />
           <Route path="mcp/panels" element={<MerchantPanels />} />
         </Route>
       </Route>

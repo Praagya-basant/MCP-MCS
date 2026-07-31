@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Card } from '@/shared/components/Card';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/shared/components/Table';
@@ -19,12 +20,13 @@ import { PanelDetailDrawer } from '@/modules/mcp/components/PanelDetailDrawer';
 import { useOpenPanelFromLocation } from '@/modules/mcp/hooks/useOpenPanelFromLocation';
 
 export default function MerchantPanels() {
+  const location = useLocation();
   const { data: panels, loading, reload } = useAsyncData(listPanels, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listPanelMovements, []);
   const [selected, setSelected] = useState(null);
   useOpenPanelFromLocation(panels, setSelected);
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('all');
+  const [status, setStatus] = useState(location.state?.statusFilter || 'all');
 
   const openHopMap = useMemo(() => {
     const map = {};

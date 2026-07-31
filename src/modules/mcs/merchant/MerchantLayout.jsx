@@ -15,7 +15,10 @@ const navSections = [
   },
   {
     title: 'MCP',
-    items: [{ to: '/merchant/mcp/panels', label: 'Panels', icon: <IconLayers /> }],
+    items: [
+      { to: '/merchant/mcp/dashboard', label: 'Dashboard', icon: <IconGrid /> },
+      { to: '/merchant/mcp/panels', label: 'Panels', icon: <IconLayers /> },
+    ],
   },
 ];
 

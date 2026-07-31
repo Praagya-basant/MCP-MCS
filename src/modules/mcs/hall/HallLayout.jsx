@@ -17,6 +17,7 @@ const navSections = [
   {
     title: 'MCP',
     items: [
+      { to: '/hall/mcp/dashboard', label: 'Dashboard', icon: <IconGrid /> },
       { to: '/hall/mcp/panels', label: 'Panels', icon: <IconLayers /> },
       { to: '/hall/mcp/movements', label: 'Movements', icon: <IconMove /> },
     ],
