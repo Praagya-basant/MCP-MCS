@@ -61,18 +61,20 @@ export default function Login() {
         <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-white/[0.03] blur-3xl" aria-hidden="true" />
         <div className="pointer-events-none absolute -bottom-32 -right-16 w-96 h-96 rounded-full bg-white/[0.04] blur-3xl" aria-hidden="true" />
 
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="relative flex flex-col items-center md:absolute md:left-1/2 md:top-[40%] md:w-full md:-translate-x-1/2 md:-translate-y-1/2 md:px-8"
-        >
-          <Logo variant="white" className="h-10 md:h-12 w-auto object-contain" />
-          <p className="mt-4 text-caption tracking-[0.15em] uppercase text-white/50">
-            furniture | lighting | homedecor
-          </p>
-          <div className="mt-6 w-10 h-px bg-white/15" />
-        </motion.div>
+        <div className="relative flex flex-col items-center md:absolute md:left-1/2 md:top-[40%] md:w-full md:-translate-x-1/2 md:-translate-y-1/2 md:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col items-center"
+          >
+            <Logo variant="white" className="h-10 md:h-12 w-auto object-contain" />
+            <p className="mt-4 text-caption tracking-[0.15em] uppercase text-white/50">
+              furniture | lighting | homedecor
+            </p>
+            <div className="mt-6 w-10 h-px bg-white/15" />
+          </motion.div>
+        </div>
       </div>
 
       {/* Right — login card */}
