@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Modal } from '@/shared/components/Modal';
-import { Button } from '@/shared/components/Button';
-import { FileUpload } from '@/shared/components/FileUpload';
+import { Modal } from '@/core/components/Modal';
+import { Button } from '@/core/components/Button';
+import { FileUpload } from '@/core/components/FileUpload';
 import { uploadAndSetPanelImage } from '@/modules/mcp/api/panelsApi';
-import { useToast } from '@/shared/context/ToastContext';
+import { useToast } from '@/core/context/ToastContext';
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png'];
 const ACCEPTED_EXTENSIONS = ['.jpg', '.jpeg', '.png'];

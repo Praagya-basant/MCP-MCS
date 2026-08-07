@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { Modal } from '@/shared/components/Modal';
-import { Button } from '@/shared/components/Button';
-import { Select, Textarea, FormField } from '@/shared/components/Input';
-import { createShiftRequest } from '@/modules/mcs/api/shiftRequestsApi';
-import { listHalls } from '@/modules/mcs/api/hallsApi';
-import { useAsyncData } from '@/shared/hooks/useAsyncData';
-import { useAuth } from '@/shared/context/AuthContext';
-import { useToast } from '@/shared/context/ToastContext';
-import { ROLE_LABELS } from '@/shared/utils/constants';
+import { Modal } from '@/core/components/Modal';
+import { Button } from '@/core/components/Button';
+import { Select, Textarea, FormField } from '@/core/components/Input';
+import { createShiftRequest } from '@/core/lib/shiftRequestsApi';
+import { listHalls } from '@/core/lib/hallsApi';
+import { useAsyncData } from '@/core/hooks/useAsyncData';
+import { useAuth } from '@/core/auth/AuthContext';
+import { useToast } from '@/core/context/ToastContext';
+import { ROLE_LABELS } from '@/core/utils/constants';
 
 /**
  * Raised by the current hall's manager or the sample's own merchant to

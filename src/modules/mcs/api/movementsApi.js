@@ -1,6 +1,6 @@
-import { supabase, SAMPLE_IMAGES_BUCKET } from '@/shared/lib/supabaseClient';
-import { sendNotification } from '@/shared/lib/notify';
-import { shortenBuyerName } from '@/shared/utils/formatters';
+import { supabase, SAMPLE_IMAGES_BUCKET } from '@/core/lib/supabaseClient';
+import { sendNotification } from '@/core/notifications/notify';
+import { shortenBuyerName } from '@/core/utils/formatters';
 
 /**
  * Photo/signature both land in the same public `sample-images` bucket

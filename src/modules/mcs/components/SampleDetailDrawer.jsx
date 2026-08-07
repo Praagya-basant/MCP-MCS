@@ -1,29 +1,29 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Drawer } from '@/shared/components/Drawer';
-import { StatusBadge, Badge, ValidityBadge } from '@/shared/components/Badge';
-import { Textarea } from '@/shared/components/Input';
-import { Button } from '@/shared/components/Button';
-import { CardListSkeleton } from '@/shared/components/Skeleton';
-import { EmptyState } from '@/shared/components/EmptyState';
-import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
+import { Drawer } from '@/core/components/Drawer';
+import { StatusBadge, Badge, ValidityBadge } from '@/core/components/Badge';
+import { Textarea } from '@/core/components/Input';
+import { Button } from '@/core/components/Button';
+import { CardListSkeleton } from '@/core/components/Skeleton';
+import { EmptyState } from '@/core/components/EmptyState';
+import { ConfirmDialog } from '@/core/components/ConfirmDialog';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { IssueSampleModal } from '@/modules/mcs/components/IssueSampleModal';
 import { ForwardSampleModal } from '@/modules/mcs/components/ForwardSampleModal';
-import { ManageValidityModal } from '@/shared/components/ManageValidityModal';
-import { RaiseRecallModal } from '@/modules/mcs/merchant/components/RaiseRecallModal';
-import { RequestValidityExtensionModal } from '@/shared/components/RequestValidityExtensionModal';
+import { ManageValidityModal } from '@/core/components/ManageValidityModal';
+import { RaiseRecallModal } from '@/modules/mcs/pages/merchant/components/RaiseRecallModal';
+import { RequestValidityExtensionModal } from '@/core/components/RequestValidityExtensionModal';
 import { RaiseShiftRequestModal } from '@/modules/mcs/components/RaiseShiftRequestModal';
 import { SampleImageModal } from '@/modules/mcs/components/SampleImageModal';
-import { useAuth } from '@/shared/context/AuthContext';
-import { useToast } from '@/shared/context/ToastContext';
+import { useAuth } from '@/core/auth/AuthContext';
+import { useToast } from '@/core/context/ToastContext';
 import { listMovementsForSample, getOpenMovementForSample, returnSample } from '@/modules/mcs/api/movementsApi';
 import { getSample } from '@/modules/mcs/api/samplesApi';
 import { listComments, addComment } from '@/modules/mcs/api/commentsApi';
-import { listValidityChanges } from '@/shared/lib/validityApi';
-import { formatDateTime, formatDate, initials, getSampleDisplayStatus } from '@/shared/utils/formatters';
-import { SAMPLE_STATUS, ROLES } from '@/shared/utils/constants';
-import { cn } from '@/shared/utils/cn';
+import { listValidityChanges } from '@/core/lib/validityApi';
+import { formatDateTime, formatDate, initials, getSampleDisplayStatus } from '@/core/utils/formatters';
+import { SAMPLE_STATUS, ROLES } from '@/core/utils/constants';
+import { cn } from '@/core/utils/cn';
 
 const TABS = [
   { id: 'details', label: 'Details' },

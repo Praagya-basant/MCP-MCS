@@ -1,5 +1,5 @@
-import { supabase, SAMPLE_IMAGES_BUCKET } from '@/shared/lib/supabaseClient';
-import { shortenBuyerName } from '@/shared/utils/formatters';
+import { supabase, SAMPLE_IMAGES_BUCKET } from '@/core/lib/supabaseClient';
+import { shortenBuyerName } from '@/core/utils/formatters';
 
 const SAMPLE_SELECT = '*, buyer:buyers(id, name), hall:halls(id, hall_number, name)';
 

@@ -1,4 +1,4 @@
-import { supabase } from '@/shared/lib/supabaseClient';
+import { supabase } from '@/core/lib/supabaseClient';
 
 export async function listComments(sampleId) {
   const { data, error } = await supabase

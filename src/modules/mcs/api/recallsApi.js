@@ -1,5 +1,5 @@
-import { supabase } from '@/shared/lib/supabaseClient';
-import { sendNotification } from '@/shared/lib/notify';
+import { supabase } from '@/core/lib/supabaseClient';
+import { sendNotification } from '@/core/notifications/notify';
 
 const RECALL_SELECT =
   '*, sample:samples(id, bt_code, product_name, hall_id, buyer_id, hall:halls(id, hall_number, name))';

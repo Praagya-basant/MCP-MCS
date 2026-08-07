@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Button } from '@/shared/components/Button';
+import { Button } from '@/core/components/Button';
 
 export default function NotFound() {
   return (

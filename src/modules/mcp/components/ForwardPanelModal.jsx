@@ -1,16 +1,16 @@
 import { useState } from 'react';
-import { Modal } from '@/shared/components/Modal';
-import { Button } from '@/shared/components/Button';
-import { Input, Select, Textarea, FormField } from '@/shared/components/Input';
-import { FileUpload } from '@/shared/components/FileUpload';
-import { SignaturePad } from '@/shared/components/SignaturePad';
+import { Modal } from '@/core/components/Modal';
+import { Button } from '@/core/components/Button';
+import { Input, Select, Textarea, FormField } from '@/core/components/Input';
+import { FileUpload } from '@/core/components/FileUpload';
+import { SignaturePad } from '@/core/components/SignaturePad';
 import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { forwardPanel } from '@/modules/mcp/api/panelMovementsApi';
-import { listHalls } from '@/modules/mcs/api/hallsApi';
-import { useAsyncData } from '@/shared/hooks/useAsyncData';
-import { useToast } from '@/shared/context/ToastContext';
-import { NON_HALL_DESTINATIONS, REASON_OPTIONS, PURCHASER_OPTIONS } from '@/shared/utils/constants';
-import { cn } from '@/shared/utils/cn';
+import { listHalls } from '@/core/lib/hallsApi';
+import { useAsyncData } from '@/core/hooks/useAsyncData';
+import { useToast } from '@/core/context/ToastContext';
+import { NON_HALL_DESTINATIONS, REASON_OPTIONS, PURCHASER_OPTIONS } from '@/core/utils/constants';
+import { cn } from '@/core/utils/cn';
 
 const EMPTY = {
   pickedByName: '',
@@ -97,7 +97,7 @@ export function ForwardPanelModal({ open, onClose, panel, movement, onSuccess })
       open={open}
       onClose={handleClose}
       title="Forward Panel"
-      maxWidth="md:max-w-[520px]"
+      maxWidth="max-w-[520px]"
       footer={
         <>
           <Button variant="ghost" onClick={handleClose} disabled={submitting}>

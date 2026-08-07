@@ -27,17 +27,19 @@ export default {
           hover: 'rgb(var(--color-accent-hover) / <alpha-value>)',
           ink: 'rgb(var(--color-accent-ink) / <alpha-value>)',
         },
-        // Semantic status colors — same hue in light/dark (only the tint
-        // backgrounds' perceived weight shifts, automatically, since
-        // they're alpha-blended over each theme's own card color).
+        // Semantic status colors — exact hex values from the design spec
+        // (Success #22C55E/#F0FDF4, Warning #F59E0B/#FFFBEB, Transit
+        // #3B82F6/#EFF6FF, Expired #EF4444/#FEF2F2 in light mode); dark
+        // mode gets its own muted-tint bg vars since the spec is light-
+        // mode-only, but the app's existing dark theme stays supported.
         status: {
-          'in-hall-bg': 'rgb(var(--color-success) / 0.14)',
+          'in-hall-bg': 'rgb(var(--color-success-bg) / <alpha-value>)',
           'in-hall-text': 'rgb(var(--color-success) / <alpha-value>)',
-          'checked-out-bg': 'rgb(var(--color-warning) / 0.14)',
+          'checked-out-bg': 'rgb(var(--color-warning-bg) / <alpha-value>)',
           'checked-out-text': 'rgb(var(--color-warning) / <alpha-value>)',
-          'in-transit-bg': 'rgb(var(--color-info) / 0.14)',
+          'in-transit-bg': 'rgb(var(--color-info-bg) / <alpha-value>)',
           'in-transit-text': 'rgb(var(--color-info) / <alpha-value>)',
-          'expired-bg': 'rgb(var(--color-error) / 0.14)',
+          'expired-bg': 'rgb(var(--color-error-bg) / <alpha-value>)',
           'expired-text': 'rgb(var(--color-error) / <alpha-value>)',
         },
         success: 'rgb(var(--color-success) / <alpha-value>)',
@@ -64,9 +66,8 @@ export default {
         pill: '100px',
       },
       boxShadow: {
-        card: '0 2px 8px rgba(0,0,0,0.08)',
-        lift: '0 8px 20px rgba(0,0,0,0.12)',
-        float: '0 8px 32px rgba(0,0,0,0.12)',
+        card: '0 1px 3px rgba(0,0,0,0.04)',
+        lift: '0 4px 12px rgba(0,0,0,0.08)',
         dropdown: '0 12px 32px rgba(0,0,0,0.14)',
       },
       transitionDuration: {

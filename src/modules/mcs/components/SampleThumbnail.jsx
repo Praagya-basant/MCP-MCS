@@ -1,4 +1,4 @@
-import { ItemThumbnail } from '@/shared/components/ItemThumbnail';
+import { ItemThumbnail } from '@/core/components/ItemThumbnail';
 
 /** Thin sample-shaped wrapper around the generic ItemThumbnail — see that file for the actual rendering. */
 export function SampleThumbnail({ sample, size = 'sm', className }) {
