@@ -18,8 +18,10 @@ import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listBuyers } from '@/core/lib/buyersApi';
 import { listHalls } from '@/core/lib/hallsApi';
 import { PAGE_SIZE, SAMPLE_STATUS } from '@/core/utils/constants';
-import { IconBox, IconCamera, IconLayers, IconUpload, IconTrash } from '@/core/components/icons';
+import { IconBox, IconCamera, IconLayers, IconUpload, IconTrash, IconDownload } from '@/core/components/icons';
 import { formatDate, getSampleDisplayStatus } from '@/core/utils/formatters';
+import { exportToExcel } from '@/core/lib/excelExport';
+import { useToast } from '@/core/context/ToastContext';
 import { SampleThumbnail } from '@/modules/mcs/components/SampleThumbnail';
 import { SampleDetailDrawer } from '@/modules/mcs/components/SampleDetailDrawer';
 import { SampleImageModal } from '@/modules/mcs/components/SampleImageModal';
@@ -30,6 +32,8 @@ import { useOpenSampleFromLocation } from '@/modules/mcs/hooks/useOpenSampleFrom
 
 export default function AdminSamples() {
   const location = useLocation();
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
   const { data: samples, loading, reload, setData } = useAsyncData(listSamples, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listMovements, []);
   const { data: buyers } = useAsyncData(listBuyers, []);
@@ -69,7 +73,7 @@ export default function AdminSamples() {
     setData((prev) => (prev || []).filter((s) => s.id !== deletedId));
   }
 
-  const { search, setSearch, filters, setFilter, sort, toggleSort, page, setPage, totalPages, totalCount, pageRows } =
+  const { search, setSearch, filters, setFilter, sort, toggleSort, page, setPage, totalPages, totalCount, pageRows, filteredRows } =
     useTableControls(rows, {
       searchFields: ['bt_code', 'product_name'],
       initialFilters: location.state?.statusFilter ? { status: location.state.statusFilter } : undefined,
@@ -97,16 +101,50 @@ export default function AdminSamples() {
     reloadMovements();
   }
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await exportToExcel(
+        [
+          {
+            sheetName: 'Samples',
+            rows: filteredRows.map((s) => ({
+              'BT Code': s.bt_code,
+              'Product Name': s.product_name,
+              Buyer: s.buyer?.name || '',
+              Hall: s.hall?.name || '',
+              Status: s.status === 'checked_out' ? 'Issued' : 'In Hall',
+              'Added On': formatDate(s.created_at),
+            })),
+          },
+        ],
+        `basant-ssm-samples-${Date.now()}.xlsx`,
+        { title: 'BASANT SSM — Samples' }
+      );
+      toast.success('Export downloaded');
+    } catch (err) {
+      toast.error(err.message || 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Samples"
         description="Every signed sample across every hall."
         actions={
-          <Button variant="secondary" onClick={() => setBulkImageOpen(true)}>
-            <IconUpload className="w-4 h-4" />
-            Upload Images
-          </Button>
+          <>
+            <Button variant="secondary" onClick={handleExport} loading={exporting}>
+              <IconDownload className="w-4 h-4" />
+              Export
+            </Button>
+            <Button variant="secondary" onClick={() => setBulkImageOpen(true)}>
+              <IconUpload className="w-4 h-4" />
+              Upload Images
+            </Button>
+          </>
         }
       />
 

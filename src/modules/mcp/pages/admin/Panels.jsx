@@ -18,8 +18,10 @@ import { listPanelMovements } from '@/modules/mcp/api/panelMovementsApi';
 import { listBuyers } from '@/core/lib/buyersApi';
 import { listHalls } from '@/core/lib/hallsApi';
 import { PAGE_SIZE, PANEL_STATUS } from '@/core/utils/constants';
-import { IconLayers, IconCamera } from '@/core/components/icons';
+import { IconLayers, IconCamera, IconDownload } from '@/core/components/icons';
 import { formatDate, getPanelDisplayStatus } from '@/core/utils/formatters';
+import { exportToExcel } from '@/core/lib/excelExport';
+import { useToast } from '@/core/context/ToastContext';
 import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { PanelDetailDrawer } from '@/modules/mcp/components/PanelDetailDrawer';
 import { PanelImageModal } from '@/modules/mcp/components/PanelImageModal';
@@ -27,6 +29,8 @@ import { useOpenPanelFromLocation } from '@/modules/mcp/hooks/useOpenPanelFromLo
 
 export default function AdminPanels() {
   const location = useLocation();
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
   const { data: panels, loading, reload } = useAsyncData(listPanels, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listPanelMovements, []);
   const { data: buyers } = useAsyncData(listBuyers, []);
@@ -48,7 +52,7 @@ export default function AdminPanels() {
     [panels, openHopMap]
   );
 
-  const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
+  const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows, filteredRows } =
     useTableControls(rows, {
       searchFields: ['panel_code', 'panel_name'],
       initialFilters: location.state?.statusFilter ? { status: location.state.statusFilter } : undefined,
@@ -85,9 +89,46 @@ export default function AdminPanels() {
     reload();
   }
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await exportToExcel(
+        [
+          {
+            sheetName: 'Panels',
+            rows: filteredRows.map((p) => ({
+              'Panel Code': p.panel_code,
+              'Panel Name': p.panel_name,
+              Buyer: p.is_shared ? 'Shared' : p.buyer?.name || '',
+              Hall: p.hall?.name || '',
+              Status: p.status === 'checked_out' || p.status === 'issued' ? 'Issued' : p.status === 'retired' ? 'Retired' : 'In Hall',
+              'Added On': formatDate(p.created_at),
+            })),
+          },
+        ],
+        `basant-ssm-panels-${Date.now()}.xlsx`,
+        { title: 'BASANT SSM — Panels' }
+      );
+      toast.success('Export downloaded');
+    } catch (err) {
+      toast.error(err.message || 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
-      <PageHeader title="Panels" description="Every signed panel across every hall." />
+      <PageHeader
+        title="Panels"
+        description="Every signed panel across every hall."
+        actions={
+          <Button variant="secondary" onClick={handleExport} loading={exporting}>
+            <IconDownload className="w-4 h-4" />
+            Export
+          </Button>
+        }
+      />
 
       <Card>
         <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-3">

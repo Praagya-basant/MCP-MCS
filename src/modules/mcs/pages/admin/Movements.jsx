@@ -17,9 +17,12 @@ import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listBuyers } from '@/core/lib/buyersApi';
 import { listHalls } from '@/core/lib/hallsApi';
 import { PAGE_SIZE, REASON_OPTIONS } from '@/core/utils/constants';
-import { IconMove } from '@/core/components/icons';
+import { IconMove, IconDownload } from '@/core/components/icons';
 import { PickerAvatar } from '@/core/components/PickerAvatar';
 import { formatDateTime } from '@/core/utils/formatters';
+import { Button } from '@/core/components/Button';
+import { exportToExcel } from '@/core/lib/excelExport';
+import { useToast } from '@/core/context/ToastContext';
 
 function pickedByLabel(m) {
   return m.picked_by_name || m.logged_by_profile?.full_name || '—';
@@ -38,12 +41,14 @@ function MovementStatusBadge({ status }) {
 }
 
 export default function AdminMovements() {
+  const toast = useToast();
   const { data: movements, loading, error } = useAsyncData(listMovements, []);
   const { data: buyers } = useAsyncData(listBuyers, []);
   const { data: halls } = useAsyncData(listHalls, []);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selected, setSelected] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const flatRows = useMemo(
     () =>
@@ -70,15 +75,55 @@ export default function AdminMovements() {
     [flatRows, dateFrom, dateTo]
   );
 
-  const { search, setSearch, filters, setFilter, sort, toggleSort, page, setPage, totalPages, totalCount, pageRows } =
+  const { search, setSearch, filters, setFilter, sort, toggleSort, page, setPage, totalPages, totalCount, pageRows, filteredRows } =
     useTableControls(dateFiltered, {
       searchFields: ['bt_code', 'product_name', 'picked_by_label'],
       initialSort: { key: 'picked_at', dir: 'desc' },
     });
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await exportToExcel(
+        [
+          {
+            sheetName: 'Movements',
+            rows: filteredRows.map((m) => ({
+              'BT Code': m.bt_code,
+              'Product Name': m.product_name,
+              Buyer: m.buyer_name || '',
+              Hall: m.hall_name || '',
+              'Picked By': m.picked_by_label,
+              Reason: reasonLabel(m),
+              Status: m.status === 'out' ? 'Out' : 'Returned',
+              'Picked At': formatDateTime(m.picked_at),
+              'Returned At': m.returned_at ? formatDateTime(m.returned_at) : '',
+            })),
+          },
+        ],
+        `basant-ssm-movements-${Date.now()}.xlsx`,
+        { title: 'BASANT SSM — Movements' }
+      );
+      toast.success('Export downloaded');
+    } catch (err) {
+      toast.error(err.message || 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
-      <PageHeader title="Movements" description="Full movement log across every hall." />
+      <PageHeader
+        title="Movements"
+        description="Full movement log across every hall."
+        actions={
+          <Button variant="secondary" onClick={handleExport} loading={exporting}>
+            <IconDownload className="w-4 h-4" />
+            Export
+          </Button>
+        }
+      />
 
       <Card>
         <div className="sticky top-16 z-[1] bg-card px-4 py-3 border-b border-border flex flex-wrap items-center gap-2 rounded-t-card shadow-sm">
