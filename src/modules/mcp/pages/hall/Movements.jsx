@@ -80,7 +80,7 @@ export default function HallPanelMovements() {
 
         {loading ? (
           <TableSkeleton rows={8} cols={6} />
-        ) : movements.length === 0 ? (
+        ) : (movements || []).length === 0 ? (
           <EmptyState icon={<IconMove className="w-12 h-12 text-ink-muted" />} title="No movements yet" description="Panel movements for your hall will be logged here." />
         ) : pageRows.length === 0 ? (
           <EmptyState title="No matches" description="Try adjusting your search or filters." />

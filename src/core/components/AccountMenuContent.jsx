@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { cn } from '@/core/utils/cn';
 import { useAuth } from '@/core/auth/AuthContext';
 import { initials, formatLastLogin } from '@/core/utils/formatters';
 import { IconMessage, IconLogout } from '@/core/components/icons';
-import { SendFeedbackModal } from '@/core/components/SendFeedbackModal';
 import { ThemeToggle } from '@/core/components/ThemeToggle';
 import { useTheme } from '@/core/context/ThemeContext';
 import { ROLES, ROLE_LABELS } from '@/core/utils/constants';
@@ -21,21 +19,27 @@ const AVATAR_COLORS = {
 /**
  * The profile block + theme toggle + Support + Sign out — rendered inside
  * the Sidebar's bottom user-info dropdown. `onClose` is called at the
- * moment a menu action is taken (Support click or Sign out click), not
- * when SendFeedbackModal itself later closes — that's what collapses the
- * dropdown the same way the original inline Topbar version did.
+ * moment a menu action is taken (Support click or Sign out click), which
+ * unmounts *this* component almost immediately (it only exists while the
+ * dropdown is open) — so the Support modal deliberately does NOT live in
+ * this component's own state. It used to (`const [supportOpen, setSupportOpen]
+ * = useState(false)` + `<SendFeedbackModal open={supportOpen} .../>` right
+ * here), which meant clicking Support closed the dropdown (unmounting
+ * this component, and the modal along with it) in the same tick it opened
+ * the modal — the modal would flash open and vanish instantly. `onSupportClick`
+ * is owned by the parent (Sidebar) instead, so the modal survives the
+ * dropdown closing.
  */
-export function AccountMenuContent({ onClose }) {
+export function AccountMenuContent({ onClose, onSupportClick }) {
   const { profile, role, user, signOut } = useAuth();
   const { theme } = useTheme();
-  const [supportOpen, setSupportOpen] = useState(false);
 
   const avatarColor = AVATAR_COLORS[role] || 'bg-ink';
   const lastLogin = formatLastLogin(user?.last_sign_in_at);
 
   function handleSupportClick() {
     onClose?.();
-    setSupportOpen(true);
+    onSupportClick?.();
   }
 
   function handleSignOut() {
@@ -98,8 +102,6 @@ export function AccountMenuContent({ onClose }) {
         <IconLogout className="w-4 h-4" />
         Sign out
       </button>
-
-      <SendFeedbackModal open={supportOpen} onClose={() => setSupportOpen(false)} />
     </>
   );
 }

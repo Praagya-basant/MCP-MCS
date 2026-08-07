@@ -7,6 +7,8 @@ import { useFeedback } from '@/core/context/FeedbackContext';
 import { initials } from '@/core/utils/formatters';
 import { Logo } from '@/core/components/Logo';
 import { AccountMenuContent } from '@/core/components/AccountMenuContent';
+import { SendFeedbackModal } from '@/core/components/SendFeedbackModal';
+import { useTheme } from '@/core/context/ThemeContext';
 import { ROLES, ROLE_LABELS } from '@/core/utils/constants';
 import {
   IconGrid,
@@ -114,11 +116,16 @@ function NavItem({ item, collapsed, badgeValues }) {
  */
 export function Sidebar() {
   const { profile, role } = useAuth();
+  const { theme } = useTheme();
   const { unreadCount } = useFeedback() || {};
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_STORAGE_KEY) === 'true');
   const [menuOpen, setMenuOpen] = useState(false);
+  // Owned here, not inside AccountMenuContent (which unmounts the instant
+  // the dropdown closes) — see AccountMenuContent's doc comment for why
+  // that used to make the Support modal flash open and vanish instantly.
+  const [supportOpen, setSupportOpen] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -158,9 +165,9 @@ export function Sidebar() {
     >
       <div className={cn('min-h-[64px] flex items-center border-b border-border shrink-0', collapsed ? 'justify-center px-0' : 'px-6')}>
         {collapsed ? (
-          <span className="w-7 h-7 rounded-md bg-ink text-white flex items-center justify-center text-caption font-semibold select-none">B</span>
+          <span className="w-7 h-7 rounded-md bg-accent text-accent-ink flex items-center justify-center text-caption font-semibold select-none">B</span>
         ) : (
-          <Logo variant="black" className="h-5 w-auto object-contain" />
+          <Logo variant={theme === 'dark' ? 'white' : 'black'} className="h-5 w-auto object-contain" />
         )}
       </div>
 
@@ -239,7 +246,7 @@ export function Sidebar() {
               className="absolute bottom-full mb-1.5 bg-card border border-border rounded-lg shadow-dropdown py-1.5 z-20"
               style={collapsed ? { left: '100%', bottom: 8, marginLeft: 8, width: 240 } : { left: 8, right: 8 }}
             >
-              <AccountMenuContent onClose={() => setMenuOpen(false)} />
+              <AccountMenuContent onClose={() => setMenuOpen(false)} onSupportClick={() => setSupportOpen(true)} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -254,6 +261,10 @@ export function Sidebar() {
       >
         <IconChevronDown className={cn('w-4 h-4 transition-transform duration-200', collapsed ? '-rotate-90' : 'rotate-90')} />
       </button>
+
+      {/* Rendered here, not inside the dropdown above, so it survives the
+          dropdown closing when Support is clicked. */}
+      <SendFeedbackModal open={supportOpen} onClose={() => setSupportOpen(false)} />
     </motion.aside>
   );
 }

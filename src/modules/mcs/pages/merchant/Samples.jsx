@@ -107,7 +107,7 @@ export default function MerchantSamples() {
 
         {loading ? (
           <TableSkeleton rows={8} cols={5} />
-        ) : samples.length === 0 ? (
+        ) : (samples || []).length === 0 ? (
           <EmptyState icon={<IconBox className="w-12 h-12 text-ink-muted" />} title="No samples yet" description="Samples signed in by hall managers will appear here." />
         ) : filteredRows.length === 0 ? (
           <EmptyState title="No matches" description="Try adjusting your search or filters." />

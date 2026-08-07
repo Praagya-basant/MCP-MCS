@@ -12,6 +12,7 @@ import { listPanels } from '@/modules/mcp/api/panelsApi';
 import { listPanelMovements } from '@/modules/mcp/api/panelMovementsApi';
 import { IconLayers, IconMove, IconBell } from '@/core/components/icons';
 import { PANEL_STATUS } from '@/core/utils/constants';
+import { safeFetch } from '@/core/utils/safeFetch';
 import { formatRelativeTime, getGreeting } from '@/core/utils/formatters';
 
 /** Mirrors MCS's MerchantDashboard, scoped to panels — no ActivityFeed (panels have no recalls to merge in), just a plain recent-movements list. */
@@ -19,7 +20,7 @@ export default function MerchantMcpDashboard() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { data, loading } = useAsyncData(async () => {
-    const [panels, movements] = await Promise.all([listPanels(), listPanelMovements()]);
+    const [panels, movements] = await Promise.all([safeFetch(listPanels(), []), safeFetch(listPanelMovements(), [])]);
     return { panels, movements };
   }, []);
   const [buyerFilter, setBuyerFilter] = useState('all');

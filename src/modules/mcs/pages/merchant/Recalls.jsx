@@ -38,7 +38,7 @@ export default function Recalls() {
       <Card>
         {loading ? (
           <TableSkeleton rows={5} cols={4} />
-        ) : recalls.length === 0 ? (
+        ) : (recalls || []).length === 0 ? (
           <EmptyState
             icon={<IconAlert className="w-12 h-12 text-ink-muted" />}
             title="No recall requests"

@@ -100,7 +100,7 @@ export default function HallSamples() {
 
         {loading ? (
           <TableSkeleton rows={8} cols={6} />
-        ) : samples.length === 0 ? (
+        ) : (samples || []).length === 0 ? (
           <EmptyState
             icon={<IconBox className="w-12 h-12 text-ink-muted" />}
             title="No samples yet"

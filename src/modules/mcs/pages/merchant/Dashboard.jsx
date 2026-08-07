@@ -14,6 +14,7 @@ import { listRecalls } from '@/modules/mcs/api/recallsApi';
 import { IconBox, IconMove, IconLayers, IconAlert, IconBell } from '@/core/components/icons';
 import { SAMPLE_STATUS } from '@/core/utils/constants';
 import { ActivityFeed } from '@/modules/mcs/components/ActivityFeed';
+import { safeFetch } from '@/core/utils/safeFetch';
 import { buildActivityFeed } from '@/modules/mcs/utils/activity';
 import { getGreeting } from '@/core/utils/formatters';
 
@@ -21,7 +22,11 @@ export default function MerchantDashboard() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { data, loading } = useAsyncData(async () => {
-    const [samples, movements, recalls] = await Promise.all([listSamples(), listMovements(), listRecalls()]);
+    const [samples, movements, recalls] = await Promise.all([
+      safeFetch(listSamples(), []),
+      safeFetch(listMovements(), []),
+      safeFetch(listRecalls(), []),
+    ]);
     return { samples, movements, recalls };
   }, []);
   const [buyerFilter, setBuyerFilter] = useState('all');

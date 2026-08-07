@@ -21,6 +21,7 @@ import { listValidityChanges } from '@/core/lib/validityApi';
 import { formatDateTime, formatDate, getPanelDisplayStatus } from '@/core/utils/formatters';
 import { PANEL_STATUS, ROLES } from '@/core/utils/constants';
 import { cn } from '@/core/utils/cn';
+import { safeFetch } from '@/core/utils/safeFetch';
 
 const TABS = [
   { id: 'details', label: 'Details' },
@@ -60,7 +61,10 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
     if (!open || !panel) return;
     setTab('details');
     setLoading(true);
-    Promise.all([listPanelMovementsForPanel(panel.id), isAdmin ? listValidityChanges(panel.id) : Promise.resolve(null)])
+    Promise.all([
+      safeFetch(listPanelMovementsForPanel(panel.id), []),
+      isAdmin ? safeFetch(listValidityChanges(panel.id), []) : Promise.resolve(null),
+    ])
       .then(([m, v]) => {
         setMovements(m);
         setValidityChanges(v);
@@ -70,7 +74,7 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
   }, [open, panel?.id, isAdmin]);
 
   function reloadHistory() {
-    return listPanelMovementsForPanel(localPanel.id).then(setMovements);
+    return safeFetch(listPanelMovementsForPanel(localPanel.id), []).then(setMovements);
   }
 
   function handleValidityUpdated(newExpiryDate) {

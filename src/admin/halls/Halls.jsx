@@ -30,7 +30,7 @@ export default function Halls() {
       <Card>
         {loading ? (
           <TableSkeleton rows={5} cols={3} />
-        ) : halls.length === 0 ? (
+        ) : (halls || []).length === 0 ? (
           <EmptyState title="No halls found" description="Add a hall to get started." actionLabel="Add Hall" onAction={() => setModalHall(null)} />
         ) : (
           <Table>

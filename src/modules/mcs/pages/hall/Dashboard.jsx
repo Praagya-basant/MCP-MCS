@@ -13,6 +13,7 @@ import { listMovements } from '@/modules/mcs/api/movementsApi';
 import { listRecalls } from '@/modules/mcs/api/recallsApi';
 import { isToday, getGreeting } from '@/core/utils/formatters';
 import { IconBox, IconMove, IconLayers, IconBell } from '@/core/components/icons';
+import { safeFetch } from '@/core/utils/safeFetch';
 import { SAMPLE_STATUS } from '@/core/utils/constants';
 import { ActivityFeed } from '@/modules/mcs/components/ActivityFeed';
 import { buildActivityFeed } from '@/modules/mcs/utils/activity';
@@ -21,7 +22,11 @@ export default function HallDashboard() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { data, loading } = useAsyncData(async () => {
-    const [samples, movements, recalls] = await Promise.all([listSamples(), listMovements(), listRecalls()]);
+    const [samples, movements, recalls] = await Promise.all([
+      safeFetch(listSamples(), []),
+      safeFetch(listMovements(), []),
+      safeFetch(listRecalls(), []),
+    ]);
     return { samples, movements, recalls };
   }, []);
 

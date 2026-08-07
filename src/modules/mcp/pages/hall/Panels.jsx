@@ -96,7 +96,7 @@ export default function HallPanels() {
 
         {loading ? (
           <TableSkeleton rows={8} cols={5} />
-        ) : panels.length === 0 ? (
+        ) : (panels || []).length === 0 ? (
           <EmptyState
             icon={<IconLayers className="w-12 h-12 text-ink-muted" />}
             title="No panels yet"

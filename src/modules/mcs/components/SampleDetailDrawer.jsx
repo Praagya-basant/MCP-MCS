@@ -24,6 +24,7 @@ import { listValidityChanges } from '@/core/lib/validityApi';
 import { formatDateTime, formatDate, initials, getSampleDisplayStatus } from '@/core/utils/formatters';
 import { SAMPLE_STATUS, ROLES } from '@/core/utils/constants';
 import { cn } from '@/core/utils/cn';
+import { safeFetch } from '@/core/utils/safeFetch';
 
 const TABS = [
   { id: 'details', label: 'Details' },
@@ -71,10 +72,17 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
     if (!open || !sample) return;
     setTab('details');
     setLoading(true);
+    // Each fetch fails independently (safeFetch) rather than via a bare
+    // Promise.all with no .catch() — that previously left movements/
+    // comments/validityChanges stuck at their initial `null` forever if
+    // any one of the three rejected (RLS denial, transient network/cache
+    // issue), while `loading` still flipped to false in .finally() —
+    // so the tabs rendered past their loading-skeleton guard straight
+    // into `null.length` and crashed instead of showing "no data yet."
     Promise.all([
-      listMovementsForSample(sample.id),
-      listComments(sample.id),
-      isAdmin ? listValidityChanges(sample.id) : Promise.resolve(null),
+      safeFetch(listMovementsForSample(sample.id), []),
+      safeFetch(listComments(sample.id), []),
+      isAdmin ? safeFetch(listValidityChanges(sample.id), []) : Promise.resolve(null),
     ])
       .then(([m, c, v]) => {
         setMovements(m);
@@ -88,7 +96,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
   }, [open, sample?.id, isAdmin]);
 
   function reloadHistory() {
-    return listMovementsForSample(localSample.id).then(setMovements);
+    return safeFetch(listMovementsForSample(localSample.id), []).then(setMovements);
   }
 
   async function handleForwardSuccess() {
@@ -318,7 +326,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
             {tab === 'history' &&
               (loading ? (
                 <CardListSkeleton rows={3} />
-              ) : movements.length === 0 ? (
+              ) : (movements || []).length === 0 ? (
                 <EmptyState title="No movement yet" description="This sample hasn't left the hall." className="py-8" />
               ) : (
                 <ul className="flex flex-col">
@@ -408,7 +416,7 @@ export function SampleDetailDrawer({ open, onClose, sample, onChanged }) {
               <div className="flex flex-col gap-4">
                 {loading ? (
                   <CardListSkeleton rows={2} />
-                ) : comments.length === 0 ? (
+                ) : (comments || []).length === 0 ? (
                   <p className="text-caption text-ink-muted">No comments yet.</p>
                 ) : (
                   <ul className="flex flex-col gap-3">

@@ -13,6 +13,7 @@ import { listPanels } from '@/modules/mcp/api/panelsApi';
 import { listPanelMovements } from '@/modules/mcp/api/panelMovementsApi';
 import { IconLayers, IconBox, IconMove } from '@/core/components/icons';
 import { PANEL_STATUS } from '@/core/utils/constants';
+import { safeFetch } from '@/core/utils/safeFetch';
 import { formatDateTime, getGreeting } from '@/core/utils/formatters';
 
 const IN_HALL_COLOR = 'rgb(var(--color-success))';
@@ -33,7 +34,7 @@ export default function AdminMcpDashboard() {
   const { profile } = useAuth();
   const firstName = profile?.full_name?.split(' ')[0];
   const { data, loading } = useAsyncData(async () => {
-    const [panels, movements] = await Promise.all([listPanels(), listPanelMovements()]);
+    const [panels, movements] = await Promise.all([safeFetch(listPanels(), []), safeFetch(listPanelMovements(), [])]);
     return { panels, movements };
   }, []);
 

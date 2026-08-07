@@ -164,7 +164,7 @@ export default function AdminPanels() {
 
         {loading ? (
           <TableSkeleton rows={8} cols={6} />
-        ) : panels.length === 0 ? (
+        ) : (panels || []).length === 0 ? (
           <EmptyState
             icon={<IconLayers className="w-12 h-12 text-ink-muted" />}
             title="No panels yet"
