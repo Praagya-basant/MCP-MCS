@@ -23,6 +23,7 @@ import AdminNotifications from '@/admin/notifications/Notifications';
 import AdminExport from '@/admin/reports/Export';
 import AdminFeedback from '@/admin/feedback/Feedback';
 import AdminSettings from '@/admin/settings/Settings';
+import AdminAuditLog from '@/admin/settings/AuditLog';
 
 import HallDashboard from '@/modules/mcs/pages/hall/Dashboard';
 import HallSamples from '@/modules/mcs/pages/hall/Samples';
@@ -84,6 +85,7 @@ function AppRoutes() {
           <Route path="export" element={<AdminExport />} />
           <Route path="feedback" element={<AdminFeedback />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="audit-log" element={<AdminAuditLog />} />
           <Route path="mcp/dashboard" element={<AdminMcpDashboard />} />
           <Route path="mcp/panels" element={<AdminPanels />} />
           <Route path="mcp/movements" element={<AdminPanelMovements />} />
