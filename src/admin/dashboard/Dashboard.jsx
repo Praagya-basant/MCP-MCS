@@ -30,6 +30,7 @@ import { listUsers } from '@/core/lib/usersApi';
 import { listPanels } from '@/modules/mcp/api/panelsApi';
 import { listShiftRequests } from '@/core/lib/shiftRequestsApi';
 import { listValidityRequests } from '@/core/lib/validityApi';
+import { safeFetch } from '@/core/utils/safeFetch';
 import { IconBox, IconBuilding, IconUsers, IconMove, IconLayers, IconHistory } from '@/core/components/icons';
 import { SAMPLE_STATUS, ROLES } from '@/core/utils/constants';
 import { formatDateTime, daysUntil, getGreeting } from '@/core/utils/formatters';
@@ -52,15 +53,19 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const firstName = profile?.full_name?.split(' ')[0];
+  // Each query fails independently — a single flaky/misnamed table (or a
+  // transient PostgREST schema-cache miss) shows up as zeroes for that
+  // one card instead of taking down the entire dashboard. See
+  // core/utils/safeFetch.js.
   const { data, loading, error } = useAsyncData(async () => {
     const [samples, movements, buyers, users, panels, shiftRequests, validityRequests] = await Promise.all([
-      listSamples(),
-      listMovements(),
-      listBuyersWithDetails(),
-      listUsers(),
-      listPanels(),
-      listShiftRequests(),
-      listValidityRequests(),
+      safeFetch(listSamples(), []),
+      safeFetch(listMovements(), []),
+      safeFetch(listBuyersWithDetails(), []),
+      safeFetch(listUsers(), []),
+      safeFetch(listPanels(), []),
+      safeFetch(listShiftRequests(), []),
+      safeFetch(listValidityRequests(), []),
     ]);
     return { samples, movements, buyers, users, panels, shiftRequests, validityRequests };
   }, []);
