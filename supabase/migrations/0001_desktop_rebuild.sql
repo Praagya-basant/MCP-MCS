@@ -13,11 +13,16 @@
 -- ----------------------------------------------------------------------------
 alter table panel_movements add column if not exists quantity integer;
 
--- checkout_panel/forward_panel gain an optional trailing p_quantity param
--- (appended after their existing final optional param, so positional
--- compatibility is preserved for any caller not passing it) — the
--- frontend's supabase-js calls use named params anyway, so this is a
--- purely additive, non-breaking signature change either way.
+-- checkout_panel/forward_panel gain an optional trailing p_quantity param.
+-- CREATE OR REPLACE does NOT replace a function whose parameter list
+-- differs — Postgres identifies functions by name+signature, so adding a
+-- parameter creates a second overload instead of replacing the original,
+-- which then makes any bare-name reference (like the GRANT below)
+-- ambiguous. Drop the exact old 12-param signature first so only the new
+-- 13-param version remains.
+drop function if exists public.checkout_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid);
+drop function if exists public.forward_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid);
+
 create or replace function public.checkout_panel(
   p_panel_id uuid,
   p_picked_by_name text,
@@ -149,8 +154,8 @@ begin
 end;
 $$;
 
-grant execute on function public.checkout_panel to authenticated;
-grant execute on function public.forward_panel to authenticated;
+grant execute on function public.checkout_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid, integer) to authenticated;
+grant execute on function public.forward_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid, integer) to authenticated;
 
 -- ----------------------------------------------------------------------------
 -- B. Validity alerts now also cover panels (Step 10 — the pg_cron job

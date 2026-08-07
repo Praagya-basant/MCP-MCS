@@ -1729,6 +1729,15 @@ grant execute on function public.set_panel_image to authenticated;
 
 alter table panel_movements add column if not exists quantity integer;
 
+-- Section 13 above already created checkout_panel/forward_panel with a
+-- 12-param signature; CREATE OR REPLACE below adds a p_quantity param,
+-- which Postgres treats as a distinct overload rather than a replacement
+-- (function identity includes the parameter list) — drop the old
+-- signature explicitly first so exactly one of each remains and the bare-
+-- name GRANTs later stay unambiguous.
+drop function if exists public.checkout_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid);
+drop function if exists public.forward_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid);
+
 create or replace function public.checkout_panel(
   p_panel_id uuid,
   p_picked_by_name text,
@@ -1860,8 +1869,8 @@ begin
 end;
 $$;
 
-grant execute on function public.checkout_panel to authenticated;
-grant execute on function public.forward_panel to authenticated;
+grant execute on function public.checkout_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid, integer) to authenticated;
+grant execute on function public.forward_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid, integer) to authenticated;
 
 create or replace function public.send_validity_alerts()
 returns void
