@@ -1,26 +1,26 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Drawer } from '@/shared/components/Drawer';
-import { PanelStatusBadge, Badge, ValidityBadge } from '@/shared/components/Badge';
-import { Button } from '@/shared/components/Button';
-import { CardListSkeleton } from '@/shared/components/Skeleton';
-import { EmptyState } from '@/shared/components/EmptyState';
-import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
+import { Drawer } from '@/core/components/Drawer';
+import { PanelStatusBadge, Badge, ValidityBadge } from '@/core/components/Badge';
+import { Button } from '@/core/components/Button';
+import { CardListSkeleton } from '@/core/components/Skeleton';
+import { EmptyState } from '@/core/components/EmptyState';
+import { ConfirmDialog } from '@/core/components/ConfirmDialog';
 import { PanelThumbnail } from '@/modules/mcp/components/PanelThumbnail';
 import { IssuePanelModal } from '@/modules/mcp/components/IssuePanelModal';
 import { ForwardPanelModal } from '@/modules/mcp/components/ForwardPanelModal';
-import { RetirePanelModal } from '@/modules/mcp/admin/components/RetirePanelModal';
-import { ManageValidityModal } from '@/shared/components/ManageValidityModal';
-import { RequestValidityExtensionModal } from '@/shared/components/RequestValidityExtensionModal';
+import { RetirePanelModal } from '@/modules/mcp/pages/admin/components/RetirePanelModal';
+import { ManageValidityModal } from '@/core/components/ManageValidityModal';
+import { RequestValidityExtensionModal } from '@/core/components/RequestValidityExtensionModal';
 import { PanelImageModal } from '@/modules/mcp/components/PanelImageModal';
-import { useAuth } from '@/shared/context/AuthContext';
-import { useToast } from '@/shared/context/ToastContext';
+import { useAuth } from '@/core/auth/AuthContext';
+import { useToast } from '@/core/context/ToastContext';
 import { listPanelMovementsForPanel, returnPanel } from '@/modules/mcp/api/panelMovementsApi';
 import { getPanel } from '@/modules/mcp/api/panelsApi';
-import { listValidityChanges } from '@/shared/lib/validityApi';
-import { formatDateTime, formatDate, getPanelDisplayStatus } from '@/shared/utils/formatters';
-import { PANEL_STATUS, ROLES } from '@/shared/utils/constants';
-import { cn } from '@/shared/utils/cn';
+import { listValidityChanges } from '@/core/lib/validityApi';
+import { formatDateTime, formatDate, getPanelDisplayStatus } from '@/core/utils/formatters';
+import { PANEL_STATUS, ROLES } from '@/core/utils/constants';
+import { cn } from '@/core/utils/cn';
 
 const TABS = [
   { id: 'details', label: 'Details' },
@@ -326,6 +326,9 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
                           </p>
                           {m.picked_by_name && (
                             <p className="mt-1 text-[13px] text-ink-secondary">Picked by {m.picked_by_name}</p>
+                          )}
+                          {m.quantity != null && (
+                            <p className="mt-1 text-[13px] text-ink-secondary">Quantity: {m.quantity}</p>
                           )}
                           <div className="mt-1.5">
                             <Badge>{m.reason === 'Other' ? m.reason_other : m.reason}</Badge>

@@ -1,0 +1,116 @@
+// Central place for enum-like values shared across the app.
+// Keeping these here means the DB check constraints, forms, and
+// badges all read from a single source of truth.
+
+export const ROLES = {
+  SUPER_ADMIN: 'super_admin',
+  HALL_MANAGER: 'hall_manager',
+  MERCHANT: 'merchant',
+  // Configurable-permission role for assistants/directors/read-only users
+  // — no fixed permission set of its own, see core/permissions/index.js's
+  // hasPermission() and profiles.custom_permissions. Reuses the admin
+  // route tree (allowed alongside SUPER_ADMIN on every /admin/* route);
+  // Sidebar/pages narrow what's visible based on hasPermission(), while
+  // the actual data access is bounded by RLS's has_custom_permission()
+  // checks regardless of what the frontend shows.
+  CUSTOM: 'custom',
+};
+
+export const ROLE_LABELS = {
+  [ROLES.SUPER_ADMIN]: 'Admin',
+  [ROLES.HALL_MANAGER]: 'Manager',
+  [ROLES.MERCHANT]: 'Merchant',
+  [ROLES.CUSTOM]: 'Custom',
+};
+
+export const ROLE_HOME = {
+  [ROLES.SUPER_ADMIN]: '/admin/dashboard',
+  [ROLES.HALL_MANAGER]: '/hall/dashboard',
+  [ROLES.MERCHANT]: '/merchant/dashboard',
+  [ROLES.CUSTOM]: '/admin/dashboard',
+};
+
+export const SAMPLE_STATUS = {
+  IN_HALL: 'in_hall',
+  CHECKED_OUT: 'checked_out',
+};
+
+export const SAMPLE_STATUS_LABELS = {
+  [SAMPLE_STATUS.IN_HALL]: 'In Hall',
+  [SAMPLE_STATUS.CHECKED_OUT]: 'Issued',
+  // Not a DB status value — a display-only refinement of CHECKED_OUT for a
+  // sample on its 2nd+ movement leg (forwarded onward at least once since
+  // it was last returned). See getSampleDisplayStatus() in formatters.js.
+  in_transit: 'In Transit',
+};
+
+export const MOVEMENT_STATUS = {
+  OUT: 'out',
+  RETURNED: 'returned',
+};
+
+export const RECALL_STATUS = {
+  PENDING: 'pending',
+  ACKNOWLEDGED: 'acknowledged',
+  RESOLVED: 'resolved',
+};
+
+export const RECALL_STATUS_LABELS = {
+  [RECALL_STATUS.PENDING]: 'Pending',
+  [RECALL_STATUS.ACKNOWLEDGED]: 'Acknowledged',
+  [RECALL_STATUS.RESOLVED]: 'Resolved',
+};
+
+// Non-hall destination options for the Issue Sample form — the hall
+// portion of that dropdown is read live from the `halls` table (see
+// IssueSampleModal), not hardcoded here.
+export const NON_HALL_DESTINATIONS = ['Supplier', 'Other'];
+
+export const REASON_OPTIONS = [
+  'Inspection',
+  'Production',
+  'Testing',
+  'R&D',
+  'Packaging',
+  'Other',
+];
+
+// Shown on the Issue Sample form only when the destination is "Supplier".
+export const PURCHASER_OPTIONS = ['Thanaram', 'Suresh Chaudhary', 'Nitin Jain', 'Other'];
+
+export const VALIDITY_STATUS = {
+  VALID: 'valid',
+  EXPIRING_SOON: 'expiring_soon',
+  EXPIRED: 'expired',
+};
+
+export const VALIDITY_STATUS_LABELS = {
+  [VALIDITY_STATUS.VALID]: 'Valid',
+  [VALIDITY_STATUS.EXPIRING_SOON]: 'Expiring Soon',
+  [VALIDITY_STATUS.EXPIRED]: 'Expired',
+};
+
+// Days-remaining threshold for the amber "Expiring Soon" badge — matches
+// the earlier of the two scheduled alert thresholds (30/15 days), see
+// send_validity_alerts() in schema.sql.
+export const VALIDITY_EXPIRING_SOON_DAYS = 30;
+
+// MCP module (panels) — mirrors SAMPLE_STATUS but panels get a third
+// terminal state (admin-only "Retire", see panels.status check
+// constraint in schema.sql); there's no in_transit display refinement
+// yet since panel forwarding hasn't been built.
+export const PANEL_STATUS = {
+  IN_HALL: 'in_hall',
+  ISSUED: 'issued',
+  RETIRED: 'retired',
+};
+
+export const PANEL_STATUS_LABELS = {
+  [PANEL_STATUS.IN_HALL]: 'In Hall',
+  [PANEL_STATUS.ISSUED]: 'Issued',
+  [PANEL_STATUS.RETIRED]: 'Retired',
+  // Not a DB status value — see getPanelDisplayStatus() in formatters.js.
+  in_transit: 'In Transit',
+};
+
+export const PAGE_SIZE = 20;

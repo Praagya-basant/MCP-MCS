@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '@/shared/context/AuthContext';
+import { useAuth } from '@/core/auth/AuthContext';
 import { getSampleByBtCode } from '@/modules/mcs/api/samplesApi';
-import { ROLES } from '@/shared/utils/constants';
-import { Button } from '@/shared/components/Button';
+import { ROLES } from '@/core/utils/constants';
+import { Button } from '@/core/components/Button';
 
 const SAMPLES_ROUTE = {
   [ROLES.SUPER_ADMIN]: '/admin/samples',

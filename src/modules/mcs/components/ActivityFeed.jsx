@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
-import { formatRelativeTime, formatDateTime } from '@/shared/utils/formatters';
-import { cn } from '@/shared/utils/cn';
+import { formatRelativeTime, formatDateTime } from '@/core/utils/formatters';
+import { cn } from '@/core/utils/cn';
 
 const BORDER_COLOR = {
   issue: 'border-status-checked-out-text',

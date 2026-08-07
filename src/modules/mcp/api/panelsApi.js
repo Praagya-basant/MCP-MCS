@@ -1,6 +1,6 @@
-import { supabase, SAMPLE_IMAGES_BUCKET } from '@/shared/lib/supabaseClient';
-import { sendNotification } from '@/shared/lib/notify';
-import { shortenBuyerName } from '@/shared/utils/formatters';
+import { supabase, SAMPLE_IMAGES_BUCKET } from '@/core/lib/supabaseClient';
+import { sendNotification } from '@/core/notifications/notify';
+import { shortenBuyerName } from '@/core/utils/formatters';
 
 const PANEL_SELECT = '*, buyer:buyers(id, name), hall:halls(id, hall_number, name)';
 

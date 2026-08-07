@@ -1,6 +1,6 @@
-import { supabase, SAMPLE_IMAGES_BUCKET } from '@/shared/lib/supabaseClient';
-import { sendNotification } from '@/shared/lib/notify';
-import { shortenBuyerName } from '@/shared/utils/formatters';
+import { supabase, SAMPLE_IMAGES_BUCKET } from '@/core/lib/supabaseClient';
+import { sendNotification } from '@/core/notifications/notify';
+import { shortenBuyerName } from '@/core/utils/formatters';
 
 // Same public `sample-images` bucket MCS's movementsApi.js uses (its RLS
 // is bucket-scoped, not path-scoped), under panel-movements/{id}/ so a
@@ -90,6 +90,7 @@ export async function issuePanel({
   signatureBlob,
   purchaserName,
   supplierName,
+  quantity,
 }) {
   const movementId = crypto.randomUUID();
 
@@ -117,6 +118,7 @@ export async function issuePanel({
     p_purchaser_name: purchaserName || null,
     p_supplier_name: supplierName || null,
     p_movement_id: movementId,
+    p_quantity: quantity || null,
   });
 
   if (error) throw error;
@@ -149,6 +151,7 @@ export async function forwardPanel({
   signatureBlob,
   purchaserName,
   supplierName,
+  quantity,
 }) {
   const newMovementId = crypto.randomUUID();
 
@@ -176,6 +179,7 @@ export async function forwardPanel({
     p_purchaser_name: purchaserName || null,
     p_supplier_name: supplierName || null,
     p_new_movement_id: newMovementId,
+    p_quantity: quantity || null,
   });
 
   if (error) throw error;
