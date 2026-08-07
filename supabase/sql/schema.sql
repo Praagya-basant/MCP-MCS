@@ -1732,11 +1732,23 @@ alter table panel_movements add column if not exists quantity integer;
 -- Section 13 above already created checkout_panel/forward_panel with a
 -- 12-param signature; CREATE OR REPLACE below adds a p_quantity param,
 -- which Postgres treats as a distinct overload rather than a replacement
--- (function identity includes the parameter list) — drop the old
--- signature explicitly first so exactly one of each remains and the bare-
+-- (function identity includes the parameter list). Dynamically drop
+-- EVERY existing overload of these two names first (rather than guessing
+-- one exact old signature) so exactly one of each remains and the bare-
 -- name GRANTs later stay unambiguous.
-drop function if exists public.checkout_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid);
-drop function if exists public.forward_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid);
+do $$
+declare
+  r record;
+begin
+  for r in
+    select p.oid::regprocedure as sig
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname in ('checkout_panel', 'forward_panel')
+  loop
+    execute format('drop function if exists %s', r.sig);
+  end loop;
+end $$;
 
 create or replace function public.checkout_panel(
   p_panel_id uuid,

@@ -18,10 +18,24 @@ alter table panel_movements add column if not exists quantity integer;
 -- differs — Postgres identifies functions by name+signature, so adding a
 -- parameter creates a second overload instead of replacing the original,
 -- which then makes any bare-name reference (like the GRANT below)
--- ambiguous. Drop the exact old 12-param signature first so only the new
--- 13-param version remains.
-drop function if exists public.checkout_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid);
-drop function if exists public.forward_panel(uuid, text, text, text, text, text, text, text, text, text, text, uuid);
+-- ambiguous. Rather than guessing the exact old signature (which may not
+-- even match what's actually live, if it drifted further than this file's
+-- history shows), dynamically find and drop EVERY existing overload of
+-- these two function names in the public schema first, so exactly one of
+-- each is guaranteed to remain after the CREATE below runs.
+do $$
+declare
+  r record;
+begin
+  for r in
+    select p.oid::regprocedure as sig
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname in ('checkout_panel', 'forward_panel')
+  loop
+    execute format('drop function if exists %s', r.sig);
+  end loop;
+end $$;
 
 create or replace function public.checkout_panel(
   p_panel_id uuid,
