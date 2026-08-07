@@ -52,7 +52,7 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const firstName = profile?.full_name?.split(' ')[0];
-  const { data, loading } = useAsyncData(async () => {
+  const { data, loading, error } = useAsyncData(async () => {
     const [samples, movements, buyers, users, panels, shiftRequests, validityRequests] = await Promise.all([
       listSamples(),
       listMovements(),
@@ -147,6 +147,22 @@ export default function AdminDashboard() {
 
   const isSamplePanel = activePanel === 'samples' || activePanel === 'issued' || activePanel === 'inHall';
   const meta = activePanel ? PANEL_META[activePanel] : null;
+
+  if (error) {
+    return (
+      <div>
+        <p className="text-body text-ink-secondary mb-1 select-none">
+          {getGreeting()}{firstName ? `, ${firstName}` : ''}
+        </p>
+        <PageHeader title="Dashboard" description="Platform-wide overview across every hall and buyer." />
+        <EmptyState
+          icon={<IconBox className="w-12 h-12 text-ink-muted" />}
+          title="Couldn't load the dashboard"
+          description={error.message || 'Something went wrong fetching dashboard data. Try refreshing the page.'}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>
