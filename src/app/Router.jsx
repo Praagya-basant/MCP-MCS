@@ -70,7 +70,7 @@ function AppRoutes() {
       {/* Admin — Module 1 (MCS). Module 2 (MCP) would add its own
           sibling <Route path="mcp/*"> block under the same
           ProtectedRoute + AdminLayout without touching this tree. */}
-      <Route element={<ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN]} />}>
+      <Route element={<ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.CUSTOM]} />}>
         <Route path="/admin" element={<Layout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />

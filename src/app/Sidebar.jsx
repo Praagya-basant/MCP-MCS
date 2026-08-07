@@ -25,7 +25,7 @@ import {
 const COLLAPSE_STORAGE_KEY = 'basant-sidebar-collapsed';
 
 function roleBase(role) {
-  if (role === ROLES.SUPER_ADMIN) return '/admin';
+  if (role === ROLES.SUPER_ADMIN || role === ROLES.CUSTOM) return '/admin';
   if (role === ROLES.HALL_MANAGER) return '/hall';
   return '/merchant';
 }
@@ -60,9 +60,12 @@ function getMcpNavItems(role) {
 
 // Cross-module admin oversight — not tied to MCS or MCP specifically, so it
 // sits below the module switcher rather than inside either module's list.
+// `customKey` is which custom_permissions toggle unlocks this item for a
+// role: 'custom' user — omitted means super_admin only (never shown to
+// custom, regardless of toggles: Feedback/Settings stay admin-only).
 const ADMIN_PLATFORM_ITEMS = [
-  { to: '/admin/team', label: 'Team & Buyers', icon: <IconUsers /> },
-  { to: '/admin/halls', label: 'Halls', icon: <IconLayers /> },
+  { to: '/admin/team', label: 'Team & Buyers', icon: <IconUsers />, customKey: 'view_all_buyers' },
+  { to: '/admin/halls', label: 'Halls', icon: <IconLayers />, customKey: 'view_all_buyers' },
   { to: '/admin/validity-requests', label: 'Validity Requests', icon: <IconHistory /> },
   { to: '/admin/shift-requests', label: 'Shift Requests', icon: <IconMove /> },
   { to: '/admin/notifications', label: 'Notifications', icon: <IconBell /> },
@@ -133,7 +136,17 @@ export function Sidebar() {
   const badgeValues = { feedbackUnread: unreadCount || 0 };
   const activeModule = location.pathname.includes('/mcp/') ? 'mcp' : 'mcs';
   const base = roleBase(role);
-  const navItems = activeModule === 'mcp' ? getMcpNavItems(role) : getMcsNavItems(role);
+  const customPermissions = profile?.custom_permissions || {};
+  let navItems = activeModule === 'mcp' ? getMcpNavItems(role) : getMcsNavItems(role);
+  if (role === ROLES.CUSTOM && !customPermissions.view_movements) {
+    navItems = navItems.filter((item) => item.label !== 'Movements');
+  }
+  const platformItems =
+    role === ROLES.SUPER_ADMIN
+      ? ADMIN_PLATFORM_ITEMS
+      : role === ROLES.CUSTOM
+        ? ADMIN_PLATFORM_ITEMS.filter((item) => item.customKey && customPermissions[item.customKey])
+        : [];
   const avatarColor =
     role === ROLES.SUPER_ADMIN ? 'bg-ink' : role === ROLES.HALL_MANAGER ? 'bg-status-in-transit-text' : 'bg-status-in-hall-text';
 
@@ -182,13 +195,13 @@ export function Sidebar() {
           <NavItem key={item.to} item={item} collapsed={collapsed} badgeValues={badgeValues} />
         ))}
 
-        {role === ROLES.SUPER_ADMIN && (
+        {platformItems.length > 0 && (
           <>
             {!collapsed && (
               <div className="mt-6 mb-1.5 pl-3 text-[10px] font-medium uppercase tracking-widest text-ink-muted">Admin</div>
             )}
             {collapsed && <div className="mt-4 mb-1 h-px bg-border mx-1" />}
-            {ADMIN_PLATFORM_ITEMS.map((item) => (
+            {platformItems.map((item) => (
               <NavItem key={item.to} item={item} collapsed={collapsed} badgeValues={badgeValues} />
             ))}
           </>

@@ -68,6 +68,17 @@ export function AuthProvider({ children }) {
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+
+    // profiles_select's `id = auth.uid()` branch works regardless of
+    // is_disabled (it has to, or a disabled user could never learn why
+    // they're locked out) — checked here, right after auth succeeds, so a
+    // disabled account never reaches the app shell even momentarily.
+    const { data: profileRow } = await supabase.from('profiles').select('is_disabled').eq('id', data.user.id).single();
+    if (profileRow?.is_disabled) {
+      await supabase.auth.signOut();
+      throw new Error('Your account has been disabled. Contact your administrator.');
+    }
+
     return data;
   }
 
