@@ -15,6 +15,7 @@ import { cn } from '@/core/utils/cn';
 const EMPTY = {
   pickedByName: '',
   destination: '',
+  quantity: '',
   reason: '',
   reasonOther: '',
   notes: '',
@@ -76,6 +77,7 @@ export function IssuePanelModal({ open, onClose, panel, onSuccess }) {
         notes: form.notes.trim(),
         photoFile: photo instanceof File ? photo : null,
         signatureBlob,
+        quantity: form.quantity ? Number(form.quantity) : null,
         supplierName: isSupplier ? form.supplierName.trim() : '',
         purchaserName: isSupplier ? (form.purchaser === 'Other' ? form.purchaserOther.trim() : form.purchaser) : '',
       });
@@ -136,6 +138,17 @@ export function IssuePanelModal({ open, onClose, panel, onSuccess }) {
               </option>
             ))}
           </Select>
+        </FormField>
+
+        <FormField label="Quantity" htmlFor="quantity" hint="Optional">
+          <Input
+            id="quantity"
+            type="number"
+            min="1"
+            placeholder="e.g. 2"
+            value={form.quantity}
+            onChange={(e) => set('quantity', e.target.value)}
+          />
         </FormField>
 
         {isSupplier && (

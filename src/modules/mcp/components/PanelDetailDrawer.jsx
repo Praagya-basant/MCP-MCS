@@ -327,6 +327,9 @@ export function PanelDetailDrawer({ open, onClose, panel, onChanged }) {
                           {m.picked_by_name && (
                             <p className="mt-1 text-[13px] text-ink-secondary">Picked by {m.picked_by_name}</p>
                           )}
+                          {m.quantity != null && (
+                            <p className="mt-1 text-[13px] text-ink-secondary">Quantity: {m.quantity}</p>
+                          )}
                           <div className="mt-1.5">
                             <Badge>{m.reason === 'Other' ? m.reason_other : m.reason}</Badge>
                           </div>

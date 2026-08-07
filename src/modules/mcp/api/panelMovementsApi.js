@@ -90,6 +90,7 @@ export async function issuePanel({
   signatureBlob,
   purchaserName,
   supplierName,
+  quantity,
 }) {
   const movementId = crypto.randomUUID();
 
@@ -117,6 +118,7 @@ export async function issuePanel({
     p_purchaser_name: purchaserName || null,
     p_supplier_name: supplierName || null,
     p_movement_id: movementId,
+    p_quantity: quantity || null,
   });
 
   if (error) throw error;
@@ -149,6 +151,7 @@ export async function forwardPanel({
   signatureBlob,
   purchaserName,
   supplierName,
+  quantity,
 }) {
   const newMovementId = crypto.randomUUID();
 
@@ -176,6 +179,7 @@ export async function forwardPanel({
     p_purchaser_name: purchaserName || null,
     p_supplier_name: supplierName || null,
     p_new_movement_id: newMovementId,
+    p_quantity: quantity || null,
   });
 
   if (error) throw error;
