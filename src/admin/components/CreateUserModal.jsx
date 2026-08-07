@@ -1,16 +1,21 @@
 import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Modal } from '@/core/components/Modal';
 import { Button } from '@/core/components/Button';
 import { Input, Select, FormField } from '@/core/components/Input';
+import { Toggle } from '@/core/components/Toggle';
 import { createUser } from '@/core/lib/usersApi';
 import { useToast } from '@/core/context/ToastContext';
 import { ROLES, ROLE_LABELS } from '@/core/utils/constants';
+import { CUSTOM_PERMISSION_TOGGLES } from '@/core/permissions';
 
 const EMPTY = { fullName: '', email: '', password: '', role: '', hallId: '' };
 
 export function CreateUserModal({ open, onClose, onCreated, halls }) {
   const toast = useToast();
   const [form, setForm] = useState(EMPTY);
+  const [customPermissions, setCustomPermissions] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -18,8 +23,14 @@ export function CreateUserModal({ open, onClose, onCreated, halls }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function toggleCustomPermission(key, value) {
+    setCustomPermissions((prev) => ({ ...prev, [key]: value }));
+  }
+
   function handleClose() {
     setForm(EMPTY);
+    setCustomPermissions({});
+    setShowPassword(false);
     setError('');
     onClose();
   }
@@ -45,6 +56,7 @@ export function CreateUserModal({ open, onClose, onCreated, halls }) {
         password: form.password,
         role: form.role,
         hallId: form.role === ROLES.HALL_MANAGER ? form.hallId : null,
+        customPermissions: form.role === ROLES.CUSTOM ? customPermissions : undefined,
       });
       toast.success('User created');
       onCreated?.(profile);
@@ -87,12 +99,23 @@ export function CreateUserModal({ open, onClose, onCreated, halls }) {
         </FormField>
 
         <FormField label="Password" htmlFor="user-password" required>
-          <Input
-            id="user-password"
-            type="password"
-            value={form.password}
-            onChange={(e) => set('password', e.target.value)}
-          />
+          <div className="relative">
+            <Input
+              id="user-password"
+              type={showPassword ? 'text' : 'password'}
+              value={form.password}
+              onChange={(e) => set('password', e.target.value)}
+              className="pr-9"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="interactive absolute right-0 top-0 h-9 w-9 flex items-center justify-center text-ink-muted hover:text-ink"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
         </FormField>
 
         <FormField label="Role" htmlFor="user-role" required>
@@ -125,7 +148,21 @@ export function CreateUserModal({ open, onClose, onCreated, halls }) {
           </p>
         )}
 
-        {error && <p className="text-caption text-red-600">{error}</p>}
+        {form.role === ROLES.CUSTOM && (
+          <div className="rounded-control border border-border p-3 flex flex-col gap-3">
+            <p className="text-caption font-medium text-ink-secondary">Permissions</p>
+            {CUSTOM_PERMISSION_TOGGLES.map((t) => (
+              <Toggle
+                key={t.key}
+                label={t.label}
+                checked={!!customPermissions[t.key]}
+                onChange={(v) => toggleCustomPermission(t.key, v)}
+              />
+            ))}
+          </div>
+        )}
+
+        {error && <p className="text-caption text-error">{error}</p>}
       </form>
     </Modal>
   );

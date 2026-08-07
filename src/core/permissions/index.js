@@ -35,19 +35,21 @@ const ROLE_ALIASES = {
 
 /**
  * True if `role` (a DB role value: super_admin/hall_manager/merchant/
- * custom) is allowed to perform `action` (a PERMISSIONS key). A `custom`
- * role never falls back to the PERMISSIONS table for its own name — it's
- * only ever granted through `customPermissions`, an object of
- * {[action]: boolean} stored on the profile (profiles.custom_permissions),
- * since "custom" by definition has no fixed permission set of its own.
+ * custom) is allowed to perform `action` (a PERMISSIONS key). For a
+ * `custom` role, this is granted two ways that both apply: the spec's own
+ * PERMISSIONS table already lists 'custom' as a baseline for a few
+ * actions (sample.view, shift.request, export.data — things every
+ * custom user can do regardless of their toggles), and on top of that
+ * `customPermissions` (profiles.custom_permissions, set individually per
+ * user) can grant additional actions the toggle list maps to. Either one
+ * being true is enough.
  */
 export function hasPermission(role, action, customPermissions) {
   if (!PERMISSIONS[action]) return false;
   const shortRole = ROLE_ALIASES[role] || role;
-  if (shortRole === 'custom') {
-    return !!customPermissions?.[action];
-  }
-  return PERMISSIONS[action].includes(shortRole);
+  if (PERMISSIONS[action].includes(shortRole)) return true;
+  if (shortRole === 'custom') return !!customPermissions?.[action];
+  return false;
 }
 
 // The toggle set shown when creating/editing a "Custom" role user — each

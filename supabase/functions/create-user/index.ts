@@ -21,7 +21,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-const VALID_ROLES = ['super_admin', 'hall_manager', 'merchant'];
+const VALID_ROLES = ['super_admin', 'hall_manager', 'merchant', 'custom'];
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { full_name, email, password, role, hall_id } = await req.json();
+    const { full_name, email, password, role, hall_id, custom_permissions } = await req.json();
 
     if (!full_name || !email || !password || !VALID_ROLES.includes(role)) {
       return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), {
@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
         role,
         hall_id: role === 'hall_manager' ? hall_id : null,
         buyer_id: null,
+        custom_permissions: role === 'custom' ? custom_permissions || {} : {},
       })
       .select()
       .single();

@@ -528,4 +528,102 @@ drop policy if exists "app_settings_update_admin" on app_settings;
 create policy "app_settings_update_admin" on app_settings for update to authenticated
   using (public.is_super_admin()) with check (public.is_super_admin());
 
+-- ----------------------------------------------------------------------------
+-- I. Custom role read access (Step 9/14) — the "View All Buyers"/"View
+-- Movements"/"Manage Samples"/"Manage Panels" toggles need to actually
+-- unlock data at the RLS layer, not just show/hide nav items client-side
+-- (a hidden button is not a security boundary). A 'custom' profile with
+-- has_custom_permission('view_all_buyers') sees everything an admin's
+-- SELECT policies would show it; write access for custom roles is
+-- intentionally NOT granted here — every insert/update policy in this
+-- schema still requires is_super_admin() or an exact role match, so a
+-- custom user can look but not touch beyond what's already select-scoped.
+-- ----------------------------------------------------------------------------
+create or replace function public.has_custom_permission(p_key text)
+returns boolean
+language sql security definer stable set search_path = public as $$
+  select coalesce(
+    (select (custom_permissions ->> p_key)::boolean
+     from profiles where id = auth.uid() and role = 'custom' and is_disabled is not true),
+    false
+  );
+$$;
+
+drop policy if exists "buyers_select" on buyers;
+create policy "buyers_select" on buyers for select to authenticated
+  using (
+    public.is_super_admin()
+    or public.current_role() = 'hall_manager'
+    or public.is_merchant_buyer(id)
+    or public.has_custom_permission('view_all_buyers')
+  );
+
+drop policy if exists "samples_select" on samples;
+create policy "samples_select" on samples for select to authenticated
+  using (
+    public.is_super_admin()
+    or (public.current_role() = 'hall_manager' and hall_id = public.current_hall_id())
+    or (public.current_role() = 'merchant' and public.is_merchant_buyer(buyer_id))
+    or public.has_custom_permission('manage_samples')
+    or public.has_custom_permission('view_all_buyers')
+  );
+
+drop policy if exists "movements_select" on movements;
+create policy "movements_select" on movements for select to authenticated
+  using (
+    public.is_super_admin()
+    or exists (
+      select 1 from samples s where s.id = movements.sample_id
+      and (
+        (public.current_role() = 'hall_manager' and s.hall_id = public.current_hall_id())
+        or (public.current_role() = 'merchant' and public.is_merchant_buyer(s.buyer_id))
+      )
+    )
+    or public.has_custom_permission('view_movements')
+  );
+
+drop policy if exists "panels_select" on panels;
+create policy "panels_select" on panels for select to authenticated
+  using (
+    public.is_super_admin()
+    or (public.current_role() = 'hall_manager' and hall_id = public.current_hall_id())
+    or (public.current_role() = 'merchant' and (is_shared or public.is_merchant_buyer(buyer_id)))
+    or public.has_custom_permission('manage_panels')
+    or public.has_custom_permission('view_all_buyers')
+  );
+
+-- Unchanged from the existing policy except the added has_custom_permission
+-- clause — deliberately NOT adding the panels_select is_shared fix here too
+-- (out of scope for this migration; preserving exactly what's live today).
+drop policy if exists "panel_movements_select" on panel_movements;
+create policy "panel_movements_select" on panel_movements for select to authenticated
+  using (
+    public.is_super_admin()
+    or exists (
+      select 1 from panels p where p.id = panel_movements.panel_id
+      and (
+        (public.current_role() = 'hall_manager' and p.hall_id = public.current_hall_id())
+        or (public.current_role() = 'merchant' and public.is_merchant_buyer(p.buyer_id))
+      )
+    )
+    or public.has_custom_permission('view_movements')
+  );
+
+-- ----------------------------------------------------------------------------
+-- J. Last-login for the Team page's Users table (Step 9). `auth.users` is
+-- not exposed to the client at all — this is the one narrow, read-only,
+-- admin-gated window into it (just last_sign_in_at, nothing else from the
+-- auth record) so the frontend doesn't need a service-role edge function
+-- just to show a login timestamp.
+-- ----------------------------------------------------------------------------
+create or replace function public.admin_list_users_last_login()
+returns table (id uuid, last_sign_in_at timestamptz)
+language sql security definer stable set search_path = public as $$
+  select u.id, u.last_sign_in_at
+  from auth.users u
+  where public.is_super_admin();
+$$;
+
+grant execute on function public.admin_list_users_last_login to authenticated;
+
 notify pgrst, 'reload schema';

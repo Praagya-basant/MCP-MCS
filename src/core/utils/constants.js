@@ -6,18 +6,28 @@ export const ROLES = {
   SUPER_ADMIN: 'super_admin',
   HALL_MANAGER: 'hall_manager',
   MERCHANT: 'merchant',
+  // Configurable-permission role for assistants/directors/read-only users
+  // — no fixed permission set of its own, see core/permissions/index.js's
+  // hasPermission() and profiles.custom_permissions. Reuses the admin
+  // route tree (allowed alongside SUPER_ADMIN on every /admin/* route);
+  // Sidebar/pages narrow what's visible based on hasPermission(), while
+  // the actual data access is bounded by RLS's has_custom_permission()
+  // checks regardless of what the frontend shows.
+  CUSTOM: 'custom',
 };
 
 export const ROLE_LABELS = {
   [ROLES.SUPER_ADMIN]: 'Admin',
   [ROLES.HALL_MANAGER]: 'Manager',
   [ROLES.MERCHANT]: 'Merchant',
+  [ROLES.CUSTOM]: 'Custom',
 };
 
 export const ROLE_HOME = {
   [ROLES.SUPER_ADMIN]: '/admin/dashboard',
   [ROLES.HALL_MANAGER]: '/hall/dashboard',
   [ROLES.MERCHANT]: '/merchant/dashboard',
+  [ROLES.CUSTOM]: '/admin/dashboard',
 };
 
 export const SAMPLE_STATUS = {

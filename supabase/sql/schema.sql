@@ -2185,6 +2185,83 @@ drop policy if exists "app_settings_update_admin" on app_settings;
 create policy "app_settings_update_admin" on app_settings for update to authenticated
   using (public.is_super_admin()) with check (public.is_super_admin());
 
+create or replace function public.has_custom_permission(p_key text)
+returns boolean
+language sql security definer stable set search_path = public as $$
+  select coalesce(
+    (select (custom_permissions ->> p_key)::boolean
+     from profiles where id = auth.uid() and role = 'custom' and is_disabled is not true),
+    false
+  );
+$$;
+
+drop policy if exists "buyers_select" on buyers;
+create policy "buyers_select" on buyers for select to authenticated
+  using (
+    public.is_super_admin()
+    or public.current_role() = 'hall_manager'
+    or public.is_merchant_buyer(id)
+    or public.has_custom_permission('view_all_buyers')
+  );
+
+drop policy if exists "samples_select" on samples;
+create policy "samples_select" on samples for select to authenticated
+  using (
+    public.is_super_admin()
+    or (public.current_role() = 'hall_manager' and hall_id = public.current_hall_id())
+    or (public.current_role() = 'merchant' and public.is_merchant_buyer(buyer_id))
+    or public.has_custom_permission('manage_samples')
+    or public.has_custom_permission('view_all_buyers')
+  );
+
+drop policy if exists "movements_select" on movements;
+create policy "movements_select" on movements for select to authenticated
+  using (
+    public.is_super_admin()
+    or exists (
+      select 1 from samples s where s.id = movements.sample_id
+      and (
+        (public.current_role() = 'hall_manager' and s.hall_id = public.current_hall_id())
+        or (public.current_role() = 'merchant' and public.is_merchant_buyer(s.buyer_id))
+      )
+    )
+    or public.has_custom_permission('view_movements')
+  );
+
+drop policy if exists "panels_select" on panels;
+create policy "panels_select" on panels for select to authenticated
+  using (
+    public.is_super_admin()
+    or (public.current_role() = 'hall_manager' and hall_id = public.current_hall_id())
+    or (public.current_role() = 'merchant' and (is_shared or public.is_merchant_buyer(buyer_id)))
+    or public.has_custom_permission('manage_panels')
+    or public.has_custom_permission('view_all_buyers')
+  );
+
+drop policy if exists "panel_movements_select" on panel_movements;
+create policy "panel_movements_select" on panel_movements for select to authenticated
+  using (
+    public.is_super_admin()
+    or exists (
+      select 1 from panels p where p.id = panel_movements.panel_id
+      and (
+        (public.current_role() = 'hall_manager' and p.hall_id = public.current_hall_id())
+        or (public.current_role() = 'merchant' and public.is_merchant_buyer(p.buyer_id))
+      )
+    )
+    or public.has_custom_permission('view_movements')
+  );
+
+create or replace function public.admin_list_users_last_login()
+returns table (id uuid, last_sign_in_at timestamptz)
+language sql security definer stable set search_path = public as $$
+  select u.id, u.last_sign_in_at
+  from auth.users u
+  where public.is_super_admin();
+$$;
+
+grant execute on function public.admin_list_users_last_login to authenticated;
+
 -- ============================================================================
 -- Done. Next steps (see CLAUDE.md / README for the full checklist):
 --   1. Deploy the `send-notification` and `create-user` edge functions.
