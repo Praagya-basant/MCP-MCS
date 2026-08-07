@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageHeader } from '@/core/components/PageHeader';
 import { Card } from '@/core/components/Card';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/core/components/Table';
@@ -25,6 +26,7 @@ import { PanelImageModal } from '@/modules/mcp/components/PanelImageModal';
 import { useOpenPanelFromLocation } from '@/modules/mcp/hooks/useOpenPanelFromLocation';
 
 export default function AdminPanels() {
+  const location = useLocation();
   const { data: panels, loading, reload } = useAsyncData(listPanels, []);
   const { data: movements, reload: reloadMovements } = useAsyncData(listPanelMovements, []);
   const { data: buyers } = useAsyncData(listBuyers, []);
@@ -47,7 +49,10 @@ export default function AdminPanels() {
   );
 
   const { search, setSearch, filters, setFilter, page, setPage, totalPages, totalCount, pageRows } =
-    useTableControls(rows, { searchFields: ['panel_code', 'panel_name'] });
+    useTableControls(rows, {
+      searchFields: ['panel_code', 'panel_name'],
+      initialFilters: location.state?.statusFilter ? { status: location.state.statusFilter } : undefined,
+    });
 
   const statusTabs = useMemo(
     () => [

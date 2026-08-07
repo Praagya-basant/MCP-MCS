@@ -7,15 +7,17 @@ import { Card, CardHeader, CardBody } from '@/core/components/Card';
 import { EmptyState } from '@/core/components/EmptyState';
 import { PillTabs } from '@/core/components/PillTabs';
 import { useAsyncData } from '@/core/hooks/useAsyncData';
+import { useAuth } from '@/core/auth/AuthContext';
 import { listPanels } from '@/modules/mcp/api/panelsApi';
 import { listPanelMovements } from '@/modules/mcp/api/panelMovementsApi';
 import { IconLayers, IconMove, IconBell } from '@/core/components/icons';
 import { PANEL_STATUS } from '@/core/utils/constants';
-import { formatRelativeTime } from '@/core/utils/formatters';
+import { formatRelativeTime, getGreeting } from '@/core/utils/formatters';
 
 /** Mirrors MCS's MerchantDashboard, scoped to panels — no ActivityFeed (panels have no recalls to merge in), just a plain recent-movements list. */
 export default function MerchantMcpDashboard() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const { data, loading } = useAsyncData(async () => {
     const [panels, movements] = await Promise.all([listPanels(), listPanelMovements()]);
     return { panels, movements };
@@ -59,6 +61,9 @@ export default function MerchantMcpDashboard() {
 
   return (
     <div>
+      <p className="text-body text-ink-secondary mb-1 select-none">
+        {getGreeting()}{profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}
+      </p>
       <PageHeader title={title} description="Your panels across every BASANT hall." />
 
       {buyers.length > 1 && (

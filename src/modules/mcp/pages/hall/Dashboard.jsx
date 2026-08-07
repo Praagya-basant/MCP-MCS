@@ -11,6 +11,7 @@ import { useAuth } from '@/core/auth/AuthContext';
 import { listPanels } from '@/modules/mcp/api/panelsApi';
 import { IconLayers, IconMove } from '@/core/components/icons';
 import { PANEL_STATUS } from '@/core/utils/constants';
+import { getGreeting } from '@/core/utils/formatters';
 
 /** Mirrors MCS's HallDashboard, scoped to panels — no ActivityFeed (panels have no recalls to merge in), just a plain Currently Issued table. */
 export default function HallMcpDashboard() {
@@ -31,6 +32,9 @@ export default function HallMcpDashboard() {
 
   return (
     <div>
+      <p className="text-body text-ink-secondary mb-1 select-none">
+        {getGreeting()}{profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}
+      </p>
       <PageHeader
         title={`${profile?.hall?.name || 'Hall'} Panels`}
         description="Panel overview for your hall."
@@ -45,7 +49,7 @@ export default function HallMcpDashboard() {
           </>
         ) : (
           <>
-            <StatCard label="Total Panels" value={stats.total} icon={<IconLayers className="w-4 h-4" />} tone="accent" />
+            <StatCard label="Total Panels" value={stats.total} icon={<IconLayers className="w-4 h-4" />} tone="accent" onClick={() => navigate('/hall/mcp/panels')} />
             <StatCard
               label="Issued"
               value={stats.issued}
@@ -53,7 +57,13 @@ export default function HallMcpDashboard() {
               tone="warning"
               onClick={() => navigate('/hall/mcp/panels', { state: { statusFilter: PANEL_STATUS.ISSUED } })}
             />
-            <StatCard label="In Hall" value={stats.inHall} icon={<IconLayers className="w-4 h-4" />} tone="success" />
+            <StatCard
+              label="In Hall"
+              value={stats.inHall}
+              icon={<IconLayers className="w-4 h-4" />}
+              tone="success"
+              onClick={() => navigate('/hall/mcp/panels', { state: { statusFilter: PANEL_STATUS.IN_HALL } })}
+            />
           </>
         )}
       </div>

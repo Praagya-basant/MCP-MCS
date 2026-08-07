@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { PageHeader } from '@/core/components/PageHeader';
 import { StatCard } from '@/core/components/StatCard';
@@ -7,11 +8,12 @@ import { Card, CardHeader, CardBody } from '@/core/components/Card';
 import { EmptyState } from '@/core/components/EmptyState';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/core/components/Table';
 import { useAsyncData } from '@/core/hooks/useAsyncData';
+import { useAuth } from '@/core/auth/AuthContext';
 import { listPanels } from '@/modules/mcp/api/panelsApi';
 import { listPanelMovements } from '@/modules/mcp/api/panelMovementsApi';
 import { IconLayers, IconBox, IconMove } from '@/core/components/icons';
 import { PANEL_STATUS } from '@/core/utils/constants';
-import { formatDateTime } from '@/core/utils/formatters';
+import { formatDateTime, getGreeting } from '@/core/utils/formatters';
 
 const IN_HALL_COLOR = 'rgb(var(--color-success))';
 const ISSUED_COLOR = 'rgb(var(--color-warning))';
@@ -27,6 +29,9 @@ const ACCENT_COLOR = 'rgb(var(--color-accent))';
  * concepts the MCS dashboard already covers.
  */
 export default function AdminMcpDashboard() {
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+  const firstName = profile?.full_name?.split(' ')[0];
   const { data, loading } = useAsyncData(async () => {
     const [panels, movements] = await Promise.all([listPanels(), listPanelMovements()]);
     return { panels, movements };
@@ -67,6 +72,9 @@ export default function AdminMcpDashboard() {
 
   return (
     <div>
+      <p className="text-body text-ink-secondary mb-1 select-none">
+        {getGreeting()}{firstName ? `, ${firstName}` : ''}
+      </p>
       <PageHeader title="MCP Dashboard" description="Panel overview across every hall and buyer." />
 
       <div className="grid grid-cols-4 gap-4 mb-8">
@@ -79,10 +87,10 @@ export default function AdminMcpDashboard() {
           </>
         ) : (
           <>
-            <StatCard label="Total Panels" value={stats.total} icon={<IconLayers className="w-4 h-4" />} tone="accent" />
-            <StatCard label="In Hall" value={stats.inHall} icon={<IconBox className="w-4 h-4" />} tone="success" />
-            <StatCard label="Issued" value={stats.issued} icon={<IconMove className="w-4 h-4" />} tone="warning" />
-            <StatCard label="Retired" value={stats.retired} icon={<IconLayers className="w-4 h-4" />} tone="neutral" />
+            <StatCard label="Total Panels" value={stats.total} icon={<IconLayers className="w-4 h-4" />} tone="accent" onClick={() => navigate('/admin/mcp/panels')} />
+            <StatCard label="In Hall" value={stats.inHall} icon={<IconBox className="w-4 h-4" />} tone="success" onClick={() => navigate('/admin/mcp/panels', { state: { statusFilter: PANEL_STATUS.IN_HALL } })} />
+            <StatCard label="Issued" value={stats.issued} icon={<IconMove className="w-4 h-4" />} tone="warning" onClick={() => navigate('/admin/mcp/panels', { state: { statusFilter: PANEL_STATUS.ISSUED } })} />
+            <StatCard label="Retired" value={stats.retired} icon={<IconLayers className="w-4 h-4" />} tone="neutral" onClick={() => navigate('/admin/mcp/panels', { state: { statusFilter: PANEL_STATUS.RETIRED } })} />
           </>
         )}
       </div>
